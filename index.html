@@ -4,6 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Deep Sea Salvage</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -27,32 +31,32 @@
       <div class="next-biome-info" id="nextBiomeInfo">10 levels to Twilight Wreck</div>
     </header>
 
-    <section class="panel">
-      <h2>Submersible</h2>
+    <section class="panel" data-key="submersible">
+      <h2>🤿 Submersible</h2>
       <div class="stat"><span>Status</span><span id="status">Surface</span></div>
       <div class="stat"><span>Depth</span><span><span id="depth">0</span> / <span id="maxDepth">50</span> m</span></div>
       <div class="stat"><span>Cargo</span><span><span id="cargo">0</span> / <span id="cargoMax">4</span> kg</span></div>
       <div class="bar"><div class="bar-fill" id="cargoBar"></div></div>
     </section>
 
-    <section class="panel">
-      <h2>Current Haul</h2>
+    <section class="panel" data-key="ondeck">
+      <h2>🎒 On Deck</h2>
       <div id="activeEffect" class="active-effect" style="display:none"></div>
       <ul id="currentCargo" class="cargo-list"><li class="muted">Empty</li></ul>
     </section>
 
-    <section class="panel">
-      <h2>Last Haul</h2>
+    <section class="panel" data-key="lastrun">
+      <h2>📜 Last Run</h2>
       <ul id="lastHaul"><li class="muted">Nothing yet.</li></ul>
     </section>
 
-    <section class="panel">
-      <h2>Upgrades</h2>
+    <section class="panel" data-key="outfitting">
+      <h2>🔧 Outfitting</h2>
       <div id="upgrades"></div>
     </section>
 
-    <section class="panel" id="prestigePanel">
-      <h2>Prestige</h2>
+    <section class="panel" id="prestigePanel" data-key="promotion">
+      <h2>⚓ Promotion</h2>
       <div class="stat"><span>Rank</span><span id="subTier">Deckhand</span></div>
       <div class="stat"><span>Picks / dive</span><span id="prestigePicks">8</span></div>
       <div class="stat"><span>Loot worth</span><span id="prestigeMult">+0%</span></div>
@@ -61,8 +65,8 @@
       <div class="muted prestige-hint">Each rank: +1 pickup / dive &amp; +20% loot value. Resets level, cash, upgrades.</div>
     </section>
 
-    <section class="panel">
-      <h2>Lifetime</h2>
+    <section class="panel" data-key="log">
+      <h2>📊 Captain's Log</h2>
       <div class="stat"><span>Total earned</span><span>$<span id="lifeEarned">0</span></span></div>
       <div class="stat"><span>Items found</span><span id="lifeItems">0</span></div>
       <div class="stat"><span>Dives</span><span id="lifeDives">0</span></div>
@@ -71,13 +75,13 @@
       <div class="stat"><span>Bonus drops</span><span id="lifeBonus">0</span></div>
     </section>
 
-    <section class="panel">
-      <h2>Achievements <span class="muted" id="achCount">0/0</span></h2>
+    <section class="panel" data-key="honors">
+      <h2>🏆 Honors <span class="muted" id="achCount">0/0</span></h2>
       <div id="achievements" class="achievement-list"></div>
     </section>
 
-    <section class="panel">
-      <h2>Codex <span class="muted" id="codexCount">0/0</span></h2>
+    <section class="panel" data-key="journal">
+      <h2>📖 Field Journal <span class="muted" id="codexCount">0/0</span></h2>
       <div id="codex" class="codex-grid"></div>
     </section>
 

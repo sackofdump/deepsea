@@ -1508,17 +1508,17 @@ $("adminLvlBtn").addEventListener("click", () => {
 });
 
 // Collapsible sidebar panels.
-const PANEL_KEY = "deepSeaPanels_v1";
+const PANEL_KEY = "deepSeaPanels_v2";
 const panelState = (() => {
   try { return JSON.parse(localStorage.getItem(PANEL_KEY) || "{}"); }
   catch { return {}; }
 })();
-const PANEL_DEFAULT_OPEN = new Set(["Submersible", "Upgrades", "Current", "Inventory"]);
+const PANEL_DEFAULT_OPEN = new Set(["submersible", "ondeck", "lastrun", "outfitting"]);
 document.querySelectorAll(".panel").forEach((panel) => {
   const h2 = panel.querySelector("h2");
   if (!h2) return;
-  const key = h2.textContent.trim().split(/\s+/)[0];
-  // Use stored state if set, otherwise default-open list.
+  const key = panel.dataset.key;
+  if (!key) return;
   const stored = panelState[key];
   const collapsed = stored === undefined ? !PANEL_DEFAULT_OPEN.has(key) : stored;
   if (collapsed) panel.classList.add("collapsed");

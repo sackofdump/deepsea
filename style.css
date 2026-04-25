@@ -9,6 +9,7 @@
   --gold: #ffcc66;
   --good: #6effa3;
   --bad: #ff7a7a;
+  --font-sans: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -16,7 +17,7 @@
 html, body {
   margin: 0;
   height: 100%;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
