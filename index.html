@@ -41,7 +41,7 @@
 
     <section class="panel" data-key="ondeck">
       <h2>🎒 On Deck</h2>
-      <div id="activeEffect" class="active-effect" style="display:none"></div>
+      <div id="activeEffect" class="active-effect empty"></div>
       <ul id="currentCargo" class="cargo-list"><li class="muted">Empty</li></ul>
     </section>
 
@@ -60,9 +60,11 @@
       <div class="stat"><span>Rank</span><span id="subTier">Deckhand</span></div>
       <div class="stat"><span>Picks / dive</span><span id="prestigePicks">8</span></div>
       <div class="stat"><span>Loot worth</span><span id="prestigeMult">+0%</span></div>
+      <div class="stat"><span>Pearls banked</span><span id="prestigePearls">0</span></div>
+      <div class="stat"><span>Pending pearls</span><span id="prestigePending">0</span></div>
       <div class="stat"><span>Next rank</span><span id="nextTierInfo">Salvager @ Lv 25</span></div>
       <button id="prestigeBtn" class="prestige-btn" disabled>Upgrade Sub</button>
-      <div class="muted prestige-hint">Each rank: +1 pickup / dive &amp; +20% loot value. Resets level, cash, upgrades.</div>
+      <div class="muted prestige-hint">Each rank: +1 pickup / dive. Pearls give +1% loot value forever — bank more by pushing further before promoting.</div>
     </section>
 
     <section class="panel" data-key="log">
@@ -86,6 +88,7 @@
     </section>
 
     <footer>
+      <button id="howToBtn" class="ghost">How to Play</button>
       <button id="adminLvlBtn" class="ghost">+10 Lv (admin)</button>
       <button id="adminCashBtn" class="ghost">+$1M (admin)</button>
       <button id="adminBoostBtn" class="ghost">Boost: OFF (admin)</button>
@@ -108,14 +111,59 @@
     </div>
     <div id="depthMarkers"></div>
     <div id="log"></div>
+    <div class="boost-hint">+200% speed &amp; pickup rate</div>
     <button id="boostBtn" class="boost-btn" title="Boost (Space)">
       <span class="boost-label">⚡ BOOST</span>
-      <span class="boost-sub">+200% speed &amp; pickup rate</span>
+      <span class="boost-sub"></span>
       <span class="boost-cooldown" id="boostCooldown"></span>
     </button>
   </main>
 </div>
 
+<div id="howToOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal">
+    <button class="howto-close" id="howToClose" aria-label="Close">×</button>
+    <h2>🤿 How to Play</h2>
+    <div class="howto-body">
+      <section>
+        <h3>🌊 Dive cycle</h3>
+        <p>Your sub auto-dives, collects loot, and surfaces to sell. You don't pilot it — you upgrade it.</p>
+      </section>
+      <section>
+        <h3>⚡ Boost</h3>
+        <p>Tap the boost button (or press <strong>Space</strong>) for +200% speed and pickup rate. Tap again while active to add +1 second, up to a 10s cap. Cooldown starts after it ends.</p>
+      </section>
+      <section>
+        <h3>🔧 Outfitting</h3>
+        <p>Spend cash to upgrade Hull, Thrusters, Cargo, Sonar, and Appraiser. Levels are permanent within a run, but reset on Promotion.</p>
+      </section>
+      <section>
+        <h3>🎒 On Deck &amp; encounters</h3>
+        <p>Items collected this dive show in On Deck. Each dive may roll a random encounter: <strong>Mermaid's Kiss</strong> (2× value, 15s), <strong>Lucky Current</strong> (2× cargo, 15s), <strong>Treasure Map</strong> (legendary picks, 15s), <strong>Lost Crate</strong> (instant bonus item), or <strong>Shark Attack</strong> (50% speed, 5s).</p>
+      </section>
+      <section>
+        <h3>🐚 Bonus loot</h3>
+        <p>Glowing icons drift through the ocean every 25–75s. Click to grab them — pure cash, no cargo cost.</p>
+      </section>
+      <section>
+        <h3>📦 Treasure chests</h3>
+        <p>Bronze/Silver/Gold chests spawn occasionally. Click to add to your tray (next to the cash). Open them whenever — multi-item rolls biased toward higher rarity.</p>
+      </section>
+      <section>
+        <h3>⚓ Promotion &amp; pearls</h3>
+        <p>Hit a tier's level threshold to promote (Deckhand → Salvager → …). Promotion banks <strong>pearls</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each pearl is +1% loot value, forever. Push deeper before promoting to bank more.</p>
+      </section>
+      <section>
+        <h3>🏆 Honors</h3>
+        <p>Achievements unlock as you play but aren't free — open the Honors panel and click each one to claim its cash reward.</p>
+      </section>
+      <section>
+        <h3>📖 Field Journal</h3>
+        <p>Tracks every unique item you've ever salvaged. Empty slots are still out there.</p>
+      </section>
+    </div>
+  </div>
+</div>
 <script src="game.js"></script>
 </body>
 </html>

@@ -287,14 +287,21 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   text-shadow: 0 1px 2px rgba(0,0,0,0.7);
   animation: effectPulse 1.4s ease-in-out infinite alternate;
   border: 1px solid currentColor;
+  min-height: 18px;
+  box-sizing: content-box;
+}
+.active-effect.empty {
+  visibility: hidden;
+  animation: none;
+  border-color: transparent;
 }
 .active-effect.eff-map     {
   color: var(--gold);
   background: linear-gradient(90deg, rgba(255,200,80,0.20), rgba(255,200,80,0.02));
 }
 .active-effect.eff-kiss    {
-  color: #ff7a9c;
-  background: linear-gradient(90deg, rgba(255,122,156,0.18), rgba(255,122,156,0.02));
+  color: #c79bff;
+  background: linear-gradient(90deg, rgba(199,155,255,0.20), rgba(199,155,255,0.02));
 }
 .active-effect.eff-current {
   color: var(--accent);
@@ -311,7 +318,7 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   margin: 10px 0 0;
   padding: 0;
   font-variant-numeric: tabular-nums;
-  max-height: 180px;
+  height: 180px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -655,57 +662,246 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   to   { opacity: 1; transform: translateX(0); }
 }
 
+/* How to Play modal -------------------------------------------- */
+.howto-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 16, 0.78);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  animation: howtoFade 220ms ease-out;
+}
+.howto-overlay[hidden] { display: none; }
+@keyframes howtoFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.howto-modal {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #0f1f2e 0%, #081522 100%);
+  border: 1px solid rgba(79, 208, 255, 0.45);
+  border-radius: 12px;
+  padding: 28px 32px 24px;
+  box-shadow: 0 0 40px rgba(79, 208, 255, 0.18), inset 0 1px 0 rgba(255,255,255,0.04);
+  animation: howtoPop 240ms cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+@keyframes howtoPop {
+  from { transform: translateY(20px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+.howto-modal h2 {
+  margin: 0 0 18px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 1px;
+  text-shadow: 0 0 12px rgba(79, 208, 255, 0.35);
+}
+.howto-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.howto-close:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.howto-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.howto-body section {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+}
+.howto-body h3 {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.howto-body p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  opacity: 0.92;
+}
+.howto-body strong { color: var(--gold); font-weight: 700; }
+
 /* Boost button -------------------------------------------------- */
+.boost-hint {
+  position: absolute;
+  left: 20px;
+  bottom: 108px;
+  width: 140px;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(255,200,80,0.22), rgba(255,200,80,0.05));
+  border: 1px solid rgba(255,200,80,0.55);
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #ffe6a8;
+  text-shadow: 0 0 6px rgba(255,200,80,0.45), 0 1px 2px rgba(0,0,0,0.6);
+  box-shadow: 0 0 10px rgba(255,200,80,0.18), inset 0 0 6px rgba(255,220,140,0.08);
+  pointer-events: none;
+  user-select: none;
+  transition: background 220ms ease, border-color 220ms ease, color 220ms ease, box-shadow 220ms ease;
+}
+.boost-hint::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: linear-gradient(135deg, rgba(255,200,80,0.18), rgba(255,200,80,0.05));
+  border-right: 1px solid rgba(255,200,80,0.55);
+  border-bottom: 1px solid rgba(255,200,80,0.55);
+}
+.boost-hint.active {
+  background: linear-gradient(180deg, rgba(110,255,163,0.25), rgba(110,255,163,0.05));
+  border-color: rgba(110,255,163,0.65);
+  color: #d6ffe6;
+  text-shadow: 0 0 6px rgba(110,255,163,0.5), 0 1px 2px rgba(0,0,0,0.6);
+  box-shadow: 0 0 12px rgba(110,255,163,0.25), inset 0 0 6px rgba(180,255,210,0.1);
+}
+.boost-hint.active::after {
+  background: linear-gradient(135deg, rgba(110,255,163,0.20), rgba(110,255,163,0.05));
+  border-right-color: rgba(110,255,163,0.65);
+  border-bottom-color: rgba(110,255,163,0.65);
+}
+.boost-hint.cooling {
+  background: linear-gradient(180deg, rgba(107,138,163,0.18), rgba(107,138,163,0.04));
+  border-color: rgba(107,138,163,0.45);
+  color: var(--muted);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  box-shadow: none;
+}
+.boost-hint.cooling::after {
+  background: linear-gradient(135deg, rgba(107,138,163,0.18), rgba(107,138,163,0.04));
+  border-right-color: rgba(107,138,163,0.45);
+  border-bottom-color: rgba(107,138,163,0.45);
+}
 .boost-btn {
   position: absolute;
   left: 20px;
   bottom: 20px;
   width: 140px;
   height: 80px;
-  background: linear-gradient(180deg, #ffcc66, #d8941f);
-  color: #2a1a00;
-  border: 2px solid #ffe9b3;
+  background: linear-gradient(180deg, #ffe089 0%, #ffcc66 50%, #c98e2a 100%);
+  color: #2a1500;
+  border: 1px solid #ffe9b3;
   border-radius: 10px;
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-weight: 800;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  box-shadow: 0 0 18px rgba(255, 200, 100, 0.5);
+  gap: 4px;
+  box-shadow:
+    0 0 18px rgba(255, 200, 100, 0.5),
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 -3px 0 rgba(140, 80, 0, 0.35);
   overflow: hidden;
-  transition: transform 80ms ease;
+  transition: transform 80ms ease, box-shadow 200ms ease, background 200ms ease;
   user-select: none;
 }
-.boost-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.boost-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 24px rgba(255, 220, 130, 0.75),
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -3px 0 rgba(140, 80, 0, 0.35);
+}
 .boost-btn:active:not(:disabled) { transform: translateY(1px); }
 .boost-btn:disabled {
-  background: #2b3a4a;
+  background: linear-gradient(180deg, #2c3a4a 0%, #1a2734 100%);
   color: var(--muted);
-  border-color: var(--line);
-  box-shadow: none;
+  border-color: #2a3d50;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 0 -2px 0 rgba(0,0,0,0.4);
   cursor: not-allowed;
 }
 .boost-btn.active {
-  background: linear-gradient(180deg, #6effa3, #2bb86c);
-  color: #002b14;
-  border-color: #b6ffd2;
-  animation: boostFlash 0.3s ease-in-out infinite alternate;
+  background: linear-gradient(180deg, #b6ffd2 0%, #6effa3 50%, #2bb86c 100%);
+  color: #001a0c;
+  border-color: #d3ffe2;
+  animation: boostFlash 0.5s ease-in-out infinite alternate;
 }
 @keyframes boostFlash {
-  from { box-shadow: 0 0 18px rgba(110, 255, 163, 0.5); }
-  to   { box-shadow: 0 0 36px rgba(110, 255, 163, 0.9); }
+  from { box-shadow:
+    0 0 18px rgba(110, 255, 163, 0.55),
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    inset 0 -3px 0 rgba(0,60,30,0.35); }
+  to   { box-shadow:
+    0 0 36px rgba(110, 255, 163, 0.95),
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -3px 0 rgba(0,60,30,0.4); }
 }
-.boost-label { font-size: 18px; letter-spacing: 1px; }
-.boost-sub { font-size: 10px; opacity: 0.85; font-weight: 500; }
+.boost-label {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+  line-height: 1;
+}
+.boost-sub {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  opacity: 0.85;
+  line-height: 1.1;
+  min-height: 11px;
+}
 .boost-cooldown {
   position: absolute;
   left: 0; bottom: 0;
   height: 4px;
   width: 0%;
-  background: rgba(255,255,255,0.5);
+  background: linear-gradient(90deg, rgba(255,255,255,0.85), rgba(255,255,255,0.4));
   transition: width 100ms linear;
+  box-shadow: 0 0 6px rgba(255,255,255,0.4);
+}
+.boost-btn.active .boost-cooldown {
+  background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(180,255,210,0.55));
+}
+.boost-btn:disabled .boost-cooldown {
+  background: linear-gradient(90deg, rgba(120,160,200,0.45), rgba(120,160,200,0.2));
+  box-shadow: none;
 }
 
 /* Loot effects -------------------------------------------------- */
@@ -773,14 +969,14 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   font-size: 56px;
   font-weight: 900;
   letter-spacing: 1.5px;
-  background: linear-gradient(180deg, #fff5d0 0%, #ffd966 40%, #ffaa1f 75%, #c98e2a 100%);
+  background: linear-gradient(180deg, #ffffe6 0%, #ffe89a 45%, #ffd166 80%, #ffb84a 100%);
   -webkit-background-clip: text;
           background-clip: text;
   color: transparent;
   text-shadow:
-    0 0 24px rgba(255, 200, 80, 0.65),
+    0 0 24px rgba(255, 220, 120, 0.7),
     0 4px 10px rgba(0, 0, 0, 0.85);
-  filter: drop-shadow(0 0 14px rgba(255,200,80,0.5));
+  filter: drop-shadow(0 0 14px rgba(255,220,120,0.55));
 }
 @keyframes saleBurst {
   0%   { transform: translate(-50%, -50%) scale(0.3) rotate(-3deg); opacity: 0; }
@@ -919,7 +1115,7 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 }
 .achievement {
   display: grid;
-  grid-template-columns: 28px 1fr;
+  grid-template-columns: 28px 1fr auto;
   gap: 8px;
   padding: 6px 8px;
   background: var(--panel-2);
@@ -934,6 +1130,14 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   border-color: var(--gold);
   background: linear-gradient(180deg, rgba(255, 200, 80, 0.10), rgba(255, 200, 80, 0));
 }
+.achievement.unclaimed {
+  cursor: pointer;
+  border-color: var(--good);
+  background: linear-gradient(180deg, rgba(110, 255, 163, 0.16), rgba(110, 255, 163, 0.02));
+  animation: achUnclaimedPulse 1.4s ease-in-out infinite alternate;
+}
+.achievement.unclaimed:hover { filter: brightness(1.1); }
+.achievement.claimed { opacity: 0.65; }
 .achievement .ach-icon {
   font-size: 18px;
   text-align: center;
@@ -942,7 +1146,27 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 .achievement.unlocked .ach-icon { filter: none; }
 .achievement .ach-name { font-weight: 700; line-height: 1.1; }
 .achievement.unlocked .ach-name { color: var(--gold); }
+.achievement.unclaimed .ach-name { color: var(--good); }
 .achievement .ach-desc { color: var(--muted); font-size: 11px; }
+.ach-reward {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.achievement.unclaimed .ach-reward {
+  background: var(--good);
+  color: #00261a;
+  box-shadow: 0 0 10px rgba(110, 255, 163, 0.55);
+}
+.achievement.claimed .ach-reward { color: var(--gold); }
+@keyframes achUnclaimedPulse {
+  from { box-shadow: 0 0 4px rgba(110, 255, 163, 0.20); }
+  to   { box-shadow: 0 0 14px rgba(110, 255, 163, 0.55); }
+}
 
 .achievement-toast {
   position: absolute;
@@ -1427,4 +1651,81 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 @keyframes rise {
   0%   { transform: translateY(0) translateX(0); opacity: 0.7; }
   100% { transform: translateY(-100vh) translateX(20px); opacity: 0; }
+}
+
+/* Mobile / narrow viewports ------------------------------------- */
+@media (max-width: 720px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 42vh 1fr;
+    height: 100dvh; /* prefer dynamic viewport on mobile */
+  }
+  #ocean { grid-row: 1; grid-column: 1; }
+  #sidebar {
+    grid-row: 2; grid-column: 1;
+    border-right: none;
+    border-top: 1px solid var(--line);
+  }
+  #sidebar header { padding: 14px 16px 10px; }
+  #sidebar h1 { font-size: 18px; }
+  .cash { font-size: 24px; }
+  .panel { padding: 12px 16px; }
+  .panel h2 { font-size: 13.5px; }
+  .header-level { font-size: 12px; }
+  .next-biome-info { font-size: 11px; }
+  /* Touch-friendly tap targets */
+  .upgrade button,
+  .prestige-btn,
+  .achievement.unclaimed .ach-reward,
+  footer button {
+    min-height: 40px;
+  }
+  /* Bigger chest tray buttons for fingertips */
+  .chest-btn { width: 40px; height: 40px; font-size: 24px; }
+  /* Boost button shifts a bit so the cooldown bar isn't off-screen */
+  .boost-btn {
+    width: 124px;
+    height: 72px;
+    left: 12px;
+    bottom: 12px;
+  }
+  .boost-hint {
+    width: 124px;
+    left: 12px;
+    bottom: 92px;
+    font-size: 9.5px;
+    padding: 4px 6px;
+  }
+  .boost-label { font-size: 14px; letter-spacing: 1.1px; }
+  .boost-sub { font-size: 9px; letter-spacing: 1.1px; }
+  /* Reveal popup smaller on phone */
+  .item-reveal .reveal-icon { font-size: 48px; }
+  .item-reveal .reveal-name { font-size: 18px; }
+  .item-reveal .reveal-value { font-size: 16px; }
+  /* Sale burst smaller too */
+  .sale-burst .amount { font-size: 40px; }
+  /* How to Play modal — fit narrow screens */
+  .howto-overlay { padding: 12px; }
+  .howto-modal { padding: 22px 18px 18px; max-height: 92dvh; }
+  .howto-modal h2 { font-size: 18px; }
+  .howto-body { gap: 10px; }
+  .howto-body section { padding: 10px 12px; }
+  .howto-body p { font-size: 12px; line-height: 1.5; }
+  /* Footer admin buttons wrap onto multiple rows */
+  #sidebar footer { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+  #sidebar footer button { flex: 1 1 calc(50% - 3px); font-size: 11px; }
+  /* Active-effect banner inside On Deck doesn't need to be big */
+  .active-effect { font-size: 11px; padding: 6px 8px; }
+  /* Activity log stays compact */
+  #log { font-size: 11px; }
+}
+
+@media (max-width: 380px) {
+  #sidebar header { padding: 12px 12px 8px; }
+  .cash { font-size: 22px; }
+  #sidebar h1 { font-size: 16px; }
+  .panel { padding: 10px 12px; }
+  .boost-btn { width: 112px; height: 64px; }
+  .boost-hint { width: 112px; bottom: 84px; }
+  .boost-label { font-size: 13px; }
 }
