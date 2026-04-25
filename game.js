@@ -1022,20 +1022,34 @@ function openChest(tier) {
   checkAchievements();
 }
 
+let inventorySig = null;
+let inventoryDelegated = false;
 function renderInventory() {
   const root = $("inventory");
   if (!root) return;
+  if (!inventoryDelegated) {
+    root.addEventListener("click", (ev) => {
+      const btn = ev.target.closest(".inv-open");
+      if (!btn) return;
+      const tier = btn.dataset.tier;
+      if (tier) openChest(tier);
+    });
+    inventoryDelegated = true;
+  }
   const total = (state.inventory || []).length;
   const panel = $("inventoryPanel");
   const countEl = $("invCount");
   if (panel) panel.classList.toggle("has-chests", total > 0);
   if (countEl) countEl.textContent = total > 0 ? total : "";
+  const counts = { bronze: 0, silver: 0, gold: 0 };
+  for (const t of state.inventory) counts[t] = (counts[t] || 0) + 1;
+  const sig = `${counts.gold}|${counts.silver}|${counts.bronze}`;
+  if (sig === inventorySig) return;
+  inventorySig = sig;
   if (total === 0) {
     root.innerHTML = `<div class="muted small">No chests yet — find them in the ocean!</div>`;
     return;
   }
-  const counts = { bronze: 0, silver: 0, gold: 0 };
-  for (const t of state.inventory) counts[t] = (counts[t] || 0) + 1;
   root.innerHTML = "";
   for (const tier of ["gold", "silver", "bronze"]) {
     if (!counts[tier]) continue;
@@ -1046,9 +1060,8 @@ function renderInventory() {
       <span class="inv-icon">${def.icon}</span>
       <span class="inv-name">${def.name}</span>
       <span class="inv-count">×${counts[tier]}</span>
-      <button class="inv-open">Open</button>
+      <button class="inv-open" data-tier="${tier}">Open</button>
     `;
-    row.querySelector(".inv-open").addEventListener("click", () => openChest(tier));
     root.appendChild(row);
   }
 }
