@@ -1025,44 +1025,32 @@ function openChest(tier) {
 let inventorySig = null;
 let inventoryDelegated = false;
 function renderInventory() {
-  const root = $("inventory");
+  const root = $("chestTray");
   if (!root) return;
   if (!inventoryDelegated) {
     root.addEventListener("click", (ev) => {
-      const btn = ev.target.closest(".inv-open");
+      const btn = ev.target.closest(".chest-btn");
       if (!btn) return;
       const tier = btn.dataset.tier;
       if (tier) openChest(tier);
     });
     inventoryDelegated = true;
   }
-  const total = (state.inventory || []).length;
-  const panel = $("inventoryPanel");
-  const countEl = $("invCount");
-  if (panel) panel.classList.toggle("has-chests", total > 0);
-  if (countEl) countEl.textContent = total > 0 ? total : "";
   const counts = { bronze: 0, silver: 0, gold: 0 };
-  for (const t of state.inventory) counts[t] = (counts[t] || 0) + 1;
+  for (const t of (state.inventory || [])) counts[t] = (counts[t] || 0) + 1;
   const sig = `${counts.gold}|${counts.silver}|${counts.bronze}`;
   if (sig === inventorySig) return;
   inventorySig = sig;
-  if (total === 0) {
-    root.innerHTML = `<div class="muted small">No chests yet — find them in the ocean!</div>`;
-    return;
-  }
   root.innerHTML = "";
   for (const tier of ["gold", "silver", "bronze"]) {
     if (!counts[tier]) continue;
     const def = CHEST_TIERS[tier];
-    const row = document.createElement("div");
-    row.className = `inv-chest tier-${tier}`;
-    row.innerHTML = `
-      <span class="inv-icon">${def.icon}</span>
-      <span class="inv-name">${def.name}</span>
-      <span class="inv-count">×${counts[tier]}</span>
-      <button class="inv-open" data-tier="${tier}">Open</button>
-    `;
-    root.appendChild(row);
+    const btn = document.createElement("button");
+    btn.className = `chest-btn tier-${tier}`;
+    btn.dataset.tier = tier;
+    btn.title = `${def.name} ×${counts[tier]} — click to open`;
+    btn.innerHTML = `${def.icon}<span class="chest-btn-count">${counts[tier] > 1 ? counts[tier] : ""}</span>`;
+    root.appendChild(btn);
   }
 }
 
