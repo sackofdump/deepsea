@@ -261,8 +261,10 @@ function load() {
   }
 }
 
+let resetting = false;
 function reset() {
   if (!confirm("Reset EVERYTHING? Rank, pearls, cash, upgrades, achievements, codex, dive history — all wiped. This cannot be undone.")) return;
+  resetting = true;
   localStorage.removeItem(SAVE_KEY);
   localStorage.removeItem("deepSeaPanels_v2");
   location.reload();
@@ -1655,9 +1657,9 @@ setInterval(() => {
   refreshUI();
 }, TICK_MS);
 
-setInterval(save, 3000);
+setInterval(() => { if (!resetting) save(); }, 3000);
 setInterval(spawnBubble, 800);
 setInterval(spawnCreature, 6000);
 scheduleBonus();
 scheduleTreasure();
-window.addEventListener("beforeunload", save);
+window.addEventListener("beforeunload", () => { if (!resetting) save(); });
