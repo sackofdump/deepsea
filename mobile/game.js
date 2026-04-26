@@ -655,7 +655,12 @@ function tick(dtSec) {
   const s = stats();
   const sub = state.sub;
   const boosting = state.adminBoostAlwaysOn || Date.now() < state.boost.activeUntil;
-  const speed = s.speed * (boosting ? BOOST_SPEED_MULT : 1);
+  const rawSpeed = s.speed * (boosting ? BOOST_SPEED_MULT : 1);
+  // Cap speed so a one-way trip takes at least 1 second of real time. Without
+  // this, late-game boosted subs cover more than maxDepth per 100ms tick and
+  // visually teleport between top and bottom every frame ("skipping").
+  const maxAllowedSpeed = s.maxDepth / 1.0;
+  const speed = Math.min(rawSpeed, maxAllowedSpeed);
   const sonar = s.sonar * (boosting ? BOOST_LOOT_MULT : 1);
 
   // Auto-start: if idle and we have any progress, dive again.
@@ -702,9 +707,9 @@ function tick(dtSec) {
         sub.lingerStart = 0;
         sub.mode = "ascending";
       }
-    } else if (sub.cargoKg >= effCargoMax) {
-      sub.mode = "ascending";
     }
+    // Cargo-full alone doesn't end the dive — sub keeps descending until it
+    // visibly reaches the bottom. Picks just stop (handled in the loot loop).
     return;
   }
 
@@ -977,11 +982,16 @@ function catchUpOffline() {
 const $ = (id) => document.getElementById(id);
 
 function fmt(n) {
-  if (n < 1000) return n.toFixed(0);
+  if (!isFinite(n)) return "—";
+  if (n < 1000) return Math.floor(n).toString();
   if (n < 1e6)  return (n / 1e3).toFixed(2) + "K";
   if (n < 1e9)  return (n / 1e6).toFixed(2) + "M";
   if (n < 1e12) return (n / 1e9).toFixed(2) + "B";
-  return (n / 1e12).toFixed(2) + "T";
+  if (n < 1e15) return (n / 1e12).toFixed(2) + "T";
+  if (n < 1e18) return (n / 1e15).toFixed(2) + "Qa";
+  if (n < 1e21) return (n / 1e18).toFixed(2) + "Qi";
+  if (n < 1e24) return (n / 1e21).toFixed(2) + "Sx";
+  return n.toExponential(2);
 }
 
 const upgradeRows = {};
