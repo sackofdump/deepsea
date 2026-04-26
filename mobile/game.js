@@ -680,20 +680,17 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax * cargoEncounterMult();
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we ignore cargo and enforce a tight 0.3s floor between picks, so the dive
-    // is one long legendary haul up to max depth.
+    // we force a fast 0.3s interval (regardless of sonar) so the dive racks
+    // up legendaries in the time it takes to bottom out.
     const treasure = legendaryEncounterActive();
-    const minInterval = treasure ? 0.3 : 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0) {
-      lootCooldown += Math.max(LOOT_INTERVAL_BASE / sonar, minInterval);
+      lootCooldown += treasure ? 0.3 : (LOOT_INTERVAL_BASE / sonar);
       tryCollect(s);
-      const cargoFull = !treasure && sub.cargoKg >= effCargoMax;
-      if (cargoFull || sub.depth >= s.maxDepth) break;
+      if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
 
-    const cargoFull = !treasure && sub.cargoKg >= effCargoMax;
-    if (cargoFull || sub.depth >= s.maxDepth) {
+    if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) {
       sub.mode = "ascending";
     }
     return;
@@ -736,14 +733,12 @@ function creditItem(item, s) {
 function tryCollect(s) {
   const sub = state.sub;
   const effCargoMax = s.cargoMax * cargoEncounterMult();
-  // Treasure Map ignores cargo entirely so the dive can keep pulling legendaries.
-  const ignoreWeight = legendaryEncounterActive();
-  if (!ignoreWeight && sub.cargoKg >= effCargoMax) return;
+  if (sub.cargoKg >= effCargoMax) return;
   const biome = currentBiome();
   const item = rollLoot(biome.name);
   // Don't overflow: skip if too heavy and cargo isn't empty.
-  if (!ignoreWeight && sub.cargoKg + item.weight > effCargoMax && sub.cargoKg > 0) return;
-  if (!ignoreWeight) sub.cargoKg += item.weight;
+  if (sub.cargoKg + item.weight > effCargoMax && sub.cargoKg > 0) return;
+  sub.cargoKg += item.weight;
   const stored = { ...item, biome: biome.name };
   stored.soldValue = creditItem(item, s);
   sub.cargoItems.push(stored);
@@ -1526,7 +1521,7 @@ function renderActiveEffect() {
   const valUntil  = state.encounterValueUntil     || 0;
   const cargUntil = state.encounterCargoUntil     || 0;
   const choices = [
-    { until: legUntil,  cls: "eff-map",     fmt: (s) => [`🗺  TREASURE MAP — Legendary picks · cargo unlimited · ${s}s`,  `Treasure Map\n\nEvery item collected is forced to the highest-rarity tier available in this biome AND cargo weight is ignored — keep pulling legendaries until the dive bottoms out. Lasts ${s}s.`] },
+    { until: legUntil,  cls: "eff-map",     fmt: (s) => [`🗺  TREASURE MAP — Legendary picks · ${s}s`,  `Treasure Map\n\nEvery item collected is forced to the highest-rarity tier available in this biome and picks come fast. Lasts ${s}s.`] },
     { until: valUntil,  cls: "eff-kiss",    fmt: (s) => [`🧜  MERMAID'S KISS — 2× value · ${s}s`,        `Mermaid's Kiss\n\nEvery item sells for 2× while active. Stacks with Appraiser and Pearls. Lasts ${s}s.`] },
     { until: cargUntil, cls: "eff-current", fmt: (s) => [`🌊  LUCKY CURRENT — 2× cargo · ${s}s`,         `Lucky Current\n\nCargo capacity is 2× while active. Lasts ${s}s.`] },
   ].filter(c => c.until > now);
