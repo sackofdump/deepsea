@@ -247,6 +247,7 @@ if (state.chestsCollected === undefined) state.chestsCollected = 0;
 
 // ----- Persistence ----------------------------------------------
 function save() {
+  if (resetting) return;
   state.lastTick = Date.now();
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
 }
@@ -265,8 +266,7 @@ let resetting = false;
 function reset() {
   if (!confirm("Reset EVERYTHING? Rank, pearls, cash, upgrades, achievements, codex, dive history — all wiped. This cannot be undone.")) return;
   resetting = true;
-  localStorage.removeItem(SAVE_KEY);
-  localStorage.removeItem("deepSeaPanels_v2");
+  localStorage.clear();
   location.reload();
 }
 
