@@ -210,6 +210,8 @@ const defaultState = () => ({
   bonusCollected: 0,
   // Slot hits per tier (mini, minor, major, jackpot)
   slotHits: { mini: 0, minor: 0, major: 0, jackpot: 0 },
+  // Persistent timestamp for the next slot spin (ms epoch)
+  nextSpinAt: 0,
   // Inventory of unopened chests (array of tier strings)
   inventory: [],
   chestsCollected: 0,
@@ -246,6 +248,7 @@ delete state.encounterValueMult;
 delete state.encounterLegendaryNext;
 if (state.bonusCollected === undefined) state.bonusCollected = 0;
 if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0 };
+if (!state.nextSpinAt) state.nextSpinAt = Date.now() + 15000;
 if (!state.inventory) state.inventory = [];
 if (state.chestsCollected === undefined) state.chestsCollected = 0;
 
@@ -1320,14 +1323,16 @@ function finishSpin(outcome, symbols) {
 }
 
 const SLOT_INTERVAL_MS = 15000;
-let nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
 
 function scheduleSlot() {
-  nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
+  // Honor the persisted timestamp so reloads / closing the tab don't restart
+  // the countdown. If the saved spin time is in the past, fire immediately.
+  const delay = Math.max(0, state.nextSpinAt - Date.now());
   setTimeout(() => {
     spinSlot();
+    state.nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
     scheduleSlot();
-  }, SLOT_INTERVAL_MS);
+  }, delay);
 }
 
 function updateSlotCountdown() {
@@ -1338,7 +1343,7 @@ function updateSlotCountdown() {
   if (slot.classList.contains("win") || slot.classList.contains("lose")) return;
   const status = slot.querySelector(".slot-status");
   if (!status) return;
-  const remaining = Math.max(0, Math.ceil((nextSpinAt - Date.now()) / 1000));
+  const remaining = Math.max(0, Math.ceil((state.nextSpinAt - Date.now()) / 1000));
   const text = `Next spin in ${remaining}s`;
   if (status.textContent !== text) status.textContent = text;
 }
