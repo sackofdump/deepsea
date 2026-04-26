@@ -697,7 +697,13 @@ function tick(dtSec) {
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
 
-    if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) {
+    // During Treasure Map, the sub LINGERS at max depth — instead of ascending
+    // immediately when it bottoms out, it keeps pulling forced-legendary picks
+    // until cargo fills or the encounter ends. Without this, late-game subs
+    // are so fast that the descent is over in <1s and only 1-2 picks land.
+    const cargoFull = sub.cargoKg >= effCargoMax;
+    const atMax = sub.depth >= s.maxDepth;
+    if (cargoFull || (atMax && !treasure)) {
       sub.mode = "ascending";
     }
     return;
