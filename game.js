@@ -1134,21 +1134,21 @@ function showItemReveal(item, value, tierLabel) {
 const CHEST_TIERS = {
   bronze: {
     name: "Bronze Chest", icon: "📦",
-    rarities: ["uncommon", "rare"],
-    rarityWeights: { rare: 65, uncommon: 35 },
-    items: 2, valueMult: 1.5,
+    rarities: ["rare", "epic", "legend"],
+    rarityWeights: { rare: 55, epic: 35, legend: 10 },
+    items: 3, valueMult: 1.6,
   },
   silver: {
     name: "Silver Chest", icon: "📦",
-    rarities: ["rare", "epic"],
-    rarityWeights: { epic: 65, rare: 35 },
-    items: 3, valueMult: 2.0,
+    rarities: ["epic", "legend"],
+    rarityWeights: { epic: 55, legend: 45 },
+    items: 4, valueMult: 2.4,
   },
   gold: {
     name: "Gold Chest", icon: "📦",
-    rarities: ["epic", "legend"],
-    rarityWeights: { legend: 70, epic: 30 },
-    items: 4, valueMult: 3.0,
+    rarities: ["legend", "epic"],
+    rarityWeights: { legend: 90, epic: 10 },
+    items: 6, valueMult: 3.5,
   },
 };
 
