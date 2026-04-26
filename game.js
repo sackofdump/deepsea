@@ -685,7 +685,9 @@ function tick(dtSec) {
   }
 
   if (sub.mode === "descending") {
-    sub.depth += descentSpeed * dtSec;
+    // Cap per-tick step so high-speed boosted subs don't teleport.
+    const stepCap = s.maxDepth / 6;
+    sub.depth += Math.min(descentSpeed * dtSec, stepCap);
     if (sub.depth >= s.maxDepth) {
       sub.depth = s.maxDepth;
     }
@@ -702,14 +704,18 @@ function tick(dtSec) {
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
 
-    if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) {
+    // Only depth triggers ascend — cargo-full just stops further picks. This
+    // makes the sub always visibly reach the bottom before turning around,
+    // even when heavy items fill cargo on the way down.
+    if (sub.depth >= s.maxDepth) {
       sub.mode = "ascending";
     }
     return;
   }
 
   if (sub.mode === "ascending") {
-    sub.depth -= ascentSpeed * 1.5 * dtSec; // ascent slightly faster
+    const stepCap = s.maxDepth / 6;
+    sub.depth -= Math.min(ascentSpeed * 1.5 * dtSec, stepCap); // ascent slightly faster
     if (sub.depth <= 0) {
       sub.depth = 0;
       sellCargo(s);
@@ -737,9 +743,9 @@ function creditItem(item, s) {
   // collect) and returned for the eventual cash credit at the surface.
   const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
   // Treasure Map is the jackpot encounter — every forced-legendary pick is
-  // worth 10× on top of all other multipliers, so a TM dive crushes a normal
-  // dive's value, not the other way around.
-  const treasureMult = legendaryEncounterActive() ? 10 : 1;
+  // worth 200× on top of all other multipliers, so a TM dive absolutely
+  // crushes a normal dive's value.
+  const treasureMult = legendaryEncounterActive() ? 200 : 1;
   const v = Math.ceil(item.value * valueMult * treasureMult);
   state.xp += v;
   checkLevelUp();
@@ -1258,7 +1264,8 @@ function openChest(tier) {
   state.inventory.splice(idx, 1);
 
   const s = stats();
-  const baseMult = s.valueMult * prestigeMult() * def.valueMult;
+  // Mermaid's Kiss doubles the chest payout while it's active, same as live picks.
+  const baseMult = s.valueMult * prestigeMult() * def.valueMult * valueEncounterMult();
   const rolled = [];
   let totalValue = 0;
   for (let i = 0; i < def.items; i++) {
@@ -1593,22 +1600,34 @@ function renderActiveEffect() {
   }
 }
 
+let _cargoSig = null;
 function renderCurrentCargo() {
   const ul = $("currentCargo");
   if (!ul) return;
   const items = state.sub.cargoItems;
   if (!items || items.length === 0) {
-    ul.innerHTML = `<li class="muted">Empty</li>`;
+    if (_cargoSig !== "empty") {
+      ul.innerHTML = `<li class="muted">Empty</li>`;
+      _cargoSig = "empty";
+    }
     return;
   }
+  // Cheap signature: count + rough mult bucket. Skip rebuilding innerHTML
+  // unless something actually changed — at high pick rates this rebuild
+  // every tick was the main reason late-game felt laggy.
+  const sig = items.length + ":" + (legendaryEncounterActive() ? "T" : "") + (Date.now() < (state.encounterValueUntil||0) ? "V" : "");
+  if (sig === _cargoSig) return;
+  _cargoSig = sig;
+
   const s = stats();
   const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
+  const treasureMult = legendaryEncounterActive() ? 200 : 1;
   const grouped = {};
   let total = 0;
   for (const it of items) {
     if (!grouped[it.name]) grouped[it.name] = { count: 0, rarity: it.rarity, value: 0, icon: it.icon };
     grouped[it.name].count += 1;
-    const v = Math.ceil(it.value * valueMult);
+    const v = Math.ceil(it.value * valueMult * treasureMult);
     grouped[it.name].value += v;
     total += v;
   }
@@ -1620,8 +1639,11 @@ function renderCurrentCargo() {
   ul.innerHTML = rows + `<li class="haul-total"><span>Total</span><span>$${fmt(total)}</span></li>`;
 }
 
+let _haulRef = undefined;
 function renderHaul() {
   const ul = $("lastHaul");
+  if (state.lastHaul === _haulRef) return;
+  _haulRef = state.lastHaul;
   if (!state.lastHaul || state.lastHaul.length === 0) {
     ul.innerHTML = `<li class="muted">Nothing yet.</li>`;
     return;
@@ -1878,6 +1900,11 @@ function clearDiveLoot() {
 function _bumpLine(line, msg, count) {
   line.dataset.count = String(count);
   line.textContent = count > 1 ? `${msg} ×${count}` : msg;
+  // Throttle the restart-animation reflow — at high pick rates this fires
+  // every tick and was a major late-game lag source.
+  const now = performance.now();
+  if (now - (line._lastBump || 0) < 220) return;
+  line._lastBump = now;
   line.classList.remove("bumped");
   void line.offsetWidth;
   line.classList.add("bumped");
