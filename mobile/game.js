@@ -2,6 +2,12 @@
 
 // ----- Config ----------------------------------------------------
 const SAVE_KEY = "deepSeaSalvageMobile_v1";
+// Supabase (publishable/anon key — fine to ship in client; RLS controls writes).
+const SUPABASE_URL = "https://tppirwsigzjhbmrixetf.supabase.co";
+const SUPABASE_KEY = "sb_publishable_wI2pKiS0TznsBVUq8hKIOA_iIXXfhEF";
+// Honor-system gate for the admin panel — change this string if you share the
+// site with anyone you don't want poking at +$1M / +10 Lv / always-on boost.
+const ADMIN_PASSWORD = "800813504";
 const TICK_MS = 100;
 const OFFLINE_CAP_HOURS = 8;
 const BOOST_DURATION_MS = 10000;     // initial active duration on first click
@@ -213,6 +219,9 @@ const defaultState = () => ({
   // Inventory of unopened chests (array of tier strings)
   inventory: [],
   chestsCollected: 0,
+  // Leaderboard identity (anon UUID + display name)
+  playerId: null,
+  displayName: "",
 });
 
 let state = load() || defaultState();
@@ -249,6 +258,8 @@ if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0 
 if (!state.nextSpinAt) state.nextSpinAt = Date.now() + 15000;
 if (!state.inventory) state.inventory = [];
 if (state.chestsCollected === undefined) state.chestsCollected = 0;
+if (state.playerId === undefined) state.playerId = null;
+if (state.displayName === undefined) state.displayName = "";
 
 // ----- Persistence ----------------------------------------------
 function save() {
@@ -375,6 +386,8 @@ function doPrestige() {
   log(`⚙ Promoted to ${rankName(currentTier())}!`, "good");
   refreshUI();
   save();
+  leaderboardSync(true);
+  renderLeaderboard();
 }
 
 // ----- Codex ----------------------------------------------------
@@ -1335,6 +1348,7 @@ function finishSpin(outcome, symbols) {
     if (outcome.tier === "major" || outcome.tier === "jackpot") {
       flashScreen(outcome.tier === "jackpot" ? "legend" : "epic");
     }
+    if (outcome.tier === "jackpot") leaderboardSync(true);
     checkAchievements();
   } else {
     slot.classList.add("lose");
@@ -1508,16 +1522,20 @@ function renderCurrentCargo() {
   const s = stats();
   const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
   const grouped = {};
+  let total = 0;
   for (const it of items) {
     if (!grouped[it.name]) grouped[it.name] = { count: 0, rarity: it.rarity, value: 0, icon: it.icon };
     grouped[it.name].count += 1;
-    grouped[it.name].value += Math.ceil(it.value * valueMult);
+    const v = Math.ceil(it.value * valueMult);
+    grouped[it.name].value += v;
+    total += v;
   }
-  ul.innerHTML = Object.entries(grouped)
+  const rows = Object.entries(grouped)
     .map(([name, g]) =>
       `<li class="rarity-${g.rarity}"><span>${g.icon || ""} ${name} ×${g.count}</span><span>$${fmt(g.value)}</span></li>`
     )
     .join("");
+  ul.innerHTML = rows + `<li class="haul-total"><span>Total</span><span>$${fmt(total)}</span></li>`;
 }
 
 function renderHaul() {
@@ -1526,7 +1544,8 @@ function renderHaul() {
     ul.innerHTML = `<li class="muted">Nothing yet.</li>`;
     return;
   }
-  ul.innerHTML = state.lastHaul
+  const total = state.lastHaul.reduce((a, b) => a + (b.value || 0), 0);
+  const rows = [...state.lastHaul]
     .sort((a, b) => b.value - a.value)
     .map(
       (i) => `<li class="rarity-${i.rarity}">
@@ -1534,6 +1553,7 @@ function renderHaul() {
       </li>`
     )
     .join("");
+  ul.innerHTML = rows + `<li class="haul-total"><span>Total</span><span>$${fmt(total)}</span></li>`;
 }
 
 let lastBiomeName = null;
@@ -1784,6 +1804,168 @@ function spawnBubble() {
   setTimeout(() => b.remove(), 12000);
 }
 
+// ----- Leaderboard (Supabase, raw fetch) -----------------------
+const LB_METRICS = [
+  { id: "total_earned",   label: "Cash",     fmt: (n) => "$" + fmt(Number(n) || 0) },
+  { id: "level",          label: "Level",    fmt: (n) => "Lv " + n },
+  { id: "prestige_count", label: "Promotes", fmt: (n) => String(n) },
+  { id: "jackpots",       label: "Jackpots", fmt: (n) => String(n) },
+  { id: "pearls",         label: "Pearls",   fmt: (n) => fmt(Number(n) || 0) + " 🔮" },
+  { id: "total_dives",    label: "Dives",    fmt: (n) => fmt(Number(n) || 0) },
+];
+let lbCurrentMetric = "total_earned";
+let lbLastSyncSig = "";
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+}
+
+function ensurePlayerId() {
+  if (!state.playerId) {
+    state.playerId = (typeof crypto !== "undefined" && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  return state.playerId;
+}
+
+function leaderboardPayload() {
+  return {
+    player_id: ensurePlayerId(),
+    display_name: ((state.displayName || "").trim().slice(0, 32)) || "Anon",
+    total_earned: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.totalEarned || 0)),
+    level: state.level || 1,
+    prestige_count: state.prestigeCount || 0,
+    pearls: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.pearls || 0)),
+    jackpots: (state.slotHits && state.slotHits.jackpot) || 0,
+    chests: state.chestsCollected || 0,
+    total_dives: state.totalDives || 0,
+  };
+}
+
+async function leaderboardSync(force) {
+  if (!state.displayName) return;
+  const payload = leaderboardPayload();
+  const sig = JSON.stringify(payload);
+  if (!force && sig === lbLastSyncSig) return;
+  lbLastSyncSig = sig;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/scores?on_conflict=player_id`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch { /* offline-tolerant */ }
+}
+
+async function leaderboardFetch(metric, limit = 25) {
+  const url = `${SUPABASE_URL}/rest/v1/scores?select=display_name,player_id,${metric}&order=${metric}.desc&limit=${limit}`;
+  const res = await fetch(url, {
+    headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` },
+  });
+  if (!res.ok) throw new Error("leaderboard fetch failed: " + res.status);
+  return res.json();
+}
+
+async function renderLeaderboard() {
+  const board = $("lbBoard");
+  if (!board) return;
+  if (board.dataset.loading === "1") return;
+  board.dataset.loading = "1";
+  if (!board.children.length) board.innerHTML = `<div class="lb-empty muted">Loading…</div>`;
+  const metric = LB_METRICS.find(m => m.id === lbCurrentMetric) || LB_METRICS[0];
+  try {
+    const rows = await leaderboardFetch(metric.id);
+    if (!rows || rows.length === 0) {
+      board.innerHTML = `<div class="lb-empty muted">No scores yet — set a name and Sync to be first.</div>`;
+      return;
+    }
+    board.innerHTML = rows.map((r, i) => {
+      const isMe = state.playerId && r.player_id === state.playerId;
+      const val = metric.fmt(r[metric.id]);
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i+1}`;
+      return `<div class="lb-row${isMe ? " me" : ""}"><span class="lb-rank">${medal}</span><span class="lb-name">${escapeHtml(r.display_name)}</span><span class="lb-val">${val}</span></div>`;
+    }).join("");
+  } catch {
+    board.innerHTML = `<div class="lb-empty muted">Couldn't reach leaderboard. Try again later.</div>`;
+  } finally {
+    board.dataset.loading = "";
+  }
+}
+
+function wireLeaderboard() {
+  document.querySelectorAll(".lb-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      lbCurrentMetric = btn.dataset.metric;
+      document.querySelectorAll(".lb-tab").forEach(b => b.classList.toggle("active", b === btn));
+      renderLeaderboard();
+    });
+  });
+  const nameEl = $("lbName");
+  if (nameEl) {
+    nameEl.value = state.displayName || "";
+    nameEl.addEventListener("change", () => {
+      state.displayName = nameEl.value.trim().slice(0, 32);
+    });
+  }
+  const syncBtn = $("lbSync");
+  if (syncBtn) {
+    syncBtn.addEventListener("click", async () => {
+      const name = (nameEl?.value || "").trim().slice(0, 32);
+      if (!name) {
+        if (nameEl) { nameEl.focus(); nameEl.placeholder = "Enter a name first"; }
+        return;
+      }
+      state.displayName = name;
+      syncBtn.disabled = true;
+      syncBtn.textContent = "Syncing…";
+      await leaderboardSync(true);
+      await renderLeaderboard();
+      syncBtn.disabled = false;
+      syncBtn.textContent = "Sync";
+    });
+  }
+}
+
+// ----- Admin gate (honor-system password) ----------------------
+function wireAdminGate() {
+  const overlay = $("adminOverlay");
+  const gate    = $("adminGate");
+  const tools   = $("adminTools");
+  const pwInput = $("adminPw");
+  const openBtn = $("adminBtn");
+  if (!overlay || !openBtn) return;
+  function reset() {
+    if (gate)  gate.hidden = false;
+    if (tools) tools.hidden = true;
+    if (pwInput) { pwInput.value = ""; pwInput.placeholder = "Password"; }
+  }
+  function close() { overlay.hidden = true; reset(); }
+  function unlock() {
+    if (!pwInput) return;
+    if (pwInput.value === ADMIN_PASSWORD) {
+      if (gate)  gate.hidden = true;
+      if (tools) tools.hidden = false;
+      pwInput.value = "";
+    } else {
+      pwInput.value = "";
+      pwInput.placeholder = "Wrong password";
+      pwInput.classList.add("shake");
+      setTimeout(() => pwInput.classList.remove("shake"), 400);
+    }
+  }
+  openBtn.addEventListener("click", () => { reset(); overlay.hidden = false; });
+  $("adminClose")?.addEventListener("click", close);
+  overlay.addEventListener("click", (ev) => { if (ev.target === overlay) close(); });
+  $("adminUnlock")?.addEventListener("click", unlock);
+  pwInput?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") unlock(); });
+}
+
 // ----- Boot ------------------------------------------------------
 $("resetBtn").addEventListener("click", reset);
 $("boostBtn").addEventListener("click", activateBoost);
@@ -1884,6 +2066,9 @@ buildCodex();
 catchUpOffline();
 checkAchievements();
 refreshUI();
+wireLeaderboard();
+wireAdminGate();
+renderLeaderboard();
 
 setInterval(() => {
   tick(TICK_MS / 1000);
@@ -1893,6 +2078,8 @@ setInterval(() => {
 setInterval(() => { if (!resetting) save(); }, 3000);
 setInterval(spawnBubble, 800);
 setInterval(spawnCreature, 6000);
+setInterval(() => leaderboardSync(false), 60000);
+setInterval(renderLeaderboard, 90000);
 scheduleSlot();
 scheduleTreasure();
 window.addEventListener("beforeunload", () => { if (!resetting) save(); });

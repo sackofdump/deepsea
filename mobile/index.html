@@ -139,17 +139,31 @@
         </div>
       </div>
 
+      <div class="tab-pane" data-tab="ranks">
+        <div class="card">
+          <h3>🏅 Leaderboard</h3>
+          <div class="lb-name-row">
+            <input id="lbName" placeholder="Display name" maxlength="32" />
+            <button id="lbSync" class="ghost">Sync</button>
+          </div>
+          <div class="lb-tabs">
+            <button class="lb-tab active" data-metric="total_earned">Cash</button>
+            <button class="lb-tab" data-metric="level">Level</button>
+            <button class="lb-tab" data-metric="prestige_count">Promotes</button>
+            <button class="lb-tab" data-metric="jackpots">Jackpots</button>
+            <button class="lb-tab" data-metric="pearls">Pearls</button>
+            <button class="lb-tab" data-metric="total_dives">Dives</button>
+          </div>
+          <div id="lbBoard" class="lb-board"></div>
+        </div>
+      </div>
+
       <div class="tab-pane" data-tab="more">
         <div class="card">
           <h3>⚙ Options</h3>
           <button id="howToBtn" class="ghost block">How to Play</button>
+          <button id="adminBtn" class="ghost block">Admin</button>
           <button id="resetBtn" class="ghost block danger">Reset Save</button>
-        </div>
-        <div class="card">
-          <h3>🛠 Admin</h3>
-          <button id="adminLvlBtn" class="ghost block">+10 Lv</button>
-          <button id="adminCashBtn" class="ghost block">+$1M</button>
-          <button id="adminBoostBtn" class="ghost block">Boost: OFF</button>
         </div>
       </div>
 
@@ -168,6 +182,9 @@
     </button>
     <button class="tab-btn" data-tab="codex" aria-label="Codex">
       <span class="tab-icon">📖</span><span class="tab-label">Codex</span>
+    </button>
+    <button class="tab-btn" data-tab="ranks" aria-label="Leaderboard">
+      <span class="tab-icon">🏅</span><span class="tab-label">Ranks</span>
     </button>
     <button class="tab-btn" data-tab="more" aria-label="More">
       <span class="tab-icon">⚙</span><span class="tab-label">More</span>
@@ -221,6 +238,22 @@
   </div>
 </div>
 
-<script src="game.js?v=6"></script>
+<div id="adminOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal admin-modal">
+    <button class="howto-close" id="adminClose" aria-label="Close">×</button>
+    <h2>🛠 Admin</h2>
+    <div id="adminGate">
+      <input id="adminPw" type="password" placeholder="Password" autocomplete="off" inputmode="numeric" />
+      <button id="adminUnlock" class="ghost block">Unlock</button>
+    </div>
+    <div id="adminTools" hidden>
+      <button id="adminLvlBtn"   class="ghost block">+10 Lv</button>
+      <button id="adminCashBtn"  class="ghost block">+$1M</button>
+      <button id="adminBoostBtn" class="ghost block">Boost: OFF</button>
+    </div>
+  </div>
+</div>
+
+<script src="game.js?v=7"></script>
 </body>
 </html>

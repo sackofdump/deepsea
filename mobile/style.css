@@ -1178,7 +1178,7 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,122,122,0.3); }
 /* Tab bar ------------------------------------------------------- */
 #tabbar {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   background: var(--panel-2);
   border-top: 1px solid var(--line);
   padding-bottom: var(--safe-bottom);
@@ -1298,3 +1298,123 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,122,122,0.3); }
   #tabbar .tab-label { display: none; }
   #tabbar { grid-template-columns: repeat(5, 1fr); }
 }
+
+/* Haul totals -------------------------------------------------- */
+.haul-total {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  background: transparent !important;
+  border-left: 0 !important;
+}
+
+/* Leaderboard ------------------------------------------------- */
+.lb-name-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.lb-name-row input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.lb-name-row input::placeholder { color: var(--muted); }
+.lb-name-row input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.lb-name-row button {
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #00131c;
+  border: 0;
+  font-weight: 800;
+  font-size: 13px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.lb-name-row button:disabled { opacity: 0.55; }
+.lb-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  touch-action: pan-x;
+}
+.lb-tab {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lb-tab.active { background: var(--accent); color: #00131c; border-color: var(--accent); }
+.lb-board {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lb-row {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 7px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.lb-row.me {
+  background: rgba(79, 208, 255, 0.14);
+  border-left: 3px solid var(--accent);
+  padding-left: 7px;
+  font-weight: 700;
+}
+.lb-rank { color: var(--muted); font-weight: 700; text-align: center; }
+.lb-row .lb-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-row .lb-val  { color: var(--gold); font-weight: 700; }
+.lb-empty { padding: 16px 8px; text-align: center; font-size: 12.5px; }
+
+/* Admin modal -------------------------------------------------- */
+.admin-modal { max-width: 320px; }
+#adminGate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#adminPw {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+#adminPw:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+#adminPw.shake { animation: pwShake 0.4s ease-in-out; border-color: var(--bad); }
+@keyframes pwShake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-5px); }
+  75%      { transform: translateX(5px); }
+}
+#adminTools { display: flex; flex-direction: column; gap: 8px; }
