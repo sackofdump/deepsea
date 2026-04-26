@@ -29,9 +29,6 @@ const SUB_RANKS = [
   "Abyssal Mythic", // 10+
 ];
 const PITY_LEGENDARY_DIVES = 50;
-const ENCOUNTER_CHANCE = 0.12;
-const ENCOUNTER_DURATION_MS = 15000;
-
 const LEVELS_PER_BIOME = 10;
 
 const BIOMES = [
@@ -302,38 +299,18 @@ function valueEncounterMult()      { return Date.now() < (state.encounterValueUn
 function cargoEncounterMult()      { return Date.now() < (state.encounterCargoUntil     || 0) ? 2 : 1; }
 function legendaryEncounterActive(){ return Date.now() < (state.encounterLegendaryUntil || 0); }
 
-const ENCOUNTERS = [
-  { id: "map",     icon: "🗺",  name: "Treasure Map",  desc: "Legendary picks for 15s!",
-    apply: () => { state.encounterLegendaryUntil = Date.now() + ENCOUNTER_DURATION_MS; } },
-  { id: "current", icon: "🌊",  name: "Lucky Current", desc: "2× cargo hold for 15s.",
-    apply: () => { state.encounterCargoUntil = Date.now() + ENCOUNTER_DURATION_MS; } },
-  { id: "mermaid", icon: "🧜",  name: "Mermaid's Kiss",desc: "2× value for 15s.",
-    apply: () => { state.encounterValueUntil = Date.now() + ENCOUNTER_DURATION_MS; } },
-  { id: "crate",   icon: "📦",  name: "Lost Crate!",   desc: "A bonus item appears in your cargo.",
-    apply: () => {
-      const biome = currentBiome();
-      const table = LOOT[biome.name];
-      // Bias toward rare-or-better items.
-      const candidates = table.filter(it => it.rarity !== "common");
-      const bonus = candidates[Math.floor(Math.random() * candidates.length)] || table[0];
-      const stored = { ...bonus, biome: biome.name };
-      stored.soldValue = creditItem(bonus, stats());
-      state.sub.cargoItems.push(stored);
-      state.sub.cargoKg += bonus.weight;
-      state.totalItems += 1;
-      state.lifetimeItems[bonus.name] = (state.lifetimeItems[bonus.name] || 0) + 1;
-      state.rarityCounts[bonus.rarity] = (state.rarityCounts[bonus.rarity] || 0) + 1;
-    } },
-  { id: "shark",   icon: "🦈",  name: "Shark Attack!", desc: "A shark is chasing you — speed cut for 5s!",
-    apply: () => { state.sharkSlowUntil = Date.now() + 5000; } },
-];
+// Bonuses come from the Salvage Slot now; the per-dive roll only handles the
+// Shark hazard so dives can still occasionally feel dangerous.
+const SHARK_HAZARD = {
+  icon: "🦈", name: "Shark Attack!",
+  desc: "A shark is chasing you — speed cut for 5s!",
+};
 
-function maybeTriggerEncounter() {
-  if (Math.random() >= ENCOUNTER_CHANCE) return;
-  const e = ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)];
-  e.apply();
-  if (!suppressFx) showEncounterBanner(e);
-  log(`${e.icon} ${e.name} — ${e.desc}`, "good");
+function maybeTriggerHazard() {
+  if (Math.random() >= 0.08) return; // ~8% per dive
+  state.sharkSlowUntil = Date.now() + 5000;
+  if (!suppressFx) showEncounterBanner(SHARK_HAZARD);
+  log(`${SHARK_HAZARD.icon} ${SHARK_HAZARD.name} — ${SHARK_HAZARD.desc}`, "good");
 }
 
 function showEncounterBanner(e) {
@@ -537,8 +514,9 @@ function tick(dtSec) {
     sub.cargoKg = 0;
     sub.cargoItems = [];
     sub.picksThisDive = 0;
-    // Encounters are timer-based now; they tick down across dives on their own.
-    if (!suppressFx) maybeTriggerEncounter();
+    // Bonus encounters now come from the Salvage Slot; only the shark hazard
+    // still rolls on dive start.
+    if (!suppressFx) maybeTriggerHazard();
   }
 
   if (sub.mode === "descending") {
@@ -1121,21 +1099,25 @@ function biomeAvgValue(biomeName) {
 }
 
 // ----- Salvage Slot (side feature) ------------------------------
+// The slot is the ONLY source of bonus encounters now. Each match triggers a
+// specific buff; jackpot stacks all three with a longer duration.
 const SLOT_SYMBOLS = ["🍒", "🐚", "💎", "🌟"];
 const SLOT_OUTCOMES = [
-  { tier: "none",    weight: 50, mult: 0,   pick: () => slotNonMatch() },
-  { tier: "two",     weight: 25, mult: 3,   pick: () => slotTwoCherries() },
-  { tier: "mini",    weight: 13, mult: 12,  pick: () => ["🍒", "🍒", "🍒"] },
-  { tier: "minor",   weight: 8,  mult: 30,  pick: () => ["🐚", "🐚", "🐚"] },
-  { tier: "major",   weight: 3,  mult: 80,  pick: () => ["💎", "💎", "💎"] },
-  { tier: "jackpot", weight: 1,  mult: 250, pick: () => ["🌟", "🌟", "🌟"] },
+  { tier: "none",    weight: 70, pick: () => slotNonMatch() },
+  { tier: "mini",    weight: 16, pick: () => ["🍒", "🍒", "🍒"] },
+  { tier: "minor",   weight: 10, pick: () => ["🐚", "🐚", "🐚"] },
+  { tier: "major",   weight: 3,  pick: () => ["💎", "💎", "💎"] },
+  { tier: "jackpot", weight: 1,  pick: () => ["🌟", "🌟", "🌟"] },
 ];
-const SLOT_LABELS = {
-  two:     "Small win!",
-  mini:    "MINI WIN!",
-  minor:   "MINOR WIN!",
-  major:   "MAJOR WIN!",
-  jackpot: "★ JACKPOT ★",
+const SLOT_BONUSES = {
+  mini:    { icon: "🌊", name: "Lucky Current",  desc: "2× cargo for 15s.",       duration: 15000, apply: (now, d) => { state.encounterCargoUntil     = now + d; } },
+  minor:   { icon: "🧜", name: "Mermaid's Kiss", desc: "2× value for 15s.",       duration: 15000, apply: (now, d) => { state.encounterValueUntil     = now + d; } },
+  major:   { icon: "🗺", name: "Treasure Map",   desc: "Legendary picks for 15s!",duration: 15000, apply: (now, d) => { state.encounterLegendaryUntil = now + d; } },
+  jackpot: { icon: "🎰", name: "JACKPOT",        desc: "All bonuses · 30s!",      duration: 30000, apply: (now, d) => {
+    state.encounterCargoUntil     = now + d;
+    state.encounterValueUntil     = now + d;
+    state.encounterLegendaryUntil = now + d;
+  } },
 };
 
 function slotNonMatch() {
@@ -1143,23 +1125,9 @@ function slotNonMatch() {
     const a = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
     const b = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
     const c = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
-    // Reject all-three-match and any two-cherry combos (those are reserved for the "two" tier).
     if (a === b && b === c) continue;
-    const cherries = [a, b, c].filter(s => s === "🍒").length;
-    if (cherries === 2) continue;
     return [a, b, c];
   }
-}
-
-function slotTwoCherries() {
-  const others = SLOT_SYMBOLS.filter(s => s !== "🍒");
-  const odd = others[Math.floor(Math.random() * others.length)];
-  const layouts = [
-    ["🍒", "🍒", odd],
-    ["🍒", odd,  "🍒"],
-    [odd,  "🍒", "🍒"],
-  ];
-  return layouts[Math.floor(Math.random() * layouts.length)];
 }
 
 function pickSlotOutcome() {
@@ -1215,20 +1183,18 @@ function finishSpin(outcome, symbols) {
   const status = slot.querySelector(".slot-status");
   slot.dataset.state = "idle";
 
-  if (outcome.mult > 0) {
-    const biome = currentBiome();
-    const value = Math.ceil(biomeAvgValue(biome.name) * outcome.mult * prestigeMult());
-    state.cash += value;
-    state.totalEarned += value;
+  const bonus = SLOT_BONUSES[outcome.tier];
+  if (bonus) {
+    const now = Date.now();
+    bonus.apply(now, bonus.duration);
     state.bonusCollected = (state.bonusCollected || 0) + 1;
     slot.classList.add("win", `win-${outcome.tier}`);
-    if (status) status.textContent = `${SLOT_LABELS[outcome.tier]} +$${fmt(value)}`;
-    log(`🎰 ${SLOT_LABELS[outcome.tier]} ${symbols.join(" ")} +$${fmt(value)}`, outcome.tier === "jackpot" ? "legend" : "good");
-    spawnSlotPayout(value, outcome.tier);
+    if (status) status.textContent = `${bonus.icon} ${bonus.name}`;
+    log(`🎰 ${symbols.join(" ")} → ${bonus.icon} ${bonus.name} — ${bonus.desc}`, outcome.tier === "jackpot" ? "legend" : "good");
+    if (!suppressFx) showEncounterBanner(bonus);
     if (outcome.tier === "major" || outcome.tier === "jackpot") {
       flashScreen(outcome.tier === "jackpot" ? "legend" : "epic");
     }
-    checkLevelUp();
     checkAchievements();
   } else {
     slot.classList.add("lose");
@@ -1236,25 +1202,9 @@ function finishSpin(outcome, symbols) {
   }
 
   setTimeout(() => {
-    slot.classList.remove("win", "lose", "win-two", "win-mini", "win-minor", "win-major", "win-jackpot");
+    slot.classList.remove("win", "lose", "win-mini", "win-minor", "win-major", "win-jackpot");
     if (status && slot.dataset.state === "idle") status.textContent = "Next pull soon…";
   }, 4000);
-}
-
-function spawnSlotPayout(value, tier) {
-  if (suppressFx) return;
-  const slot = $("slotMachine");
-  const ocean = $("ocean");
-  if (!slot || !ocean) return;
-  const r = slot.getBoundingClientRect();
-  const o = ocean.getBoundingClientRect();
-  const pop = document.createElement("div");
-  pop.className = `slot-payout slot-payout-${tier}`;
-  pop.textContent = `+$${fmt(value)}`;
-  pop.style.left = `${r.left - o.left + r.width / 2}px`;
-  pop.style.top  = `${r.top  - o.top  + r.height + 6}px`;
-  ocean.appendChild(pop);
-  setTimeout(() => pop.remove(), 1700);
 }
 
 function scheduleSlot() {
