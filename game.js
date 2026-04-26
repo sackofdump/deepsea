@@ -166,7 +166,7 @@ const UPGRADE_DEFS = [
     name: "Appraiser",
     desc: "Higher sale value",
     stat: "valueMult",
-    base: 1, add: 0, mult: 1.15,
+    base: 1, add: 0, mult: 1.10,
     baseCost: 80, costMult: 1.75,
     suffix: "x value",
     fixed: 2,
@@ -227,7 +227,7 @@ if (!state.achievements) state.achievements = {};
 if (!state.achievementsClaimed) state.achievementsClaimed = {};
 if (state.prestigeCount === undefined) state.prestigeCount = 0;
 // One-time migration: previous tier system gave +20% loot value per rank.
-// New system: pearls give +1% each. Convert existing tier bonus to 20 pearls/rank.
+// New system: pearls give +0.5% each. Convert existing tier bonus to 20 pearls/rank.
 if (!state.pearlsV2) {
   state.pearls = (state.prestigeCount || 0) * 20;
   state.pearlsV2 = true;
@@ -351,15 +351,14 @@ function currentTier() { return (state.prestigeCount || 0) + 1; }
 function rankName(tier) { return SUB_RANKS[Math.min(tier - 1, SUB_RANKS.length - 1)]; }
 function tierLevelRequired(tier) {
   if (tier <= 1) return 0;
-  // Quadratic so each tier needs deeper biomes; multiples of 10 to align with biome boundaries.
-  // Tier 2: 30, 3: 60, 4: 110, 5: 180, 6: 270, 7: 380, 8: 510, 9: 660, 10: 830
-  return (tier - 1) * (tier - 1) * 10 + 20;
+  // Linear: first promotion at Lv 10, then 20, 30, ...
+  return (tier - 1) * 10;
 }
 function nextTierLevel() { return tierLevelRequired(currentTier() + 1); }
 function canUpgradeSub() { return state.level >= nextTierLevel(); }
 
 function prestigeMult() {
-  return 1 + (state.pearls || 0) * 0.01;
+  return 1 + (state.pearls || 0) * 0.005;
 }
 
 function pendingPearls() {
@@ -376,9 +375,10 @@ function doPrestige() {
   const nextName = rankName(nextTier);
   const earned = pendingPearls();
   const newPearls = (state.pearls || 0) + earned;
-  const newPct = newPearls;
+  const earnedPct = (earned * 0.5).toFixed(1).replace(/\.0$/, "");
+  const totalPct = (newPearls * 0.5).toFixed(1).replace(/\.0$/, "");
   const newPicks = MAX_PICKS_PER_DIVE + (state.prestigeCount + 1) * TIER_PICK_BONUS;
-  if (!confirm(`Promote to ${nextName}?\n\nBank ${earned} pearls (+${earned}% loot value)\nTotal: ${newPearls} pearls (+${newPct}% loot value)\nForever: +1 pickup per dive (now ${newPicks}/dive)\n\nResets: level, cash, upgrades, dive history.\nKeeps: rank, pearls, achievements, codex.`)) return;
+  if (!confirm(`Promote to ${nextName}?\n\nBank ${earned} pearls (+${earnedPct}% loot value)\nTotal: ${newPearls} pearls (+${totalPct}% loot value)\nForever: +1 pickup per dive (now ${newPicks}/dive)\n\nResets: level, cash, upgrades, dive history.\nKeeps: rank, pearls, achievements, codex.`)) return;
   state.pearls = newPearls;
   state.prestigeCount = (state.prestigeCount || 0) + 1;
   // Reset progression
@@ -549,9 +549,12 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax * cargoEncounterMult();
     // Loot collection — slow base rate, scaled by sonar.
+    // During Treasure Map, enforce a minimum delay so the celebration of each
+    // forced-legendary pick has time to land instead of dumping in <1s.
+    const minInterval = legendaryEncounterActive() ? 0.5 : 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0) {
-      lootCooldown += LOOT_INTERVAL_BASE / sonar;
+      lootCooldown += Math.max(LOOT_INTERVAL_BASE / sonar, minInterval);
       tryCollect(s);
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
@@ -1117,53 +1120,148 @@ function biomeAvgValue(biomeName) {
   return weight > 0 ? total / weight : 1;
 }
 
-function spawnBonusLoot() {
-  const ocean = $("ocean");
-  if (!ocean) return;
-  // Weighted rarity: rare 75%, epic 20%, legendary 5%.
-  const r = Math.random();
-  let rarity, icon, name, mult;
-  if (r < 0.05)      { rarity = "legend"; icon = "🧜"; name = "Mermaid's Treasure"; mult = 60; }
-  else if (r < 0.25) { rarity = "epic";   icon = "🪼"; name = "Glowing Jellyfish";  mult = 20; }
-  else               { rarity = "rare";   icon = "🐚"; name = "Pearl Shell";        mult = 8; }
+// ----- Salvage Slot (side feature) ------------------------------
+const SLOT_SYMBOLS = ["🍒", "🐚", "💎", "🌟"];
+const SLOT_OUTCOMES = [
+  { tier: "none",    weight: 50, mult: 0,   pick: () => slotNonMatch() },
+  { tier: "two",     weight: 25, mult: 3,   pick: () => slotTwoCherries() },
+  { tier: "mini",    weight: 13, mult: 12,  pick: () => ["🍒", "🍒", "🍒"] },
+  { tier: "minor",   weight: 8,  mult: 30,  pick: () => ["🐚", "🐚", "🐚"] },
+  { tier: "major",   weight: 3,  mult: 80,  pick: () => ["💎", "💎", "💎"] },
+  { tier: "jackpot", weight: 1,  mult: 250, pick: () => ["🌟", "🌟", "🌟"] },
+];
+const SLOT_LABELS = {
+  two:     "Small win!",
+  mini:    "MINI WIN!",
+  minor:   "MINOR WIN!",
+  major:   "MAJOR WIN!",
+  jackpot: "★ JACKPOT ★",
+};
 
-  const biome = currentBiome();
-  const value = Math.ceil(biomeAvgValue(biome.name) * mult * prestigeMult());
+function slotNonMatch() {
+  while (true) {
+    const a = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+    const b = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+    const c = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+    // Reject all-three-match and any two-cherry combos (those are reserved for the "two" tier).
+    if (a === b && b === c) continue;
+    const cherries = [a, b, c].filter(s => s === "🍒").length;
+    if (cherries === 2) continue;
+    return [a, b, c];
+  }
+}
 
-  const el = document.createElement("div");
-  el.className = `bonus-loot rarity-${rarity}`;
-  el.textContent = icon;
-  // Avoid edges; keep clear of boost button (bottom-left) and activity log (bottom-right).
-  el.style.left = `${20 + Math.random() * 60}%`;
-  el.style.top  = `${15 + Math.random() * 45}%`;
+function slotTwoCherries() {
+  const others = SLOT_SYMBOLS.filter(s => s !== "🍒");
+  const odd = others[Math.floor(Math.random() * others.length)];
+  const layouts = [
+    ["🍒", "🍒", odd],
+    ["🍒", odd,  "🍒"],
+    [odd,  "🍒", "🍒"],
+  ];
+  return layouts[Math.floor(Math.random() * layouts.length)];
+}
 
-  let collected = false;
-  const lifetime = 9000;
-  const removeTimer = setTimeout(() => { if (!collected) el.remove(); }, lifetime);
+function pickSlotOutcome() {
+  const total = SLOT_OUTCOMES.reduce((a, o) => a + o.weight, 0);
+  let r = Math.random() * total;
+  for (const o of SLOT_OUTCOMES) {
+    r -= o.weight;
+    if (r <= 0) return o;
+  }
+  return SLOT_OUTCOMES[0];
+}
 
-  el.addEventListener("click", (ev) => {
-    ev.stopPropagation();
-    if (collected) return;
-    collected = true;
-    clearTimeout(removeTimer);
+function spinSlot() {
+  const slot = $("slotMachine");
+  if (!slot) return;
+  if (slot.dataset.state === "spinning") return;
+  slot.dataset.state = "spinning";
+  slot.classList.remove("win", "lose", "win-two", "win-mini", "win-minor", "win-major", "win-jackpot");
+  const status = slot.querySelector(".slot-status");
+  if (status) status.textContent = "Spinning…";
+
+  const reels = Array.from(slot.querySelectorAll(".slot-reel"));
+  reels.forEach((r) => r.classList.add("spinning"));
+
+  const outcome = pickSlotOutcome();
+  const symbols = outcome.pick();
+
+  // Rapidly cycle each reel's symbol while spinning to sell the rolling effect.
+  const cyclers = reels.map((reel) => {
+    const strip = reel.querySelector(".slot-strip");
+    if (!strip) return null;
+    return setInterval(() => {
+      strip.textContent = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+    }, 70);
+  });
+
+  reels.forEach((reel, idx) => {
+    setTimeout(() => {
+      if (cyclers[idx]) clearInterval(cyclers[idx]);
+      reel.classList.remove("spinning");
+      const strip = reel.querySelector(".slot-strip");
+      if (strip) strip.textContent = symbols[idx];
+      reel.classList.add("settle");
+      setTimeout(() => reel.classList.remove("settle"), 300);
+      if (idx === reels.length - 1) finishSpin(outcome, symbols);
+    }, 900 + idx * 350);
+  });
+}
+
+function finishSpin(outcome, symbols) {
+  const slot = $("slotMachine");
+  if (!slot) return;
+  const status = slot.querySelector(".slot-status");
+  slot.dataset.state = "idle";
+
+  if (outcome.mult > 0) {
+    const biome = currentBiome();
+    const value = Math.ceil(biomeAvgValue(biome.name) * outcome.mult * prestigeMult());
     state.cash += value;
     state.totalEarned += value;
     state.bonusCollected = (state.bonusCollected || 0) + 1;
-    showItemReveal({ icon, name, rarity }, value, `BONUS ${rarity.toUpperCase()}`);
-    log(`${icon} ${name}! +$${fmt(value)}`, "good");
-    el.classList.add("fading");
-    setTimeout(() => el.remove(), 600);
+    slot.classList.add("win", `win-${outcome.tier}`);
+    if (status) status.textContent = `${SLOT_LABELS[outcome.tier]} +$${fmt(value)}`;
+    log(`🎰 ${SLOT_LABELS[outcome.tier]} ${symbols.join(" ")} +$${fmt(value)}`, outcome.tier === "jackpot" ? "legend" : "good");
+    spawnSlotPayout(value, outcome.tier);
+    if (outcome.tier === "major" || outcome.tier === "jackpot") {
+      flashScreen(outcome.tier === "jackpot" ? "legend" : "epic");
+    }
+    checkLevelUp();
     checkAchievements();
-  }, { once: true });
+  } else {
+    slot.classList.add("lose");
+    if (status) status.textContent = "No match. Next pull soon…";
+  }
 
-  ocean.appendChild(el);
+  setTimeout(() => {
+    slot.classList.remove("win", "lose", "win-two", "win-mini", "win-minor", "win-major", "win-jackpot");
+    if (status && slot.dataset.state === "idle") status.textContent = "Next pull soon…";
+  }, 4000);
 }
 
-function scheduleBonus() {
-  const delay = 25000 + Math.random() * 50000; // 25-75s
+function spawnSlotPayout(value, tier) {
+  if (suppressFx) return;
+  const slot = $("slotMachine");
+  const ocean = $("ocean");
+  if (!slot || !ocean) return;
+  const r = slot.getBoundingClientRect();
+  const o = ocean.getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = `slot-payout slot-payout-${tier}`;
+  pop.textContent = `+$${fmt(value)}`;
+  pop.style.left = `${r.left - o.left + r.width / 2}px`;
+  pop.style.top  = `${r.top  - o.top  + r.height + 6}px`;
+  ocean.appendChild(pop);
+  setTimeout(() => pop.remove(), 1700);
+}
+
+function scheduleSlot() {
+  const delay = 25000 + Math.random() * 35000; // 25-60s
   setTimeout(() => {
-    spawnBonusLoot();
-    scheduleBonus();
+    spinSlot();
+    scheduleSlot();
   }, delay);
 }
 
@@ -1660,6 +1758,6 @@ setInterval(() => {
 setInterval(() => { if (!resetting) save(); }, 3000);
 setInterval(spawnBubble, 800);
 setInterval(spawnCreature, 6000);
-scheduleBonus();
+scheduleSlot();
 scheduleTreasure();
 window.addEventListener("beforeunload", () => { if (!resetting) save(); });

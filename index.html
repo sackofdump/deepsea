@@ -64,7 +64,7 @@
       <div class="stat"><span>Pending pearls</span><span id="prestigePending">0</span></div>
       <div class="stat"><span>Next rank</span><span id="nextTierInfo">Salvager @ Lv 25</span></div>
       <button id="prestigeBtn" class="prestige-btn" disabled>Upgrade Sub</button>
-      <div class="muted prestige-hint">Each rank: +1 pickup / dive. Pearls give +1% loot value forever — bank more by pushing further before promoting.</div>
+      <div class="muted prestige-hint">Each rank: +1 pickup / dive. Pearls give +0.5% loot value forever — bank more by pushing further before promoting.</div>
     </section>
 
     <section class="panel" data-key="log">
@@ -110,6 +110,15 @@
       </div>
     </div>
     <div id="depthMarkers"></div>
+    <div id="slotMachine" class="slot-machine" data-state="idle">
+      <div class="slot-title">🎰 SALVAGE SLOT</div>
+      <div class="slot-reels">
+        <div class="slot-reel" id="slotReel0"><div class="slot-strip">🍒</div></div>
+        <div class="slot-reel" id="slotReel1"><div class="slot-strip">🐚</div></div>
+        <div class="slot-reel" id="slotReel2"><div class="slot-strip">💎</div></div>
+      </div>
+      <div class="slot-status">Next pull soon…</div>
+    </div>
     <div id="log"></div>
     <div class="boost-hint">+200% speed &amp; pickup rate</div>
     <button id="boostBtn" class="boost-btn" title="Boost (Space)">
@@ -142,8 +151,8 @@
         <p>Items collected this dive show in On Deck. Each dive may roll a random encounter: <strong>Mermaid's Kiss</strong> (2× value, 15s), <strong>Lucky Current</strong> (2× cargo, 15s), <strong>Treasure Map</strong> (legendary picks, 15s), <strong>Lost Crate</strong> (instant bonus item), or <strong>Shark Attack</strong> (50% speed, 5s).</p>
       </section>
       <section>
-        <h3>🐚 Bonus loot</h3>
-        <p>Glowing icons drift through the ocean every 25–75s. Click to grab them — pure cash, no cargo cost.</p>
+        <h3>🎰 Salvage Slot</h3>
+        <p>The slot in the corner auto-pulls every 25–60s. Match symbols for bonus cash — 🍒 mini, 🐚 minor, 💎 major, 🌟 jackpot. Pure cash, no cargo cost.</p>
       </section>
       <section>
         <h3>📦 Treasure chests</h3>
@@ -151,7 +160,7 @@
       </section>
       <section>
         <h3>⚓ Promotion &amp; pearls</h3>
-        <p>Hit a tier's level threshold to promote (Deckhand → Salvager → …). Promotion banks <strong>pearls</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each pearl is +1% loot value, forever. Push deeper before promoting to bank more.</p>
+        <p>Hit a tier's level threshold to promote (Deckhand → Salvager → …). Promotion banks <strong>pearls</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each pearl is +0.5% loot value, forever. Push deeper before promoting to bank more.</p>
       </section>
       <section>
         <h3>🏆 Honors</h3>
@@ -164,6 +173,6 @@
     </div>
   </div>
 </div>
-<script src="game.js?v=2"></script>
+<script src="game.js?v=3"></script>
 </body>
 </html>
