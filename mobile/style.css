@@ -1418,3 +1418,11 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,122,122,0.3); }
   75%      { transform: translateX(5px); }
 }
 #adminTools { display: flex; flex-direction: column; gap: 8px; }
+
+/* Log-line stacking bump --------------------------------------- */
+.log-line.bumped { animation: logBump 220ms ease-out; }
+@keyframes logBump {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}

@@ -750,6 +750,10 @@ function tryCollect(s) {
   checkAchievements();
 }
 
+// Caps on concurrent FX so late-game loot torrents don't pile glows.
+const FX_MAX_LOOT_DOTS  = 8;
+const FX_MAX_VALUE_POPS = 6;
+
 function spawnLootFx(item) {
   const ocean = $("ocean");
   const sub = $("sub");
@@ -759,29 +763,30 @@ function spawnLootFx(item) {
   const cx = subRect.left - oceanRect.left + subRect.width / 2;
   const cy = subRect.top - oceanRect.top + subRect.height / 2;
 
-  // Spawn the loot dot somewhere around/below the sub.
-  const angle = Math.random() * Math.PI; // 0..PI (lower hemisphere bias below)
-  const dist = 70 + Math.random() * 90;
-  const sx = cx + Math.cos(angle) * dist;
-  const sy = cy + Math.abs(Math.sin(angle)) * dist + 20;
+  if (ocean.querySelectorAll(".loot-fx").length < FX_MAX_LOOT_DOTS) {
+    const angle = Math.random() * Math.PI;
+    const dist = 70 + Math.random() * 90;
+    const sx = cx + Math.cos(angle) * dist;
+    const sy = cy + Math.abs(Math.sin(angle)) * dist + 20;
+    const dot = document.createElement("div");
+    dot.className = `loot-fx rarity-${item.rarity}`;
+    dot.style.left = `${sx}px`;
+    dot.style.top = `${sy}px`;
+    dot.style.setProperty("--dx", `${cx - sx}px`);
+    dot.style.setProperty("--dy", `${cy - sy}px`);
+    ocean.appendChild(dot);
+    setTimeout(() => dot.remove(), 650);
+  }
 
-  const dot = document.createElement("div");
-  dot.className = `loot-fx rarity-${item.rarity}`;
-  dot.style.left = `${sx}px`;
-  dot.style.top = `${sy}px`;
-  dot.style.setProperty("--dx", `${cx - sx}px`);
-  dot.style.setProperty("--dy", `${cy - sy}px`);
-  ocean.appendChild(dot);
-  setTimeout(() => dot.remove(), 650);
-
-  // Floating item label rises from the sub.
-  const pop = document.createElement("div");
-  pop.className = `value-pop rarity-${item.rarity}`;
-  pop.textContent = `${item.icon || ""} ${item.name}`.trim();
-  pop.style.left = `${cx}px`;
-  pop.style.top = `${cy - 12}px`;
-  ocean.appendChild(pop);
-  setTimeout(() => pop.remove(), 1200);
+  if (ocean.querySelectorAll(".value-pop").length < FX_MAX_VALUE_POPS) {
+    const pop = document.createElement("div");
+    pop.className = `value-pop rarity-${item.rarity}`;
+    pop.textContent = `${item.icon || ""} ${item.name}`.trim();
+    pop.style.left = `${cx}px`;
+    pop.style.top = `${cy - 12}px`;
+    ocean.appendChild(pop);
+    setTimeout(() => pop.remove(), 1200);
+  }
 
   // Rare-find celebration: banner at top + screen flash for rare/epic/legend.
   if (item.rarity === "rare" || item.rarity === "epic" || item.rarity === "legend") {
@@ -800,6 +805,8 @@ function spawnLootFx(item) {
 function spawnRareBanner(item) {
   const ocean = $("ocean");
   if (!ocean) return;
+  // Only one banner at a time — full-viewport text-shadows are heavy.
+  if (ocean.querySelector(".rare-banner")) return;
   const banner = document.createElement("div");
   banner.className = `rare-banner rarity-${item.rarity}`;
   const tier =
@@ -814,6 +821,8 @@ function spawnRareBanner(item) {
 function flashScreen(rarity) {
   const ocean = $("ocean");
   if (!ocean) return;
+  // Only one screen-wide radial flash on screen at a time.
+  if (ocean.querySelector(".screen-flash")) return;
   const flash = document.createElement("div");
   flash.className = `screen-flash flash-${rarity}`;
   ocean.appendChild(flash);
@@ -1771,8 +1780,36 @@ function refreshUI() {
 const LOG_LIFETIME_MS = 5000;
 const LOG_FADE_MS = 2000;
 
+let _lastLogLine = null;
+function _scheduleLogDeath(line) {
+  if (line._deathTimer) clearTimeout(line._deathTimer);
+  line._deathTimer = setTimeout(() => {
+    if (line.parentNode && !line.classList.contains("fading")) {
+      line.classList.add("fading");
+      setTimeout(() => line.remove(), LOG_FADE_MS);
+    }
+  }, LOG_LIFETIME_MS);
+}
+
 function log(msg, kind) {
   const root = $("log");
+  const k = kind || "";
+  // Stack onto the previous line if it's the same and still alive.
+  if (
+    _lastLogLine && _lastLogLine.parentNode === root &&
+    !_lastLogLine.classList.contains("fading") &&
+    _lastLogLine.dataset.msg === msg && _lastLogLine.dataset.kind === k
+  ) {
+    const count = (parseInt(_lastLogLine.dataset.count, 10) || 1) + 1;
+    _lastLogLine.dataset.count = String(count);
+    _lastLogLine.textContent = `${msg} ×${count}`;
+    _lastLogLine.classList.remove("bumped");
+    void _lastLogLine.offsetWidth;
+    _lastLogLine.classList.add("bumped");
+    _scheduleLogDeath(_lastLogLine);
+    return;
+  }
+
   const line = document.createElement("div");
   line.className = "log-line";
   const colors = {
@@ -1787,16 +1824,13 @@ function log(msg, kind) {
   if (colors[kind]) line.style.borderColor = colors[kind];
   if (kind === "legend") line.style.boxShadow = "0 0 10px rgba(255,200,80,0.4)";
   line.textContent = msg;
+  line.dataset.msg = msg;
+  line.dataset.kind = k;
+  line.dataset.count = "1";
   root.prepend(line);
-  // Each line ages out independently — new logs don't reset its timer.
-  setTimeout(() => {
-    if (line.parentNode && !line.classList.contains("fading")) {
-      line.classList.add("fading");
-      setTimeout(() => line.remove(), LOG_FADE_MS);
-    }
-  }, LOG_LIFETIME_MS);
-  // Hard cap to keep the stack tight if many fire fast.
+  _scheduleLogDeath(line);
   while (root.childElementCount > 10) root.lastChild.remove();
+  _lastLogLine = line;
 }
 
 // ----- Bubbles (eye candy) --------------------------------------
