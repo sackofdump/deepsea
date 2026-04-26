@@ -37,6 +37,7 @@
       <div class="stat"><span>Depth</span><span><span id="depth">0</span> / <span id="maxDepth">50</span> m</span></div>
       <div class="stat"><span>Cargo</span><span><span id="cargo">0</span> / <span id="cargoMax">4</span> kg</span></div>
       <div class="bar"><div class="bar-fill" id="cargoBar"></div></div>
+      <div class="stat"><span>Items this dive</span><span><span id="picks">0</span> / <span id="picksMax">8</span></span></div>
     </section>
 
     <section class="panel" data-key="ondeck">
@@ -58,13 +59,13 @@
     <section class="panel" id="prestigePanel" data-key="promotion">
       <h2>⚓ Promotion</h2>
       <div class="stat"><span>Rank</span><span id="subTier">Deckhand</span></div>
-      <div class="stat"><span>Picks / dive</span><span id="prestigePicks">8</span></div>
+      <div class="stat"><span>Item slots</span><span id="prestigePicks">8</span></div>
       <div class="stat"><span>Loot worth</span><span id="prestigeMult">+0%</span></div>
       <div class="stat"><span>Pearls banked</span><span id="prestigePearls">0</span></div>
       <div class="stat"><span>Pending pearls</span><span id="prestigePending">0</span></div>
       <div class="stat"><span>Next rank</span><span id="nextTierInfo">Salvager @ Lv 25</span></div>
       <button id="prestigeBtn" class="prestige-btn" disabled>Upgrade Sub</button>
-      <div class="muted prestige-hint">Each rank: +1 pickup / dive. Pearls give +0.5% loot value forever — bank more by pushing further before promoting.</div>
+      <div class="muted prestige-hint">Each promotion: +1 item slot per dive (your sub picks up more loot before surfacing). Pearls give +0.5% loot value forever — bank more by pushing further before promoting.</div>
     </section>
 
     <section class="panel" data-key="log">
@@ -173,6 +174,6 @@
     </div>
   </div>
 </div>
-<script src="game.js?v=7"></script>
+<script src="game.js?v=8"></script>
 </body>
 </html>

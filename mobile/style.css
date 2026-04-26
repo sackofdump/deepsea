@@ -531,6 +531,11 @@ button { font-family: inherit; }
   letter-spacing: 1px;
 }
 .encounter-banner .enc-desc { font-size: 10px; color: var(--text); }
+.encounter-banner.hazard {
+  border-color: var(--bad);
+  box-shadow: 0 0 18px rgba(255, 122, 122, 0.55);
+}
+.encounter-banner.hazard .enc-name { color: var(--bad); }
 @keyframes encounterPop {
   0%   { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.85); }
   15%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
@@ -636,6 +641,22 @@ button { font-family: inherit; }
   box-shadow: 0 0 28px rgba(255,204,102,0.5);
   animation: achToast 3.6s ease-out forwards;
   white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.achievement-toast:active { transform: translate(-50%, -50%) scale(0.97); }
+.achievement-toast .ach-cta {
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.achievement.ach-flash { animation: achFlash 1.6s ease-out; }
+@keyframes achFlash {
+  0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255, 204, 102, 0.9); }
+  10%  { transform: scale(1.04); box-shadow: 0 0 24px rgba(255, 204, 102, 0.85); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255, 204, 102, 0); }
 }
 .achievement-toast .ach-tier {
   font-size: 11px;

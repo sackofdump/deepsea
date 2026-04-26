@@ -1083,6 +1083,11 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   font-size: 11px;
   color: var(--text);
 }
+.encounter-banner.hazard {
+  border-color: var(--bad);
+  box-shadow: 0 0 18px rgba(255, 122, 122, 0.55);
+}
+.encounter-banner.hazard .enc-name { color: var(--bad); }
 @keyframes encounterPop {
   0%   { transform: translate(-50%, -20px) scale(0.4); opacity: 0; }
   15%  { transform: translate(-50%, 0) scale(1.1); opacity: 1; }
@@ -1176,12 +1181,28 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   border: 2px solid var(--gold);
   border-radius: 6px;
   padding: 10px 14px;
-  pointer-events: none;
+  cursor: pointer;
   z-index: 12;
   animation: achToast 4.2s ease-out forwards;
   min-width: 240px;
   max-width: 280px;
   box-shadow: 0 0 18px rgba(255, 200, 80, 0.45);
+  transition: transform 90ms ease;
+}
+.achievement-toast:hover  { transform: translateX(-4px); box-shadow: 0 0 24px rgba(255, 200, 80, 0.7); }
+.achievement-toast:active { transform: translateX(0)    scale(0.97); }
+.achievement-toast .ach-cta {
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.achievement.ach-flash { animation: achFlash 1.6s ease-out; }
+@keyframes achFlash {
+  0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255, 204, 102, 0.9); }
+  10%  { transform: scale(1.04); box-shadow: 0 0 24px rgba(255, 204, 102, 0.85); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255, 204, 102, 0); }
 }
 .achievement-toast .ach-tier {
   font-size: 10px;

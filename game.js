@@ -314,20 +314,21 @@ function legendaryEncounterActive(){ return Date.now() < (state.encounterLegenda
 const SHARK_HAZARD = {
   icon: "🦈", name: "Shark Attack!",
   desc: "A shark is chasing you — speed cut for 5s!",
+  kind: "hazard",
 };
 
 function maybeTriggerHazard() {
   if (Math.random() >= 0.08) return; // ~8% per dive
   state.sharkSlowUntil = Date.now() + 5000;
   if (!suppressFx) showEncounterBanner(SHARK_HAZARD);
-  log(`${SHARK_HAZARD.icon} ${SHARK_HAZARD.name} — ${SHARK_HAZARD.desc}`, "good");
+  log(`${SHARK_HAZARD.icon} ${SHARK_HAZARD.name} — ${SHARK_HAZARD.desc}`, "bad");
 }
 
 function showEncounterBanner(e) {
   const ocean = $("ocean");
   if (!ocean) return;
   const banner = document.createElement("div");
-  banner.className = "encounter-banner";
+  banner.className = "encounter-banner" + (e.kind === "hazard" ? " hazard" : "");
   banner.innerHTML = `<span class="enc-icon">${e.icon}</span><span class="enc-name">${e.name}</span><span class="enc-desc">${e.desc}</span>`;
   ocean.appendChild(banner);
   setTimeout(() => banner.remove(), 3000);
@@ -543,10 +544,39 @@ function showAchievementToast(a) {
     <div class="ach-tier">🏆 ACHIEVEMENT UNLOCKED</div>
     <div class="ach-row"><span class="ach-icon">${a.icon}</span><span class="ach-name">${a.name}</span></div>
     <div class="ach-desc">${a.desc}</div>
+    <div class="ach-cta">▸ TAP TO CLAIM</div>
   `;
+  toast.addEventListener("click", () => {
+    jumpToAchievement(a.id);
+    toast.remove();
+  }, { once: true });
   ocean.appendChild(toast);
   setTimeout(() => toast.remove(), 4200);
   log(`🏆 Achievement: ${a.name}`, "good");
+}
+
+// Scroll the Honors panel to the unlocked row (and expand the panel if needed)
+// so a single tap from the toast lands the user on the claim button.
+function jumpToAchievement(id) {
+  const row = document.getElementById(`ach-${id}`);
+  if (!row) return;
+  const panel = row.closest(".panel");
+  if (panel && panel.classList.contains("collapsed")) {
+    panel.classList.remove("collapsed");
+    try {
+      const panels = JSON.parse(localStorage.getItem("deepSeaPanels_v2") || "{}");
+      panels[panel.dataset.key] = false;
+      localStorage.setItem("deepSeaPanels_v2", JSON.stringify(panels));
+    } catch {}
+  }
+  // Wait a frame so the panel-expand reflow finishes before scrolling.
+  requestAnimationFrame(() => {
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    row.classList.remove("ach-flash");
+    void row.offsetWidth;
+    row.classList.add("ach-flash");
+    setTimeout(() => row.classList.remove("ach-flash"), 1700);
+  });
 }
 
 // XP needed to advance from `level` to `level+1`, rounded to a friendly number.
@@ -1693,6 +1723,10 @@ function refreshUI() {
   $("levelBar").style.width = `${Math.min(100, (progressed / needed) * 100)}%`;
 
   $("cargoBar").style.width = `${(state.sub.cargoKg / s.cargoMax) * 100}%`;
+  const picksEl = $("picks");
+  const picksMaxEl = $("picksMax");
+  if (picksEl)    picksEl.textContent    = state.sub.picksThisDive || 0;
+  if (picksMaxEl) picksMaxEl.textContent = effectiveMaxPicks();
   updateBiomeColor(biome);
 
   // Sub vertical position.
@@ -1724,6 +1758,7 @@ function log(msg, kind) {
   line.className = "log-line";
   const colors = {
     good:     "var(--good)",
+    bad:      "var(--bad)",
     common:   "#b8c6d2",
     uncommon: "var(--good)",
     rare:     "var(--accent)",
