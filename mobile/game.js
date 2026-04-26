@@ -1060,12 +1060,19 @@ function buildCodex() {
   }
 }
 
+// Codex only changes when a brand-new unique item enters lifetimeItems —
+// counts beyond 99 just display "99+" so we don't redraw on every pick.
+let _codexUniqueLast = -1;
 function updateCodex() {
+  const items = state.lifetimeItems || {};
+  const unique = Object.keys(items).length;
+  if (unique === _codexUniqueLast) return;
+  _codexUniqueLast = unique;
   const total = allLootItems().length;
   let found = 0;
   document.querySelectorAll(".codex-cell").forEach((cell) => {
     const name = cell.dataset.itemName;
-    const count = state.lifetimeItems[name] || 0;
+    const count = items[name] || 0;
     if (count > 0) {
       cell.classList.add("found");
       cell.querySelector(".codex-icon").textContent = cell.dataset.itemIcon;
@@ -1078,7 +1085,11 @@ function updateCodex() {
   if (counter) counter.textContent = `${found}/${total}`;
 }
 
+let _prestigeSig = "";
 function updatePrestigeUI() {
+  const sig = `${state.level}|${state.prestigeCount}|${state.pearls}|${state.totalEarned}`;
+  if (sig === _prestigeSig) return;
+  _prestigeSig = sig;
   const tier = currentTier();
   const nextTier = tier + 1;
   const reqLevel = nextTierLevel();
@@ -1515,7 +1526,14 @@ function buildAchievements() {
   }
 }
 
+// Skip the per-tick walk over every achievement DOM unless the unlocked /
+// claimed maps have changed size — those only change on a new unlock or a
+// new claim. The achievement check itself runs whenever state changes.
+let _achCountSig = "";
 function updateAchievements() {
+  const sig = Object.keys(state.achievements).length + ":" + Object.keys(state.achievementsClaimed).length;
+  if (sig === _achCountSig) return;
+  _achCountSig = sig;
   let unlocked = 0;
   let unclaimed = 0;
   for (const a of ACHIEVEMENTS) {
@@ -1838,8 +1856,12 @@ function refreshUI() {
   // Sub vertical position.
   const sub = $("sub");
   const pct = Math.min(state.sub.depth / s.maxDepth, 1);
-  // 4% (surface) to 96% (max)
-  sub.style.top = `${4 + pct * 92}%`;
+  const topPct = 4 + pct * 92;
+  // Skip the layout-triggering style change when the move is sub-pixel.
+  if (Math.abs(topPct - (sub._lastTop || -1)) > 0.4) {
+    sub._lastTop = topPct;
+    sub.style.top = `${topPct}%`;
+  }
 
   updateUpgrades();
   renderActiveEffect();
@@ -2193,7 +2215,11 @@ try {
 } catch {}
 
 // Notification dot on the Honors tab when there's an unclaimed reward.
+let _tabBadgeSig = "";
 function updateTabBadges() {
+  const sig = Object.keys(state.achievements).length + ":" + Object.keys(state.achievementsClaimed).length;
+  if (sig === _tabBadgeSig) return;
+  _tabBadgeSig = sig;
   const honorsBtn = tabBtns.find(b => b.dataset.tab === "honors");
   if (!honorsBtn) return;
   const hasUnclaimed = ACHIEVEMENTS.some(a => state.achievements[a.id] && !state.achievementsClaimed[a.id]);
