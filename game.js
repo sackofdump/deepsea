@@ -174,6 +174,7 @@ const UPGRADE_DEFS = [
 const defaultState = () => ({
   cash: 0,
   totalEarned: 0,
+  xp: 0,
   level: 1,
   upgrades: { depth: 0, speed: 0, cargo: 0, sonar: 0, value: 0 },
   sub: {
@@ -207,6 +208,8 @@ const defaultState = () => ({
   sharkSlowUntil: 0,
   // Bonus loot collected
   bonusCollected: 0,
+  // Slot hits per tier (mini, minor, major, jackpot)
+  slotHits: { mini: 0, minor: 0, major: 0, jackpot: 0 },
   // Inventory of unopened chests (array of tier strings)
   inventory: [],
   chestsCollected: 0,
@@ -215,6 +218,9 @@ const defaultState = () => ({
 let state = load() || defaultState();
 if (!state.boost) state.boost = { activeUntil: 0, readyAt: 0 };
 if (state.level === undefined) state.level = 1;
+// XP is the new level driver. Pre-XP saves: carry over their lifetime cash
+// as XP so their existing level is preserved.
+if (state.xp === undefined) state.xp = state.totalEarned || 0;
 if (state.totalDives === undefined) state.totalDives = 0;
 if (state.totalItems === undefined) state.totalItems = 0;
 if (state.boostsUsed === undefined) state.boostsUsed = 0;
@@ -239,6 +245,7 @@ delete state.encounterCargoMult;
 delete state.encounterValueMult;
 delete state.encounterLegendaryNext;
 if (state.bonusCollected === undefined) state.bonusCollected = 0;
+if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0 };
 if (!state.inventory) state.inventory = [];
 if (state.chestsCollected === undefined) state.chestsCollected = 0;
 
@@ -361,6 +368,7 @@ function doPrestige() {
   // Reset progression
   state.cash = 0;
   state.totalEarned = 0;
+  state.xp = 0;
   state.level = 1;
   state.upgrades = { depth: 0, speed: 0, cargo: 0, sonar: 0, value: 0 };
   state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], mode: "idle" };
@@ -394,29 +402,103 @@ function allLootItems() {
 
 // ----- Achievements ---------------------------------------------
 const ACHIEVEMENTS = [
-  { id: "first_dive",    name: "First Dive",       desc: "Complete your first dive.",   icon: "🌊", reward: 50,       check: (s) => s.totalDives >= 1 },
-  { id: "ten_dives",     name: "Regular",          desc: "Complete 10 dives.",          icon: "🤿", reward: 250,      check: (s) => s.totalDives >= 10 },
-  { id: "hundred_dives", name: "Veteran Diver",    desc: "Complete 100 dives.",         icon: "⚓", reward: 10000,    check: (s) => s.totalDives >= 100 },
-  { id: "first_rare",    name: "Lucky Strike",     desc: "Find a rare item.",           icon: "💎", reward: 100,      check: (s) => (s.rarityCounts?.rare   || 0) >= 1 },
-  { id: "first_epic",    name: "Epic Find",        desc: "Find an epic item.",          icon: "🔮", reward: 1000,     check: (s) => (s.rarityCounts?.epic   || 0) >= 1 },
-  { id: "first_legend",  name: "Legendary",        desc: "Find a legendary item.",      icon: "✨", reward: 10000,    check: (s) => (s.rarityCounts?.legend || 0) >= 1 },
-  { id: "ten_rare",      name: "Treasure Hunter",  desc: "Find 10 rare items.",         icon: "💠", reward: 2500,     check: (s) => (s.rarityCounts?.rare   || 0) >= 10 },
-  { id: "items_100",     name: "Collector",        desc: "Salvage 100 items.",          icon: "📦", reward: 1000,     check: (s) => s.totalItems >= 100 },
-  { id: "items_1000",    name: "Master Salvager",  desc: "Salvage 1,000 items.",        icon: "🏆", reward: 25000,    check: (s) => s.totalItems >= 1000 },
-  { id: "earn_1k",       name: "Pocket Change",    desc: "Earn $1,000 lifetime.",       icon: "💵", reward: 500,      check: (s) => s.totalEarned >= 1000 },
-  { id: "earn_100k",     name: "High Roller",      desc: "Earn $100,000 lifetime.",     icon: "💰", reward: 25000,    check: (s) => s.totalEarned >= 100000 },
-  { id: "earn_10m",      name: "Tycoon",           desc: "Earn $10M lifetime.",         icon: "🏦", reward: 2500000,  check: (s) => s.totalEarned >= 10000000 },
-  { id: "level_10",      name: "Getting Started",  desc: "Reach Level 10.",             icon: "⭐", reward: 2500,     check: (s) => s.level >= 10 },
-  { id: "level_25",      name: "Devoted",          desc: "Reach Level 25.",             icon: "🌟", reward: 25000,    check: (s) => s.level >= 25 },
-  { id: "level_50",      name: "Legendary Captain",desc: "Reach Level 50.",             icon: "👑", reward: 250000,   check: (s) => s.level >= 50 },
-  { id: "biome_5",       name: "Biome Explorer",   desc: "Reach 5 different biomes.",   icon: "🗺", reward: 25000,    check: (s) => biomeIndex(s.level) >= 4 },
-  { id: "singularity",   name: "End of the Map",   desc: "Reach The Singularity.",      icon: "🕳", reward: 5000000,  check: (s) => biomeIndex(s.level) >= 9 },
-  { id: "boost_10",      name: "Boost Tap",        desc: "Use boost 10 times.",         icon: "⚡", reward: 500,      check: (s) => s.boostsUsed >= 10 },
-  { id: "boost_100",     name: "Boost Junkie",     desc: "Use boost 100 times.",        icon: "🚀", reward: 10000,    check: (s) => s.boostsUsed >= 100 },
-  { id: "bonus_first",   name: "Quick Hands",      desc: "Click your first bonus loot.",icon: "👆", reward: 250,      check: (s) => (s.bonusCollected || 0) >= 1 },
-  { id: "bonus_25",      name: "Sharp Eye",        desc: "Click 25 bonus loot drops.",  icon: "👁",  reward: 5000,    check: (s) => (s.bonusCollected || 0) >= 25 },
-  { id: "chest_first",   name: "Hoarder",          desc: "Collect your first chest.",   icon: "📦", reward: 500,      check: (s) => (s.chestsCollected || 0) >= 1 },
-  { id: "chest_25",      name: "Treasure Hoard",   desc: "Collect 25 chests.",          icon: "🏴‍☠", reward: 25000,    check: (s) => (s.chestsCollected || 0) >= 25 },
+  // Dives
+  { id: "first_dive",    name: "First Dive",       desc: "Complete your first dive.",   icon: "🌊", reward: 50,        check: (s) => s.totalDives >= 1 },
+  { id: "ten_dives",     name: "Regular",          desc: "Complete 10 dives.",          icon: "🤿", reward: 250,       check: (s) => s.totalDives >= 10 },
+  { id: "hundred_dives", name: "Veteran Diver",    desc: "Complete 100 dives.",         icon: "⚓", reward: 10000,     check: (s) => s.totalDives >= 100 },
+  { id: "dives_500",     name: "Career Diver",     desc: "Complete 500 dives.",         icon: "🌀", reward: 100000,    check: (s) => s.totalDives >= 500 },
+  { id: "dives_1000",    name: "Submariner",       desc: "Complete 1,000 dives.",       icon: "🚢", reward: 1000000,   check: (s) => s.totalDives >= 1000 },
+  { id: "dives_5000",    name: "Lifer",            desc: "Complete 5,000 dives.",       icon: "♒", reward: 50000000,  check: (s) => s.totalDives >= 5000 },
+
+  // Items
+  { id: "items_100",     name: "Collector",        desc: "Salvage 100 items.",          icon: "📦", reward: 1000,      check: (s) => s.totalItems >= 100 },
+  { id: "items_1000",    name: "Master Salvager",  desc: "Salvage 1,000 items.",        icon: "🏆", reward: 25000,     check: (s) => s.totalItems >= 1000 },
+  { id: "items_5k",      name: "Stockpile",        desc: "Salvage 5,000 items.",        icon: "📚", reward: 250000,    check: (s) => s.totalItems >= 5000 },
+  { id: "items_25k",     name: "Warehouse",        desc: "Salvage 25,000 items.",       icon: "🏬", reward: 5000000,   check: (s) => s.totalItems >= 25000 },
+  { id: "items_100k",    name: "Trove",            desc: "Salvage 100,000 items.",      icon: "🗃", reward: 100000000, check: (s) => s.totalItems >= 100000 },
+
+  // Rarity finds
+  { id: "first_rare",    name: "Lucky Strike",     desc: "Find a rare item.",           icon: "💎", reward: 100,       check: (s) => (s.rarityCounts?.rare   || 0) >= 1 },
+  { id: "ten_rare",      name: "Treasure Hunter",  desc: "Find 10 rare items.",         icon: "💠", reward: 2500,      check: (s) => (s.rarityCounts?.rare   || 0) >= 10 },
+  { id: "rare_50",       name: "Lucky Streak",     desc: "Find 50 rare items.",         icon: "🔹", reward: 25000,     check: (s) => (s.rarityCounts?.rare   || 0) >= 50 },
+  { id: "rare_500",      name: "Rare Collector",   desc: "Find 500 rare items.",        icon: "🔷", reward: 1000000,   check: (s) => (s.rarityCounts?.rare   || 0) >= 500 },
+  { id: "first_epic",    name: "Epic Find",        desc: "Find an epic item.",          icon: "🔮", reward: 1000,      check: (s) => (s.rarityCounts?.epic   || 0) >= 1 },
+  { id: "epic_10",       name: "Epic Cache",       desc: "Find 10 epic items.",         icon: "💜", reward: 50000,     check: (s) => (s.rarityCounts?.epic   || 0) >= 10 },
+  { id: "epic_100",      name: "Epic Seeker",      desc: "Find 100 epic items.",        icon: "🟣", reward: 5000000,   check: (s) => (s.rarityCounts?.epic   || 0) >= 100 },
+  { id: "first_legend",  name: "Legendary",        desc: "Find a legendary item.",      icon: "✨", reward: 10000,     check: (s) => (s.rarityCounts?.legend || 0) >= 1 },
+  { id: "legend_5",      name: "Mythic",           desc: "Find 5 legendary items.",     icon: "🌟", reward: 250000,    check: (s) => (s.rarityCounts?.legend || 0) >= 5 },
+  { id: "legend_25",     name: "Mythkeeper",       desc: "Find 25 legendary items.",    icon: "💫", reward: 5000000,   check: (s) => (s.rarityCounts?.legend || 0) >= 25 },
+  { id: "legend_100",    name: "Mythhunter",       desc: "Find 100 legendary items.",   icon: "🌠", reward: 100000000, check: (s) => (s.rarityCounts?.legend || 0) >= 100 },
+
+  // Earnings
+  { id: "earn_1k",       name: "Pocket Change",    desc: "Earn $1,000 lifetime.",       icon: "🪙", reward: 500,       check: (s) => s.totalEarned >= 1000 },
+  { id: "earn_100k",     name: "High Roller",      desc: "Earn $100,000 lifetime.",     icon: "💵", reward: 25000,     check: (s) => s.totalEarned >= 100000 },
+  { id: "earn_1m",       name: "Millionaire",      desc: "Earn $1M lifetime.",          icon: "💰", reward: 250000,    check: (s) => s.totalEarned >= 1000000 },
+  { id: "earn_10m",      name: "Tycoon",           desc: "Earn $10M lifetime.",         icon: "🏦", reward: 2500000,   check: (s) => s.totalEarned >= 10000000 },
+  { id: "earn_100m",     name: "Magnate",          desc: "Earn $100M lifetime.",        icon: "💼", reward: 25000000,  check: (s) => s.totalEarned >= 100000000 },
+  { id: "earn_1b",       name: "Billionaire",      desc: "Earn $1B lifetime.",          icon: "🏛", reward: 250000000, check: (s) => s.totalEarned >= 1000000000 },
+  { id: "earn_1t",       name: "Trillion-Dollar",  desc: "Earn $1T lifetime.",          icon: "🪐", reward: 25000000000, check: (s) => s.totalEarned >= 1000000000000 },
+
+  // Levels
+  { id: "level_10",      name: "Getting Started",  desc: "Reach Level 10.",             icon: "⭐", reward: 2500,      check: (s) => s.level >= 10 },
+  { id: "level_25",      name: "Devoted",          desc: "Reach Level 25.",             icon: "🌟", reward: 25000,     check: (s) => s.level >= 25 },
+  { id: "level_50",      name: "Legendary Captain",desc: "Reach Level 50.",             icon: "👑", reward: 250000,    check: (s) => s.level >= 50 },
+  { id: "level_75",      name: "Decorated",        desc: "Reach Level 75.",             icon: "🎖", reward: 1000000,   check: (s) => s.level >= 75 },
+  { id: "level_100",     name: "Centurion",        desc: "Reach Level 100.",            icon: "💯", reward: 25000000,  check: (s) => s.level >= 100 },
+  { id: "level_150",     name: "Beyond",           desc: "Reach Level 150.",            icon: "🚀", reward: 250000000, check: (s) => s.level >= 150 },
+  { id: "level_200",     name: "Limit Reached",    desc: "Reach Level 200.",            icon: "♾",  reward: 1000000000,check: (s) => s.level >= 200 },
+
+  // Biomes
+  { id: "biome_twilight",  name: "Twilight Diver",      desc: "Reach Twilight Wreck.",        icon: "🚢", reward: 1000,       check: (s) => biomeIndex(s.level) >= 1 },
+  { id: "biome_midnight",  name: "Trench Diver",        desc: "Reach Midnight Trench.",       icon: "🌊", reward: 5000,       check: (s) => biomeIndex(s.level) >= 2 },
+  { id: "biome_abyssal",   name: "Abyssal Visitor",     desc: "Reach Abyssal Plain.",         icon: "🦴", reward: 25000,      check: (s) => biomeIndex(s.level) >= 3 },
+  { id: "biome_hadal",     name: "Hadal Explorer",      desc: "Reach Hadal Depths.",          icon: "🌑", reward: 100000,     check: (s) => biomeIndex(s.level) >= 4 },
+  { id: "biome_5",         name: "Biome Explorer",      desc: "Reach 5 different biomes.",    icon: "🗺", reward: 250000,     check: (s) => biomeIndex(s.level) >= 4 },
+  { id: "biome_lava",      name: "Vent Walker",         desc: "Reach Lava Vents.",            icon: "🌋", reward: 500000,     check: (s) => biomeIndex(s.level) >= 5 },
+  { id: "biome_biolum",    name: "Forest Wanderer",     desc: "Reach Bioluminescent Forest.", icon: "🌿", reward: 2500000,    check: (s) => biomeIndex(s.level) >= 6 },
+  { id: "biome_crystal",   name: "Crystal Cartographer",desc: "Reach Crystal Caverns.",       icon: "🔷", reward: 12500000,   check: (s) => biomeIndex(s.level) >= 7 },
+  { id: "biome_temple",    name: "Templar",             desc: "Reach Forgotten Temple.",      icon: "🗿", reward: 50000000,   check: (s) => biomeIndex(s.level) >= 8 },
+  { id: "singularity",     name: "End of the Map",      desc: "Reach The Singularity.",       icon: "🕳", reward: 250000000,  check: (s) => biomeIndex(s.level) >= 9 },
+
+  // Pearls
+  { id: "pearls_50",     name: "Pearl Diver",      desc: "Bank 50 pearls.",             icon: "🔮", reward: 50000,     check: (s) => (s.pearls || 0) >= 50 },
+  { id: "pearls_250",    name: "Pearl Hoarder",    desc: "Bank 250 pearls.",            icon: "⚪", reward: 1000000,   check: (s) => (s.pearls || 0) >= 250 },
+  { id: "pearls_1k",     name: "Pearl Empire",     desc: "Bank 1,000 pearls.",          icon: "💍", reward: 50000000,  check: (s) => (s.pearls || 0) >= 1000 },
+
+  // Slot wins
+  { id: "bonus_first",     name: "First Spin",       desc: "Win on the slot for the first time.", icon: "🎰", reward: 250,       check: (s) => (s.bonusCollected || 0) >= 1 },
+  { id: "bonus_25",        name: "Lucky 25",         desc: "Win on the slot 25 times.",            icon: "🎲", reward: 5000,      check: (s) => (s.bonusCollected || 0) >= 25 },
+  { id: "slot_50",         name: "Spin Doctor",      desc: "Win on the slot 50 times.",            icon: "♠",  reward: 50000,     check: (s) => (s.bonusCollected || 0) >= 50 },
+  { id: "slot_500",        name: "Slot Junkie",      desc: "Win on the slot 500 times.",           icon: "♻",  reward: 5000000,   check: (s) => (s.bonusCollected || 0) >= 500 },
+  { id: "slot_minor_first",name: "Mermaid's Favor",  desc: "Hit triple mermaids on the slot.",     icon: "🧜", reward: 25000,     check: (s) => (s.slotHits?.minor || 0) >= 1 },
+  { id: "slot_major_first",name: "Mapped",           desc: "Hit triple maps on the slot.",         icon: "🗺", reward: 100000,    check: (s) => (s.slotHits?.major || 0) >= 1 },
+  { id: "slot_major_10",   name: "Cartographer",     desc: "Hit triple maps 10 times.",            icon: "🧭", reward: 5000000,   check: (s) => (s.slotHits?.major || 0) >= 10 },
+  { id: "slot_jackpot_1",  name: "Lucky Pull",       desc: "Hit a jackpot.",                       icon: "💎", reward: 250000,    check: (s) => (s.slotHits?.jackpot || 0) >= 1 },
+  { id: "slot_jackpot_5",  name: "Slot Master",      desc: "Hit 5 jackpots.",                      icon: "🎉", reward: 5000000,   check: (s) => (s.slotHits?.jackpot || 0) >= 5 },
+  { id: "slot_jackpot_25", name: "Casino Royale",    desc: "Hit 25 jackpots.",                     icon: "🍀", reward: 100000000, check: (s) => (s.slotHits?.jackpot || 0) >= 25 },
+
+  // Boosts
+  { id: "boost_10",      name: "Boost Tap",        desc: "Use boost 10 times.",         icon: "⚡", reward: 500,       check: (s) => s.boostsUsed >= 10 },
+  { id: "boost_100",     name: "Boost Junkie",     desc: "Use boost 100 times.",        icon: "🚀", reward: 10000,     check: (s) => s.boostsUsed >= 100 },
+  { id: "boost_500",     name: "Boost Addict",     desc: "Use boost 500 times.",        icon: "💨", reward: 250000,    check: (s) => s.boostsUsed >= 500 },
+  { id: "boost_1k",      name: "Light Speed",      desc: "Use boost 1,000 times.",      icon: "🛸", reward: 5000000,   check: (s) => s.boostsUsed >= 1000 },
+
+  // Chests
+  { id: "chest_first",   name: "Hoarder",          desc: "Collect your first chest.",   icon: "📦", reward: 500,       check: (s) => (s.chestsCollected || 0) >= 1 },
+  { id: "chest_25",      name: "Treasure Hoard",   desc: "Collect 25 chests.",          icon: "🏴‍☠", reward: 25000,     check: (s) => (s.chestsCollected || 0) >= 25 },
+  { id: "chest_100",     name: "Treasure Vault",   desc: "Collect 100 chests.",         icon: "🏰", reward: 250000,    check: (s) => (s.chestsCollected || 0) >= 100 },
+  { id: "chest_500",     name: "Chest Mountain",   desc: "Collect 500 chests.",         icon: "⛰",  reward: 5000000,   check: (s) => (s.chestsCollected || 0) >= 500 },
+
+  // Upgrades
+  { id: "upgrade_each_10", name: "Well Outfitted", desc: "Every upgrade at Lv 10+.",     icon: "🔧", reward: 100000,    check: (s) => Object.values(s.upgrades || {}).every(v => v >= 10) },
+  { id: "upgrade_each_25", name: "Maxed Out",      desc: "Every upgrade at Lv 25+.",     icon: "⚙",  reward: 5000000,   check: (s) => Object.values(s.upgrades || {}).every(v => v >= 25) },
+
+  // Codex
+  { id: "codex_15",      name: "Naturalist",       desc: "Discover 15 unique items.",   icon: "📔", reward: 5000,      check: (s) => Object.keys(s.lifetimeItems || {}).length >= 15 },
+  { id: "codex_30",      name: "Marine Biologist", desc: "Discover 30 unique items.",   icon: "📕", reward: 50000,     check: (s) => Object.keys(s.lifetimeItems || {}).length >= 30 },
+  { id: "codex_all",     name: "Complete Codex",   desc: "Discover every unique item.", icon: "📖", reward: 1000000000, check: (s) => Object.keys(s.lifetimeItems || {}).length >= allLootItems().length },
+
+  // Prestige
   { id: "prestige_1",    name: "Reborn",                  desc: "Promote for the first time.",                icon: "🌀", reward: 5000,        check: (s) => (s.prestigeCount || 0) >= 1 },
   { id: "prestige_3",    name: "Loop Theory",             desc: "Promote 3 times. Pattern detected.",         icon: "🔄", reward: 100000,      check: (s) => (s.prestigeCount || 0) >= 3 },
   { id: "prestige_5",    name: "Iterator",                desc: "Promote 5 times. The pearls are pretty.",    icon: "🔮", reward: 1000000,     check: (s) => (s.prestigeCount || 0) >= 5 },
@@ -443,6 +525,7 @@ function claimAchievement(id) {
   if (state.achievementsClaimed[id]) return;
   state.cash += a.reward;
   state.totalEarned += a.reward;
+  state.xp += a.reward;
   state.achievementsClaimed[id] = Date.now();
   log(`🏆 ${a.name} claimed (+$${fmt(a.reward)})`, "good");
   checkLevelUp();
@@ -463,11 +546,33 @@ function showAchievementToast(a) {
   log(`🏆 Achievement: ${a.name}`, "good");
 }
 
-// Total money needed to reach a given level.
+// XP needed to advance from `level` to `level+1`, rounded to a friendly number.
+const _xpNeededCache = [];
+function levelXpNeeded(level) {
+  if (_xpNeededCache[level] !== undefined) return _xpNeededCache[level];
+  const raw = LEVEL_BASE_COST * Math.pow(LEVEL_COST_MULT, level - 1);
+  // Round up to the nearest "nice" value so the bar's "needed" number is round.
+  const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5];
+  const exp = Math.floor(Math.log10(raw));
+  const base = Math.pow(10, exp);
+  const m = raw / base;
+  let result = 10 * base;
+  for (const step of niceSteps) {
+    if (step >= m) { result = Math.round(step * base); break; }
+  }
+  _xpNeededCache[level] = result;
+  return result;
+}
+
+// Total XP needed to reach a given level (cumulative).
+const _xpCumCache = [0, 0];
 function levelCostCumulative(level) {
   if (level <= 1) return 0;
-  // Geometric series sum: base + base*mult + base*mult^2 + ... + base*mult^(level-2)
-  return Math.floor(LEVEL_BASE_COST * (Math.pow(LEVEL_COST_MULT, level - 1) - 1) / (LEVEL_COST_MULT - 1));
+  if (_xpCumCache[level] !== undefined) return _xpCumCache[level];
+  let sum = 0;
+  for (let i = 1; i < level; i++) sum += levelXpNeeded(i);
+  _xpCumCache[level] = sum;
+  return sum;
 }
 
 // ----- Loot ------------------------------------------------------
@@ -557,7 +662,7 @@ function tick(dtSec) {
 function checkLevelUp() {
   const startLevel = state.level;
   const prevBiomeIdx = biomeIndex(state.level);
-  while (state.level < 200 && state.totalEarned >= levelCostCumulative(state.level + 1)) {
+  while (state.level < 200 && state.xp >= levelCostCumulative(state.level + 1)) {
     state.level += 1;
   }
   if (!suppressFx && state.level > startLevel) {
@@ -568,9 +673,11 @@ function checkLevelUp() {
 }
 
 function creditItem(item, s) {
+  // The item's value is granted as XP immediately (the level bar fills as you
+  // collect) and returned for the eventual cash credit at the surface.
   const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
   const v = Math.ceil(item.value * valueMult);
-  state.totalEarned += v;
+  state.xp += v;
   checkLevelUp();
   return v;
 }
@@ -736,6 +843,7 @@ function sellCargo(s) {
     summary[it.name].value += v;
   }
   state.cash += total;
+  state.totalEarned += total;
   state.totalDives += 1;
   state.divesSinceLegendary = gotLegendary ? 0 : state.divesSinceLegendary + 1;
   state.lastHaul = Object.entries(summary).map(([name, v]) => ({
@@ -1043,6 +1151,7 @@ function openChest(tier) {
     totalValue += value;
     state.cash += value;
     state.totalEarned += value;
+    state.xp += value;
     state.totalItems += 1;
     state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
     state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
@@ -1083,7 +1192,7 @@ function renderInventory() {
     btn.className = `chest-btn tier-${tier}`;
     btn.dataset.tier = tier;
     btn.title = `${def.name} ×${counts[tier]} — click to open`;
-    btn.innerHTML = `${def.icon}<span class="chest-btn-count">${counts[tier] > 1 ? counts[tier] : ""}</span>`;
+    btn.innerHTML = `${def.icon}<span class="chest-btn-count">${counts[tier]}</span>`;
     root.appendChild(btn);
   }
 }
@@ -1101,12 +1210,13 @@ function biomeAvgValue(biomeName) {
 // ----- Salvage Slot (side feature) ------------------------------
 // The slot is the ONLY source of bonus encounters now. Each match triggers a
 // specific buff; jackpot stacks all three with a longer duration.
-const SLOT_SYMBOLS = ["🍒", "🐚", "💎", "🌟"];
+// Reel faces are the icons of the bonuses they grant.
+const SLOT_SYMBOLS = ["🌊", "🧜", "🗺", "🌟"];
 const SLOT_OUTCOMES = [
   { tier: "none",    weight: 70, pick: () => slotNonMatch() },
-  { tier: "mini",    weight: 16, pick: () => ["🍒", "🍒", "🍒"] },
-  { tier: "minor",   weight: 10, pick: () => ["🐚", "🐚", "🐚"] },
-  { tier: "major",   weight: 3,  pick: () => ["💎", "💎", "💎"] },
+  { tier: "mini",    weight: 16, pick: () => ["🌊", "🌊", "🌊"] },
+  { tier: "minor",   weight: 10, pick: () => ["🧜", "🧜", "🧜"] },
+  { tier: "major",   weight: 3,  pick: () => ["🗺", "🗺", "🗺"] },
   { tier: "jackpot", weight: 1,  pick: () => ["🌟", "🌟", "🌟"] },
 ];
 const SLOT_BONUSES = {
@@ -1188,6 +1298,8 @@ function finishSpin(outcome, symbols) {
     const now = Date.now();
     bonus.apply(now, bonus.duration);
     state.bonusCollected = (state.bonusCollected || 0) + 1;
+    if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0 };
+    state.slotHits[outcome.tier] = (state.slotHits[outcome.tier] || 0) + 1;
     slot.classList.add("win", `win-${outcome.tier}`);
     if (status) status.textContent = `${bonus.icon} ${bonus.name}`;
     log(`🎰 ${symbols.join(" ")} → ${bonus.icon} ${bonus.name} — ${bonus.desc}`, outcome.tier === "jackpot" ? "legend" : "good");
@@ -1203,16 +1315,32 @@ function finishSpin(outcome, symbols) {
 
   setTimeout(() => {
     slot.classList.remove("win", "lose", "win-mini", "win-minor", "win-major", "win-jackpot");
-    if (status && slot.dataset.state === "idle") status.textContent = "Next pull soon…";
+    // Countdown text is restored by updateSlotCountdown on the next refresh.
   }, 4000);
 }
 
+const SLOT_INTERVAL_MS = 30000;
+let nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
+
 function scheduleSlot() {
-  const delay = 25000 + Math.random() * 35000; // 25-60s
+  nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
   setTimeout(() => {
     spinSlot();
     scheduleSlot();
-  }, delay);
+  }, SLOT_INTERVAL_MS);
+}
+
+function updateSlotCountdown() {
+  const slot = $("slotMachine");
+  if (!slot) return;
+  if (slot.dataset.state !== "idle") return;
+  // Don't clobber the post-result win/lose message — those clear themselves after 4s.
+  if (slot.classList.contains("win") || slot.classList.contains("lose")) return;
+  const status = slot.querySelector(".slot-status");
+  if (!status) return;
+  const remaining = Math.max(0, Math.ceil((nextSpinAt - Date.now()) / 1000));
+  const text = `Next spin in ${remaining}s`;
+  if (status.textContent !== text) status.textContent = text;
 }
 
 function spawnCreature() {
@@ -1550,10 +1678,10 @@ function refreshUI() {
       : `Deepest biome reached`;
   }
 
-  // Money progress bar to next level.
+  // XP progress bar to next level.
   const cumPrev = levelCostCumulative(state.level);
   const cumNext = levelCostCumulative(state.level + 1);
-  const progressed = Math.max(0, state.totalEarned - cumPrev);
+  const progressed = Math.max(0, state.xp - cumPrev);
   const needed = Math.max(1, cumNext - cumPrev);
   $("levelMoney").textContent = fmt(Math.min(progressed, needed));
   $("levelMoneyMax").textContent = fmt(needed);
@@ -1579,6 +1707,7 @@ function refreshUI() {
   updatePrestigeUI();
   renderDepthMarkers(s.maxDepth);
   updateBoostUI();
+  updateSlotCountdown();
 }
 
 const LOG_LIFETIME_MS = 5000;
@@ -1641,6 +1770,8 @@ window.addEventListener("keydown", (ev) => {
 $("adminCashBtn").addEventListener("click", () => {
   state.cash += 1000000;
   state.totalEarned += 1000000;
+  state.xp += 1000000;
+  checkLevelUp();
   log(`[admin] +$1,000,000.`);
   refreshUI();
 });
@@ -1655,7 +1786,7 @@ if (state.adminBoostAlwaysOn) $("adminBoostBtn").textContent = "Boost: ON (admin
 $("adminLvlBtn").addEventListener("click", () => {
   const prevBiomeIdx = biomeIndex(state.level);
   state.level += 10;
-  state.totalEarned = Math.max(state.totalEarned, levelCostCumulative(state.level));
+  state.xp = Math.max(state.xp, levelCostCumulative(state.level));
   const newBiomeIdx = biomeIndex(state.level);
   log(`[admin] Now Lv ${state.level}.`);
   if (newBiomeIdx !== prevBiomeIdx) {
