@@ -655,7 +655,12 @@ function tick(dtSec) {
   const s = stats();
   const sub = state.sub;
   const boosting = state.adminBoostAlwaysOn || Date.now() < state.boost.activeUntil;
-  const speed = s.speed * (boosting ? BOOST_SPEED_MULT : 1);
+  const baseSpeed = s.speed * (boosting ? BOOST_SPEED_MULT : 1);
+  // During Treasure Map, descend slowly so the dive has time to pick lots of
+  // forced legendaries before bottoming out. Ascent stays full speed so the
+  // dive cycle keeps moving (sub doesn't appear stuck at the bottom).
+  const descentSpeed = baseSpeed * (legendaryEncounterActive() ? 0.2 : 1);
+  const ascentSpeed  = baseSpeed;
   const sonar = s.sonar * (boosting ? BOOST_LOOT_MULT : 1);
 
   // Auto-start: if idle and we have any progress, dive again.
@@ -672,7 +677,7 @@ function tick(dtSec) {
   }
 
   if (sub.mode === "descending") {
-    sub.depth += speed * dtSec;
+    sub.depth += descentSpeed * dtSec;
     if (sub.depth >= s.maxDepth) {
       sub.depth = s.maxDepth;
     }
@@ -689,20 +694,14 @@ function tick(dtSec) {
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
 
-    // During Treasure Map, the sub LINGERS at max depth — instead of ascending
-    // immediately when it bottoms out, it keeps pulling forced-legendary picks
-    // until cargo fills or the encounter ends. Without this, late-game subs
-    // are so fast that the descent is over in <1s and only 1-2 picks land.
-    const cargoFull = sub.cargoKg >= effCargoMax;
-    const atMax = sub.depth >= s.maxDepth;
-    if (cargoFull || (atMax && !treasure)) {
+    if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) {
       sub.mode = "ascending";
     }
     return;
   }
 
   if (sub.mode === "ascending") {
-    sub.depth -= speed * 1.5 * dtSec; // ascent slightly faster
+    sub.depth -= ascentSpeed * 1.5 * dtSec; // ascent slightly faster
     if (sub.depth <= 0) {
       sub.depth = 0;
       sellCargo(s);
