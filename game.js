@@ -11,11 +11,9 @@ const BOOST_EXTEND_MS = 1000;        // each click during boost extends by this
 const BOOST_SPEED_MULT = 3;
 const BOOST_LOOT_MULT = 3;
 const LOOT_INTERVAL_BASE = 6;        // seconds between attempts at sonar=1
-const MAX_PICKS_PER_DIVE = 8;        // hard cap on items per dive
 const LEVEL_BASE_COST = 20;
 const LEVEL_COST_MULT = 1.55;
-const TIER_BONUS = 0.20;             // +20% loot value per rank
-const TIER_PICK_BONUS = 1;           // +1 max picks per dive per rank
+const TIER_RARITY_UPGRADE = 0.03;    // +3% per rank chance to bump a roll's rarity tier
 const SUB_RANKS = [
   "Deckhand",       // 1
   "Salvager",       // 2
@@ -340,8 +338,8 @@ function pendingPearls() {
   return Math.floor(Math.sqrt(Math.max(0, state.totalEarned) / 10000));
 }
 
-function effectiveMaxPicks() {
-  return MAX_PICKS_PER_DIVE + (state.prestigeCount || 0) * TIER_PICK_BONUS;
+function rarityUpgradeChance() {
+  return (state.prestigeCount || 0) * TIER_RARITY_UPGRADE;
 }
 
 function doPrestige() {
@@ -352,8 +350,8 @@ function doPrestige() {
   const newPearls = (state.pearls || 0) + earned;
   const earnedPct = (earned * 0.5).toFixed(1).replace(/\.0$/, "");
   const totalPct = (newPearls * 0.5).toFixed(1).replace(/\.0$/, "");
-  const newPicks = MAX_PICKS_PER_DIVE + (state.prestigeCount + 1) * TIER_PICK_BONUS;
-  if (!confirm(`Promote to ${nextName}?\n\nBank ${earned} pearls (+${earnedPct}% loot value)\nTotal: ${newPearls} pearls (+${totalPct}% loot value)\nForever: +1 pickup per dive (now ${newPicks}/dive)\n\nResets: level, cash, upgrades, dive history.\nKeeps: rank, pearls, achievements, codex.`)) return;
+  const newRarityPct = Math.round((state.prestigeCount + 1) * TIER_RARITY_UPGRADE * 100);
+  if (!confirm(`Promote to ${nextName}?\n\nBank ${earned} pearls (+${earnedPct}% loot value)\nTotal: ${newPearls} pearls (+${totalPct}% loot value)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, dive history.\nKeeps: rank, pearls, achievements, codex.`)) return;
   state.pearls = newPearls;
   state.prestigeCount = (state.prestigeCount || 0) + 1;
   // Reset progression
@@ -596,6 +594,17 @@ function levelCostCumulative(level) {
 }
 
 // ----- Loot ------------------------------------------------------
+const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legend"];
+function bumpRarity(item, table) {
+  const idx = RARITY_ORDER.indexOf(item.rarity);
+  if (idx < 0 || idx >= RARITY_ORDER.length - 1) return item;
+  for (let next = idx + 1; next < RARITY_ORDER.length; next++) {
+    const pool = table.filter(it => it.rarity === RARITY_ORDER[next]);
+    if (pool.length > 0) return pool[Math.floor(Math.random() * pool.length)];
+  }
+  return item;
+}
+
 function rollLoot(biomeName) {
   const table = LOOT[biomeName];
   // Treasure Map encounter — force the highest-rarity tier this biome has.
@@ -612,11 +621,17 @@ function rollLoot(biomeName) {
   }
   const totalChance = table.reduce((a, b) => a + b.chance, 0);
   let r = Math.random() * totalChance;
-  for (const item of table) {
-    r -= item.chance;
-    if (r <= 0) return item;
+  let item = table[0];
+  for (const it of table) {
+    r -= it.chance;
+    if (r <= 0) { item = it; break; }
   }
-  return table[0];
+  // Rank perk: each rank rolls for a +1 rarity-tier bump on this item.
+  const upChance = rarityUpgradeChance();
+  if (upChance > 0 && Math.random() < upChance) {
+    item = bumpRarity(item, table);
+  }
+  return item;
 }
 
 // ----- Game loop -------------------------------------------------
@@ -638,7 +653,6 @@ function tick(dtSec) {
     sub.depth = 0;
     sub.cargoKg = 0;
     sub.cargoItems = [];
-    sub.picksThisDive = 0;
     // All encounters (good and bad) come from the Salvage Slot — no per-dive
     // roll here anymore.
   }
@@ -703,7 +717,6 @@ function creditItem(item, s) {
 
 function tryCollect(s) {
   const sub = state.sub;
-  if (sub.picksThisDive >= effectiveMaxPicks()) return;
   const effCargoMax = s.cargoMax * cargoEncounterMult();
   if (sub.cargoKg >= effCargoMax) return;
   const biome = currentBiome();
@@ -714,7 +727,6 @@ function tryCollect(s) {
   const stored = { ...item, biome: biome.name };
   stored.soldValue = creditItem(item, s);
   sub.cargoItems.push(stored);
-  sub.picksThisDive = (sub.picksThisDive || 0) + 1;
   state.totalItems += 1;
   state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
   state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
@@ -1009,8 +1021,8 @@ function updatePrestigeUI() {
   const multEl = $("prestigeMult");
   const btn = $("prestigeBtn");
   if (subTierEl) subTierEl.textContent = rankName(tier);
-  const picksEl = $("prestigePicks");
-  if (picksEl) picksEl.textContent = effectiveMaxPicks();
+  const rarityEl = $("prestigeRarity");
+  if (rarityEl) rarityEl.textContent = `+${Math.round(rarityUpgradeChance() * 100)}%`;
   if (multEl) multEl.textContent = `+${pct}%`;
   const banked = state.pearls || 0;
   const pending = pendingPearls();
@@ -1714,10 +1726,6 @@ function refreshUI() {
   $("levelBar").style.width = `${Math.min(100, (progressed / needed) * 100)}%`;
 
   $("cargoBar").style.width = `${(state.sub.cargoKg / s.cargoMax) * 100}%`;
-  const picksEl = $("picks");
-  const picksMaxEl = $("picksMax");
-  if (picksEl)    picksEl.textContent    = state.sub.picksThisDive || 0;
-  if (picksMaxEl) picksMaxEl.textContent = effectiveMaxPicks();
   updateBiomeColor(biome);
 
   // Sub vertical position.
