@@ -791,7 +791,11 @@ function spawnLootFx(item) {
   }
 
   // Rare-find celebration: banner at top + screen flash for rare/epic/legend.
-  if (item.rarity === "rare" || item.rarity === "epic" || item.rarity === "legend") {
+  // Skipped while Treasure Map is active because every pick is forced to the
+  // top tier — the per-pick glow stack was the late-game lag spike. The
+  // initial Treasure Map banner already announces what's happening.
+  if (!legendaryEncounterActive() &&
+      (item.rarity === "rare" || item.rarity === "epic" || item.rarity === "legend")) {
     spawnRareBanner(item);
     if (item.rarity === "epic" || item.rarity === "legend") {
       flashScreen(item.rarity);
