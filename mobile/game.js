@@ -1840,6 +1840,13 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+// Block iOS pinch-zoom — the boost button's rapid-tap behavior means we can't
+// safely intercept touchend, but gesturestart only fires for multi-touch and
+// suppresses pinch-zoom without affecting taps. touch-action: manipulation
+// (set on `*` in CSS) handles the double-tap-zoom case.
+document.addEventListener("gesturestart", (e) => e.preventDefault());
+document.addEventListener("dblclick", (e) => e.preventDefault());
+
 buildUpgrades();
 buildAchievements();
 buildCodex();
