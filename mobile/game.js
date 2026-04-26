@@ -655,12 +655,7 @@ function tick(dtSec) {
   const s = stats();
   const sub = state.sub;
   const boosting = state.adminBoostAlwaysOn || Date.now() < state.boost.activeUntil;
-  const baseSpeed = s.speed * (boosting ? BOOST_SPEED_MULT : 1);
-  // During Treasure Map, descend slowly so the dive has time to pick lots of
-  // forced legendaries before bottoming out. Ascent stays full speed so the
-  // dive cycle keeps moving (sub doesn't appear stuck at the bottom).
-  const descentSpeed = baseSpeed * (legendaryEncounterActive() ? 0.2 : 1);
-  const ascentSpeed  = baseSpeed;
+  const speed = s.speed * (boosting ? BOOST_SPEED_MULT : 1);
   const sonar = s.sonar * (boosting ? BOOST_LOOT_MULT : 1);
 
   // Auto-start: if idle and we have any progress, dive again.
@@ -677,17 +672,14 @@ function tick(dtSec) {
   }
 
   if (sub.mode === "descending") {
-    // Cap per-tick step so high-speed boosted subs don't teleport.
-    const stepCap = s.maxDepth / 6;
-    sub.depth += Math.min(descentSpeed * dtSec, stepCap);
+    sub.depth += speed * dtSec;
     if (sub.depth >= s.maxDepth) {
       sub.depth = s.maxDepth;
     }
 
     const effCargoMax = s.cargoMax * cargoEncounterMult();
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.3s interval (regardless of sonar) so the dive racks
-    // up legendaries in the time it takes to bottom out.
+    // we force a fast 0.3s interval so picks come quickly while at depth.
     const treasure = legendaryEncounterActive();
     lootCooldown -= dtSec;
     while (lootCooldown <= 0) {
@@ -696,18 +688,28 @@ function tick(dtSec) {
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
 
-    // Only depth triggers ascend — cargo-full just stops further picks. This
-    // makes the sub always visibly reach the bottom before turning around,
-    // even when heavy items fill cargo on the way down.
     if (sub.depth >= s.maxDepth) {
+      // During Treasure Map, linger at max depth for up to 5s so the dive
+      // racks up a real pile of forced legendaries instead of bouncing back
+      // up after the very first pick. After 5s (or cargo full), ascend.
+      if (treasure && sub.cargoKg < effCargoMax) {
+        if (!sub.lingerStart) sub.lingerStart = Date.now();
+        if (Date.now() - sub.lingerStart >= 5000) {
+          sub.lingerStart = 0;
+          sub.mode = "ascending";
+        }
+      } else {
+        sub.lingerStart = 0;
+        sub.mode = "ascending";
+      }
+    } else if (sub.cargoKg >= effCargoMax) {
       sub.mode = "ascending";
     }
     return;
   }
 
   if (sub.mode === "ascending") {
-    const stepCap = s.maxDepth / 6;
-    sub.depth -= Math.min(ascentSpeed * 1.5 * dtSec, stepCap); // ascent slightly faster
+    sub.depth -= speed * 1.5 * dtSec; // ascent slightly faster
     if (sub.depth <= 0) {
       sub.depth = 0;
       sellCargo(s);
@@ -744,7 +746,7 @@ function creditItem(item, s) {
   return v;
 }
 
-const WEIGHT_MULT = 2.5; // Items are heavier so the Cargo Hold upgrade matters more.
+const WEIGHT_MULT = 2.0; // Items a bit heavier than listed — Cargo Hold matters but not too punishing.
 
 function tryCollect(s) {
   const sub = state.sub;
@@ -1856,12 +1858,8 @@ function refreshUI() {
   // Sub vertical position.
   const sub = $("sub");
   const pct = Math.min(state.sub.depth / s.maxDepth, 1);
-  const topPct = 4 + pct * 92;
-  // Skip the layout-triggering style change when the move is sub-pixel.
-  if (Math.abs(topPct - (sub._lastTop || -1)) > 0.4) {
-    sub._lastTop = topPct;
-    sub.style.top = `${topPct}%`;
-  }
+  // 4% (surface) to 96% (max)
+  sub.style.top = `${4 + pct * 92}%`;
 
   updateUpgrades();
   renderActiveEffect();
