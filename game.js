@@ -663,8 +663,7 @@ function tick(dtSec) {
   const s = stats();
   const sub = state.sub;
   const boosting = state.adminBoostAlwaysOn || Date.now() < state.boost.activeUntil;
-  const sharkSlowed = Date.now() < (state.sharkSlowUntil || 0);
-  const speed = s.speed * (boosting ? BOOST_SPEED_MULT : 1) * (sharkSlowed ? 0.5 : 1);
+  const speed = s.speed * (boosting ? BOOST_SPEED_MULT : 1);
   const sonar = s.sonar * (boosting ? BOOST_LOOT_MULT : 1);
 
   // Auto-start: if idle and we have any progress, dive again.
@@ -738,15 +737,20 @@ function creditItem(item, s) {
   return v;
 }
 
+const WEIGHT_MULT = 2.5; // Items are heavier so the Cargo Hold upgrade matters more.
+
 function tryCollect(s) {
   const sub = state.sub;
+  // Shark Attack: no loot at all while it's chewing on the sub.
+  if (Date.now() < (state.sharkSlowUntil || 0)) return;
   const effCargoMax = s.cargoMax * cargoEncounterMult();
   if (sub.cargoKg >= effCargoMax) return;
   const biome = currentBiome();
   const item = rollLoot(biome.name);
+  const weight = item.weight * WEIGHT_MULT;
   // Don't overflow: skip if too heavy and cargo isn't empty.
-  if (sub.cargoKg + item.weight > effCargoMax && sub.cargoKg > 0) return;
-  sub.cargoKg += item.weight;
+  if (sub.cargoKg + weight > effCargoMax && sub.cargoKg > 0) return;
+  sub.cargoKg += weight;
   const stored = { ...item, biome: biome.name };
   stored.soldValue = creditItem(item, s);
   sub.cargoItems.push(stored);
@@ -1220,6 +1224,23 @@ function rollChestItem(def) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+function spawnChestHaulRow(chestDef, item, value, idx) {
+  if (suppressFx) return;
+  // Stagger so multiple items roll in left-side-of-ocean as a chest "haul",
+  // separate from the dive's activity log.
+  setTimeout(() => {
+    const root = $("chestHaul");
+    if (!root) return;
+    const row = document.createElement("div");
+    row.className = `chest-haul-row rarity-${item.rarity}`;
+    row.innerHTML =
+      `<span class="ch-name">${chestDef.icon} ${item.icon} ${item.name}</span>` +
+      `<span class="ch-val">+$${fmt(value)}</span>`;
+    root.appendChild(row);
+    setTimeout(() => row.remove(), 3700);
+  }, idx * 90);
+}
+
 function openChest(tier) {
   const def = CHEST_TIERS[tier];
   if (!def) return;
@@ -1243,7 +1264,7 @@ function openChest(tier) {
     state.totalItems += 1;
     state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
     state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
-    log(`${def.icon} ${item.icon} ${item.name} +$${fmt(value)}`, "good");
+    spawnChestHaulRow(def, item, value, i);
   }
   if (rolled.length === 0) return;
   checkLevelUp();
@@ -1309,7 +1330,7 @@ const SLOT_OUTCOMES = [
   { tier: "jackpot", weight: 2,  pick: () => ["🌟", "🌟", "🌟"] },
 ];
 const SLOT_BONUSES = {
-  shark:   { icon: "🦈", name: "Shark Attack!", desc: "Speed cut for 5s!",       duration: 5000,  kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
+  shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 15s!",       duration: 15000, kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
   mini:    { icon: "🌊", name: "Lucky Current",  desc: "2× cargo for 15s.",       duration: 15000, apply: (now, d) => { state.encounterCargoUntil     = now + d; } },
   minor:   { icon: "🧜", name: "Mermaid's Kiss", desc: "2× value for 15s.",       duration: 15000, apply: (now, d) => { state.encounterValueUntil     = now + d; } },
   major:   { icon: "🗺", name: "Treasure Map",   desc: "Legendary picks for 30s!",duration: 30000, apply: (now, d) => { state.encounterLegendaryUntil = now + d; } },

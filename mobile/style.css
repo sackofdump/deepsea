@@ -1431,3 +1431,43 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,122,122,0.3); }
   40%  { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
+
+/* Chest opening haul (left side of ocean, separate from dive log) */
+.chest-haul {
+  position: absolute;
+  left: 8px;
+  top: 95px;
+  bottom: 70px;
+  width: 170px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  pointer-events: none;
+  z-index: 9;
+  overflow: hidden;
+}
+.chest-haul-row {
+  background: rgba(8, 16, 24, 0.88);
+  border-left: 3px solid var(--gold);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  animation: chestHaulIn 380ms ease-out, chestHaulFade 700ms ease-in 2.8s forwards;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+}
+.chest-haul-row .ch-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chest-haul-row .ch-val  { color: var(--good); font-weight: 800; flex-shrink: 0; }
+.chest-haul-row.rarity-rare   { color: var(--accent); border-left-color: var(--accent); }
+.chest-haul-row.rarity-epic   { color: #c79bff;       border-left-color: #c79bff; }
+.chest-haul-row.rarity-legend { color: var(--gold);   border-left-color: var(--gold); box-shadow: 0 0 14px rgba(255, 204, 102, 0.45); }
+@keyframes chestHaulIn {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes chestHaulFade {
+  to { opacity: 0; }
+}
