@@ -806,12 +806,19 @@ function spawnLootFx(item) {
 
 // Pool the rare-banner and screen-flash elements: keep one of each in the DOM
 // and just restart their CSS animation on each trigger. This keeps the dopamine
-// pulse on every pick (especially during Treasure Map) without churning the
-// DOM or stacking compositor layers, which was the late-game lag.
+// pulse on rare-ish picks without churning the DOM or stacking compositor
+// layers. Per-element throttle prevents strobing during chains of picks.
 let _pooledRareBanner = null;
 let _pooledScreenFlash = null;
+let _lastBannerAt = 0;
+let _lastFlashAt  = 0;
+const BANNER_THROTTLE_MS = 2000;
+const FLASH_THROTTLE_MS  = 1200;
 
 function spawnRareBanner(item) {
+  const now = performance.now();
+  if (now - _lastBannerAt < BANNER_THROTTLE_MS) return;
+  _lastBannerAt = now;
   const ocean = $("ocean");
   if (!ocean) return;
   if (!_pooledRareBanner || !_pooledRareBanner.isConnected) {
@@ -832,6 +839,9 @@ function spawnRareBanner(item) {
 }
 
 function flashScreen(rarity) {
+  const now = performance.now();
+  if (now - _lastFlashAt < FLASH_THROTTLE_MS) return;
+  _lastFlashAt = now;
   const ocean = $("ocean");
   if (!ocean) return;
   if (!_pooledScreenFlash || !_pooledScreenFlash.isConnected) {
