@@ -556,8 +556,11 @@ button { font-family: inherit; }
   text-align: center;
   font-weight: 800;
   text-shadow: 0 0 12px currentColor, 0 2px 4px rgba(0,0,0,0.8);
-  animation: rareBanner 2s ease-out forwards;
+  opacity: 0;
+  will-change: opacity, transform;
 }
+.rare-banner.playing { animation: rareBanner 2s ease-out forwards; }
+.rare-banner:not(.pooled):not(.playing) { animation: rareBanner 2s ease-out forwards; opacity: 1; }
 .rare-banner .tier { display: block; font-size: 11px; letter-spacing: 4px; }
 .rare-banner .name { display: block; font-size: 22px; }
 .rare-banner.rarity-rare   { color: var(--accent); }
@@ -577,11 +580,13 @@ button { font-family: inherit; }
   inset: 0;
   pointer-events: none;
   z-index: 10;
-  animation: flash 0.6s ease-out forwards;
+  opacity: 0;
+  will-change: opacity;
 }
-.flash-rare   { background: radial-gradient(circle, rgba(79,208,255,0.45), transparent 60%); }
-.flash-epic   { background: radial-gradient(circle, rgba(199,155,255,0.55), transparent 60%); }
-.flash-legend { background: radial-gradient(circle, rgba(255,204,102,0.7), transparent 60%); }
+.screen-flash.playing { animation: flash 0.5s ease-out forwards; }
+.flash-rare   { background: radial-gradient(circle, rgba(79,208,255,0.4),  transparent 50%); }
+.flash-epic   { background: radial-gradient(circle, rgba(199,155,255,0.5), transparent 50%); }
+.flash-legend { background: radial-gradient(circle, rgba(255,204,102,0.6), transparent 50%); }
 @keyframes flash {
   0%   { opacity: 0; }
   20%  { opacity: 1; }

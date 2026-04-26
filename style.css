@@ -1294,8 +1294,12 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   z-index: 11;
   text-align: center;
   white-space: nowrap;
-  animation: rareBanner 2s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+  opacity: 0;
+  will-change: opacity, transform;
 }
+.rare-banner.playing { animation: rareBanner 2s cubic-bezier(0.2, 0.7, 0.4, 1) forwards; }
+/* Legacy non-pooled banners (if any) still auto-animate. */
+.rare-banner:not(.pooled):not(.playing) { animation: rareBanner 2s cubic-bezier(0.2, 0.7, 0.4, 1) forwards; opacity: 1; }
 .rare-banner .tier {
   font-size: 13px;
   font-weight: 700;
@@ -1335,10 +1339,13 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   inset: 0;
   pointer-events: none;
   z-index: 8;
-  animation: screenFlash 600ms ease-out forwards;
+  opacity: 0;
+  will-change: opacity;
 }
-.screen-flash.flash-epic   { background: radial-gradient(circle at center, rgba(199,155,255,0.45) 0%, transparent 70%); }
-.screen-flash.flash-legend { background: radial-gradient(circle at center, rgba(255,204,102,0.6)  0%, transparent 70%); }
+.screen-flash.playing { animation: screenFlash 500ms ease-out forwards; }
+/* Tighter radial = smaller area to repaint = cheaper compositing. */
+.screen-flash.flash-epic   { background: radial-gradient(circle at center, rgba(199,155,255,0.42) 0%, transparent 55%); }
+.screen-flash.flash-legend { background: radial-gradient(circle at center, rgba(255,204,102,0.55) 0%, transparent 55%); }
 @keyframes screenFlash {
   0%   { opacity: 0; }
   20%  { opacity: 1; }
