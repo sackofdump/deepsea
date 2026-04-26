@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#05101a" />
+<title>Deep Sea Salvage</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="apple-touch-icon" href="favicon.svg" />
+<link rel="manifest" href="manifest.json" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="top-row">
+      <div class="cash-wrap">
+        <div class="cash">$<span id="cash">0</span></div>
+        <div class="prestige-badge" id="prestigeBadge"></div>
+      </div>
+      <div id="chestTray" class="chest-tray"></div>
+    </div>
+    <div class="level-row">
+      <div class="level-label">
+        Lv <span id="headerLevel">1</span> · <span id="headerBiome">Sunlit Reef</span>
+      </div>
+      <div class="level-meta">
+        <span id="levelMoney">0</span> / <span id="levelMoneyMax">100</span> XP
+      </div>
+    </div>
+    <div class="bar"><div class="bar-fill bar-fill-level" id="levelBar"></div></div>
+    <div class="next-biome-info" id="nextBiomeInfo">10 levels to Twilight Wreck</div>
+  </header>
+
+  <main id="ocean">
+    <div id="surface"></div>
+    <div id="water">
+      <div id="sub">
+        <div class="sub-light"></div>
+        <div class="sub-fin"></div>
+        <div class="sub-prop"></div>
+        <div class="sub-body">
+          <div class="sub-window"></div>
+          <div class="sub-stripe"></div>
+        </div>
+      </div>
+    </div>
+    <div id="depthMarkers"></div>
+
+    <div id="slotMachine" class="slot-machine" data-state="idle">
+      <div class="slot-title">🎰 CHANCE AT BONUS</div>
+      <div class="slot-reels">
+        <div class="slot-reel" id="slotReel0"><div class="slot-strip">🌊</div></div>
+        <div class="slot-reel" id="slotReel1"><div class="slot-strip">🧜</div></div>
+        <div class="slot-reel" id="slotReel2"><div class="slot-strip">🗺</div></div>
+      </div>
+      <div class="slot-status">Next spin in 15s</div>
+    </div>
+
+    <div id="log"></div>
+
+    <button id="boostBtn" class="boost-btn" title="Boost">
+      <span class="boost-label">⚡ BOOST</span>
+      <span class="boost-sub">tap</span>
+      <span class="boost-cooldown" id="boostCooldown"></span>
+    </button>
+  </main>
+
+  <section id="bottomSheet">
+    <div class="sheet-content">
+
+      <div class="tab-pane active" data-tab="sub">
+        <div class="card">
+          <h3>🤿 Submersible</h3>
+          <div class="stat"><span>Status</span><span id="status">Surface</span></div>
+          <div class="stat"><span>Depth</span><span><span id="depth">0</span> / <span id="maxDepth">50</span> m</span></div>
+          <div class="stat"><span>Cargo</span><span><span id="cargo">0</span> / <span id="cargoMax">4</span> kg</span></div>
+          <div class="bar"><div class="bar-fill" id="cargoBar"></div></div>
+        </div>
+
+        <div class="card">
+          <h3>🎒 On Deck</h3>
+          <div id="activeEffect" class="active-effect empty"></div>
+          <ul id="currentCargo" class="cargo-list"><li class="muted">Empty</li></ul>
+        </div>
+
+        <div class="card">
+          <h3>📜 Last Run</h3>
+          <ul id="lastHaul"><li class="muted">Nothing yet.</li></ul>
+        </div>
+      </div>
+
+      <div class="tab-pane" data-tab="outfit">
+        <div class="card">
+          <h3>🔧 Outfitting</h3>
+          <div id="upgrades"></div>
+        </div>
+
+        <div class="card" id="prestigePanel">
+          <h3>⚓ Promotion</h3>
+          <div class="stat"><span>Rank</span><span id="subTier">Deckhand</span></div>
+          <div class="stat"><span>Picks / dive</span><span id="prestigePicks">8</span></div>
+          <div class="stat"><span>Loot worth</span><span id="prestigeMult">+0%</span></div>
+          <div class="stat"><span>Pearls banked</span><span id="prestigePearls">0</span></div>
+          <div class="stat"><span>Pending pearls</span><span id="prestigePending">0</span></div>
+          <div class="stat"><span>Next rank</span><span id="nextTierInfo">Salvager @ Lv 10</span></div>
+          <button id="prestigeBtn" class="prestige-btn" disabled>Upgrade Sub</button>
+          <div class="muted prestige-hint">Each rank: +1 pickup / dive. Pearls give +0.5% loot value forever — bank more by pushing further before promoting.</div>
+        </div>
+      </div>
+
+      <div class="tab-pane" data-tab="honors">
+        <div class="card">
+          <h3>🏆 Honors <span class="muted" id="achCount">0/0</span></h3>
+          <div id="achievements" class="achievement-list"></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" data-tab="codex">
+        <div class="card">
+          <h3>📖 Field Journal <span class="muted" id="codexCount">0/0</span></h3>
+          <div id="codex" class="codex-grid"></div>
+        </div>
+
+        <div class="card">
+          <h3>📊 Captain's Log</h3>
+          <div class="stat"><span>Total earned</span><span>$<span id="lifeEarned">0</span></span></div>
+          <div class="stat"><span>Items found</span><span id="lifeItems">0</span></div>
+          <div class="stat"><span>Dives</span><span id="lifeDives">0</span></div>
+          <div class="stat"><span>Boosts used</span><span id="lifeBoosts">0</span></div>
+          <div class="stat"><span>Rare+ finds</span><span id="lifeRare">0</span></div>
+          <div class="stat"><span>Slot wins</span><span id="lifeBonus">0</span></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" data-tab="more">
+        <div class="card">
+          <h3>⚙ Options</h3>
+          <button id="howToBtn" class="ghost block">How to Play</button>
+          <button id="resetBtn" class="ghost block danger">Reset Save</button>
+        </div>
+        <div class="card">
+          <h3>🛠 Admin</h3>
+          <button id="adminLvlBtn" class="ghost block">+10 Lv</button>
+          <button id="adminCashBtn" class="ghost block">+$1M</button>
+          <button id="adminBoostBtn" class="ghost block">Boost: OFF</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <nav id="tabbar">
+    <button class="tab-btn active" data-tab="sub" aria-label="Submersible">
+      <span class="tab-icon">🤿</span><span class="tab-label">Sub</span>
+    </button>
+    <button class="tab-btn" data-tab="outfit" aria-label="Outfitting">
+      <span class="tab-icon">🔧</span><span class="tab-label">Outfit</span>
+    </button>
+    <button class="tab-btn" data-tab="honors" aria-label="Honors">
+      <span class="tab-icon">🏆</span><span class="tab-label">Honors</span>
+    </button>
+    <button class="tab-btn" data-tab="codex" aria-label="Codex">
+      <span class="tab-icon">📖</span><span class="tab-label">Codex</span>
+    </button>
+    <button class="tab-btn" data-tab="more" aria-label="More">
+      <span class="tab-icon">⚙</span><span class="tab-label">More</span>
+    </button>
+  </nav>
+
+</div>
+
+<div id="howToOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal">
+    <button class="howto-close" id="howToClose" aria-label="Close">×</button>
+    <h2>🤿 How to Play</h2>
+    <div class="howto-body">
+      <section>
+        <h3>🌊 Dive cycle</h3>
+        <p>Your sub auto-dives, collects loot, and surfaces to sell. You don't pilot it — you upgrade it.</p>
+      </section>
+      <section>
+        <h3>⚡ Boost</h3>
+        <p>Tap the boost button for +200% speed and pickup rate. Tap again while active to add +1 second, up to a 10s cap. Cooldown starts after it ends.</p>
+      </section>
+      <section>
+        <h3>🔧 Outfitting</h3>
+        <p>Spend cash to upgrade Hull, Thrusters, Cargo, Sonar, and Appraiser. Levels reset on Promotion.</p>
+      </section>
+      <section>
+        <h3>🎒 On Deck &amp; encounters</h3>
+        <p>Items collected this dive show in the Sub tab. Bonus encounters (<strong>Lucky Current</strong>, <strong>Mermaid's Kiss</strong>, <strong>Treasure Map</strong>) come from the Salvage Slot. Dives can still roll a <strong>Shark Attack</strong> hazard (50% speed, 5s).</p>
+      </section>
+      <section>
+        <h3>🎰 Salvage Slot</h3>
+        <p>The slot in the corner auto-pulls every 15s. Each match triggers a bonus — 🌊 Lucky Current (2× cargo), 🧜 Mermaid's Kiss (2× value), 🗺 Treasure Map (legendary picks), 🌟 Jackpot (all three for 30s).</p>
+      </section>
+      <section>
+        <h3>📦 Treasure chests</h3>
+        <p>Bronze/Silver/Gold chests spawn occasionally. Tap to add to your tray (next to the cash). Tap a tray chest to open — multi-item rolls biased toward higher rarity.</p>
+      </section>
+      <section>
+        <h3>⚓ Promotion &amp; pearls</h3>
+        <p>Hit a tier's level threshold (every 10 levels) to promote. Promotion banks <strong>pearls</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each pearl is +0.5% loot value, forever.</p>
+      </section>
+      <section>
+        <h3>🏆 Honors</h3>
+        <p>Achievements unlock as you play but aren't free — open the Honors tab and tap each one to claim its cash reward.</p>
+      </section>
+      <section>
+        <h3>📖 Field Journal</h3>
+        <p>Tracks every unique item you've ever salvaged. Empty slots are still out there.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="game.js?v=1"></script>
+</body>
+</html>

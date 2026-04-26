@@ -1,0 +1,19 @@
+{
+  "name": "Deep Sea Salvage",
+  "short_name": "DeepSea",
+  "description": "Auto-dive, salvage, upgrade, promote — an idle deep-sea loot game.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05101a",
+  "theme_color": "#05101a",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
