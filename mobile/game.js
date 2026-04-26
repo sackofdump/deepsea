@@ -321,7 +321,7 @@ function biomeIndex(level) {
 
 // ----- Encounters -----------------------------------------------
 function valueEncounterMult()      { return Date.now() < (state.encounterValueUntil     || 0) ? 2 : 1; }
-function cargoEncounterMult()      { return state.cargoBoostThisDive ? 2 : 1; }
+function cargoEncounterMult()      { return Date.now() < (state.encounterCargoUntil     || 0) ? 2 : 1; }
 function legendaryEncounterActive(){ return Date.now() < (state.encounterLegendaryUntil || 0); }
 
 // Every encounter (good or bad) now comes from the Salvage Slot — no more
@@ -666,11 +666,6 @@ function tick(dtSec) {
     sub.depth = 0;
     sub.cargoKg = 0;
     sub.cargoItems = [];
-    // Consume a queued Lucky Current so this dive runs at 2× cargo.
-    if (state.cargoBoostNextDive) {
-      state.cargoBoostThisDive = true;
-      state.cargoBoostNextDive = false;
-    }
     // Wipe last dive's pinned loot rows so this dive starts with a clean log.
     if (!suppressFx) clearDiveLoot();
     // All encounters (good and bad) come from the Salvage Slot — no per-dive
@@ -685,9 +680,10 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax * cargoEncounterMult();
     // Loot collection — slow base rate, scaled by sonar.
-    // During Treasure Map, enforce a minimum delay so the celebration of each
-    // forced-legendary pick has time to land instead of dumping in <1s.
-    const minInterval = legendaryEncounterActive() ? 0.5 : 0;
+    // During Treasure Map, enforce a small floor so the celebration of each
+    // forced-legendary pick has time to land — kept tight so a 30s map yields
+    // a lot of legendaries.
+    const minInterval = legendaryEncounterActive() ? 0.3 : 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0) {
       lootCooldown += Math.max(LOOT_INTERVAL_BASE / sonar, minInterval);
@@ -921,8 +917,6 @@ function sellCargo(s) {
   state.totalEarned += total;
   state.totalDives += 1;
   state.divesSinceLegendary = gotLegendary ? 0 : state.divesSinceLegendary + 1;
-  // Lucky Current is consumed when the dive completes.
-  state.cargoBoostThisDive = false;
   state.lastHaul = Object.entries(summary).map(([name, v]) => ({
     name, count: v.count, value: v.value, rarity: v.rarity, icon: v.icon,
   }));
@@ -1297,20 +1291,13 @@ const SLOT_OUTCOMES = [
   { tier: "major",   weight: 4,  pick: () => ["🗺", "🗺", "🗺"] },
   { tier: "jackpot", weight: 2,  pick: () => ["🌟", "🌟", "🌟"] },
 ];
-function applyCargoBoost() {
-  // Boost the rest of the current dive (if descending) AND queue the next dive,
-  // so the player always feels the impact without losing it to a 15s timer.
-  state.cargoBoostThisDive = true;
-  state.cargoBoostNextDive = true;
-}
-
 const SLOT_BONUSES = {
-  shark:   { icon: "🦈", name: "Shark Attack!", desc: "Speed cut for 5s!",        duration: 5000,  kind: "hazard", apply: (now, d) => { state.sharkSlowUntil = now + d; } },
-  mini:    { icon: "🌊", name: "Lucky Current",  desc: "2× cargo for a full dive.",duration: 0,     apply: () => { applyCargoBoost(); } },
-  minor:   { icon: "🧜", name: "Mermaid's Kiss", desc: "2× value for 15s.",        duration: 15000, apply: (now, d) => { state.encounterValueUntil     = now + d; } },
-  major:   { icon: "🗺", name: "Treasure Map",   desc: "Legendary picks for 15s!", duration: 15000, apply: (now, d) => { state.encounterLegendaryUntil = now + d; } },
-  jackpot: { icon: "🎰", name: "JACKPOT",        desc: "All bonuses · 30s + dive!",duration: 30000, apply: (now, d) => {
-    applyCargoBoost();
+  shark:   { icon: "🦈", name: "Shark Attack!", desc: "Speed cut for 5s!",       duration: 5000,  kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
+  mini:    { icon: "🌊", name: "Lucky Current",  desc: "2× cargo for 15s.",       duration: 15000, apply: (now, d) => { state.encounterCargoUntil     = now + d; } },
+  minor:   { icon: "🧜", name: "Mermaid's Kiss", desc: "2× value for 15s.",       duration: 15000, apply: (now, d) => { state.encounterValueUntil     = now + d; } },
+  major:   { icon: "🗺", name: "Treasure Map",   desc: "Legendary picks for 30s!",duration: 30000, apply: (now, d) => { state.encounterLegendaryUntil = now + d; } },
+  jackpot: { icon: "🎰", name: "JACKPOT",        desc: "All bonuses · 30s!",      duration: 30000, apply: (now, d) => {
+    state.encounterCargoUntil     = now + d;
     state.encounterValueUntil     = now + d;
     state.encounterLegendaryUntil = now + d;
   } },
@@ -1533,21 +1520,18 @@ function renderActiveEffect() {
   let text = "", cls = "", tip = "";
   const legUntil  = state.encounterLegendaryUntil || 0;
   const valUntil  = state.encounterValueUntil     || 0;
-  const cargoDives = (state.cargoBoostThisDive ? 1 : 0) + (state.cargoBoostNextDive ? 1 : 0);
-  const timerChoices = [
-    { until: legUntil, cls: "eff-map",  fmt: (s) => [`🗺  TREASURE MAP — Legendary picks · ${s}s`,  `Treasure Map\n\nEvery item collected is forced to the highest-rarity tier available in this biome. Lasts ${s}s.`] },
-    { until: valUntil, cls: "eff-kiss", fmt: (s) => [`🧜  MERMAID'S KISS — 2× value · ${s}s`,        `Mermaid's Kiss\n\nEvery item sells for 2× while active. Stacks with Appraiser and Pearls. Lasts ${s}s.`] },
+  const cargUntil = state.encounterCargoUntil     || 0;
+  const choices = [
+    { until: legUntil,  cls: "eff-map",     fmt: (s) => [`🗺  TREASURE MAP — Legendary picks · ${s}s`,  `Treasure Map\n\nEvery item collected is forced to the highest-rarity tier available in this biome. Lasts ${s}s.`] },
+    { until: valUntil,  cls: "eff-kiss",    fmt: (s) => [`🧜  MERMAID'S KISS — 2× value · ${s}s`,        `Mermaid's Kiss\n\nEvery item sells for 2× while active. Stacks with Appraiser and Pearls. Lasts ${s}s.`] },
+    { until: cargUntil, cls: "eff-current", fmt: (s) => [`🌊  LUCKY CURRENT — 2× cargo · ${s}s`,         `Lucky Current\n\nCargo capacity is 2× while active. Lasts ${s}s.`] },
   ].filter(c => c.until > now);
-  if (timerChoices.length > 0) {
-    timerChoices.sort((a, b) => b.until - a.until);
-    const top = timerChoices[0];
+  if (choices.length > 0) {
+    choices.sort((a, b) => b.until - a.until);
+    const top = choices[0];
     const remaining = Math.max(1, Math.ceil((top.until - now) / 1000));
     [text, tip] = top.fmt(remaining);
     cls = top.cls;
-  } else if (cargoDives > 0) {
-    text = `🌊  LUCKY CURRENT — 2× cargo · ${cargoDives} dive${cargoDives > 1 ? "s" : ""}`;
-    tip = `Lucky Current\n\nThe sub's cargo capacity is doubled for the entire next ${cargoDives === 1 ? "dive" : `${cargoDives} dives`}.`;
-    cls = "eff-current";
   }
   if (text) {
     el.className = `active-effect ${cls}`;
