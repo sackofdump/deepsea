@@ -1,5 +1,5 @@
 // Bumping this string invalidates older caches when assets change.
-const CACHE = "deepsea-mobile-v19";
+const CACHE = "deepsea-mobile-v20";
 const ASSETS = [
   "./",
   "index.html",

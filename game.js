@@ -736,7 +736,11 @@ function creditItem(item, s) {
   // The item's value is granted as XP immediately (the level bar fills as you
   // collect) and returned for the eventual cash credit at the surface.
   const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
-  const v = Math.ceil(item.value * valueMult);
+  // Treasure Map is the jackpot encounter — every forced-legendary pick is
+  // worth 10× on top of all other multipliers, so a TM dive crushes a normal
+  // dive's value, not the other way around.
+  const treasureMult = legendaryEncounterActive() ? 10 : 1;
+  const v = Math.ceil(item.value * valueMult * treasureMult);
   state.xp += v;
   checkLevelUp();
   return v;
@@ -1335,7 +1339,7 @@ const SLOT_OUTCOMES = [
   { tier: "jackpot", weight: 2,  pick: () => ["🌟", "🌟", "🌟"] },
 ];
 const SLOT_BONUSES = {
-  shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 15s!",       duration: 15000, kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
+  shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",       duration: 10000, kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
   mini:    { icon: "🌊", name: "Lucky Current",  desc: "2× cargo for 15s.",       duration: 15000, apply: (now, d) => { state.encounterCargoUntil     = now + d; } },
   minor:   { icon: "🧜", name: "Mermaid's Kiss", desc: "2× value for 15s.",       duration: 15000, apply: (now, d) => { state.encounterValueUntil     = now + d; } },
   major:   { icon: "🗺", name: "Treasure Map",   desc: "Legendary picks for 30s!",duration: 30000, apply: (now, d) => { state.encounterLegendaryUntil = now + d; } },
