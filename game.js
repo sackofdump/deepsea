@@ -666,6 +666,8 @@ function tick(dtSec) {
     sub.depth = 0;
     sub.cargoKg = 0;
     sub.cargoItems = [];
+    // Wipe last dive's pinned loot rows so this dive starts with a clean log.
+    if (!suppressFx) clearDiveLoot();
     // All encounters (good and bad) come from the Salvage Slot — no per-dive
     // roll here anymore.
   }
@@ -1780,7 +1782,19 @@ function refreshUI() {
 const LOG_LIFETIME_MS = 5000;
 const LOG_FADE_MS = 2000;
 
+const LOG_COLORS = {
+  good:     "var(--good)",
+  bad:      "var(--bad)",
+  common:   "#b8c6d2",
+  uncommon: "var(--good)",
+  rare:     "var(--accent)",
+  epic:     "#c79bff",
+  legend:   "var(--gold)",
+};
+const LOOT_RARITY_KINDS = new Set(["common", "uncommon", "rare", "epic", "legend"]);
 let _lastLogLine = null;
+const _diveLootLines = new Map(); // key: msg, value: pinned line element
+
 function _scheduleLogDeath(line) {
   if (line._deathTimer) clearTimeout(line._deathTimer);
   line._deathTimer = setTimeout(() => {
@@ -1791,45 +1805,72 @@ function _scheduleLogDeath(line) {
   }, LOG_LIFETIME_MS);
 }
 
+function clearDiveLoot() {
+  for (const [, line] of _diveLootLines) {
+    if (line.parentNode) line.remove();
+  }
+  _diveLootLines.clear();
+}
+
+function _bumpLine(line, msg, count) {
+  line.dataset.count = String(count);
+  line.textContent = count > 1 ? `${msg} ×${count}` : msg;
+  line.classList.remove("bumped");
+  void line.offsetWidth;
+  line.classList.add("bumped");
+}
+
 function log(msg, kind) {
   const root = $("log");
+  if (!root) return;
   const k = kind || "";
-  // Stack onto the previous line if it's the same and still alive.
+
+  // Loot rows pin for the whole dive — stack any repeats by msg even if other
+  // log lines come in between. clearDiveLoot() wipes them at the next dive.
+  if (LOOT_RARITY_KINDS.has(k)) {
+    const existing = _diveLootLines.get(msg);
+    if (existing && existing.parentNode === root) {
+      _bumpLine(existing, msg, (parseInt(existing.dataset.count, 10) || 1) + 1);
+      return;
+    }
+    const line = document.createElement("div");
+    line.className = "log-line dive-loot";
+    if (LOG_COLORS[k]) line.style.borderColor = LOG_COLORS[k];
+    if (k === "legend") line.style.boxShadow = "0 0 10px rgba(255,200,80,0.4)";
+    line.textContent = msg;
+    line.dataset.msg = msg;
+    line.dataset.kind = k;
+    line.dataset.count = "1";
+    root.prepend(line);
+    _diveLootLines.set(msg, line);
+    while (root.childElementCount > 12) root.lastChild.remove();
+    _lastLogLine = line;
+    return;
+  }
+
+  // Non-loot lines: collapse only if the previous line (still alive) matches.
   if (
     _lastLogLine && _lastLogLine.parentNode === root &&
     !_lastLogLine.classList.contains("fading") &&
+    !_lastLogLine.classList.contains("dive-loot") &&
     _lastLogLine.dataset.msg === msg && _lastLogLine.dataset.kind === k
   ) {
-    const count = (parseInt(_lastLogLine.dataset.count, 10) || 1) + 1;
-    _lastLogLine.dataset.count = String(count);
-    _lastLogLine.textContent = `${msg} ×${count}`;
-    _lastLogLine.classList.remove("bumped");
-    void _lastLogLine.offsetWidth;
-    _lastLogLine.classList.add("bumped");
+    _bumpLine(_lastLogLine, msg, (parseInt(_lastLogLine.dataset.count, 10) || 1) + 1);
     _scheduleLogDeath(_lastLogLine);
     return;
   }
 
   const line = document.createElement("div");
   line.className = "log-line";
-  const colors = {
-    good:     "var(--good)",
-    bad:      "var(--bad)",
-    common:   "#b8c6d2",
-    uncommon: "var(--good)",
-    rare:     "var(--accent)",
-    epic:     "#c79bff",
-    legend:   "var(--gold)",
-  };
-  if (colors[kind]) line.style.borderColor = colors[kind];
-  if (kind === "legend") line.style.boxShadow = "0 0 10px rgba(255,200,80,0.4)";
+  if (LOG_COLORS[k]) line.style.borderColor = LOG_COLORS[k];
+  if (k === "legend") line.style.boxShadow = "0 0 10px rgba(255,200,80,0.4)";
   line.textContent = msg;
   line.dataset.msg = msg;
   line.dataset.kind = k;
   line.dataset.count = "1";
   root.prepend(line);
   _scheduleLogDeath(line);
-  while (root.childElementCount > 10) root.lastChild.remove();
+  while (root.childElementCount > 12) root.lastChild.remove();
   _lastLogLine = line;
 }
 
