@@ -1319,7 +1319,7 @@ function finishSpin(outcome, symbols) {
   }, 4000);
 }
 
-const SLOT_INTERVAL_MS = 30000;
+const SLOT_INTERVAL_MS = 15000;
 let nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
 
 function scheduleSlot() {
