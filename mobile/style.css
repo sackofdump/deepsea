@@ -489,6 +489,12 @@ button { font-family: inherit; }
   animation: slotShake 0.35s ease-in-out 4;
 }
 .slot-machine.win-jackpot .slot-status { color: var(--gold); }
+.slot-machine.win-shark {
+  border-color: var(--bad);
+  box-shadow: 0 0 22px rgba(255, 122, 122, 0.55), 0 4px 14px rgba(0, 0, 0, 0.55);
+  animation: slotShake 0.35s ease-in-out 2;
+}
+.slot-machine.win-shark .slot-status { color: var(--bad); }
 .slot-machine.lose .slot-status { color: rgba(255, 255, 255, 0.45); }
 @keyframes slotShake {
   0%, 100% { transform: translateX(0); }

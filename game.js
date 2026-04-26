@@ -309,21 +309,8 @@ function valueEncounterMult()      { return Date.now() < (state.encounterValueUn
 function cargoEncounterMult()      { return Date.now() < (state.encounterCargoUntil     || 0) ? 2 : 1; }
 function legendaryEncounterActive(){ return Date.now() < (state.encounterLegendaryUntil || 0); }
 
-// Bonuses come from the Salvage Slot now; the per-dive roll only handles the
-// Shark hazard so dives can still occasionally feel dangerous.
-const SHARK_HAZARD = {
-  icon: "🦈", name: "Shark Attack!",
-  desc: "A shark is chasing you — speed cut for 5s!",
-  kind: "hazard",
-};
-
-function maybeTriggerHazard() {
-  if (Math.random() >= 0.08) return; // ~8% per dive
-  state.sharkSlowUntil = Date.now() + 5000;
-  if (!suppressFx) showEncounterBanner(SHARK_HAZARD);
-  log(`${SHARK_HAZARD.icon} ${SHARK_HAZARD.name} — ${SHARK_HAZARD.desc}`, "bad");
-}
-
+// Every encounter (good or bad) now comes from the Salvage Slot — no more
+// per-dive random rolls.
 function showEncounterBanner(e) {
   const ocean = $("ocean");
   if (!ocean) return;
@@ -652,9 +639,8 @@ function tick(dtSec) {
     sub.cargoKg = 0;
     sub.cargoItems = [];
     sub.picksThisDive = 0;
-    // Bonus encounters now come from the Salvage Slot; only the shark hazard
-    // still rolls on dive start.
-    if (!suppressFx) maybeTriggerHazard();
+    // All encounters (good and bad) come from the Salvage Slot — no per-dive
+    // roll here anymore.
   }
 
   if (sub.mode === "descending") {
@@ -1243,16 +1229,18 @@ function biomeAvgValue(biomeName) {
 // ----- Salvage Slot (side feature) ------------------------------
 // The slot is the ONLY source of bonus encounters now. Each match triggers a
 // specific buff; jackpot stacks all three with a longer duration.
-// Reel faces are the icons of the bonuses they grant.
-const SLOT_SYMBOLS = ["🌊", "🧜", "🗺", "🌟"];
+// Reel faces are the icons of the bonuses they grant. 🦈 is the lone hazard.
+const SLOT_SYMBOLS = ["🦈", "🌊", "🧜", "🗺", "🌟"];
 const SLOT_OUTCOMES = [
-  { tier: "none",    weight: 70, pick: () => slotNonMatch() },
-  { tier: "mini",    weight: 16, pick: () => ["🌊", "🌊", "🌊"] },
-  { tier: "minor",   weight: 10, pick: () => ["🧜", "🧜", "🧜"] },
-  { tier: "major",   weight: 3,  pick: () => ["🗺", "🗺", "🗺"] },
-  { tier: "jackpot", weight: 1,  pick: () => ["🌟", "🌟", "🌟"] },
+  { tier: "none",    weight: 56, pick: () => slotNonMatch() },
+  { tier: "shark",   weight: 8,  pick: () => ["🦈", "🦈", "🦈"] },
+  { tier: "mini",    weight: 18, pick: () => ["🌊", "🌊", "🌊"] },
+  { tier: "minor",   weight: 12, pick: () => ["🧜", "🧜", "🧜"] },
+  { tier: "major",   weight: 4,  pick: () => ["🗺", "🗺", "🗺"] },
+  { tier: "jackpot", weight: 2,  pick: () => ["🌟", "🌟", "🌟"] },
 ];
 const SLOT_BONUSES = {
+  shark:   { icon: "🦈", name: "Shark Attack!", desc: "Speed cut for 5s!",       duration: 5000,  kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
   mini:    { icon: "🌊", name: "Lucky Current",  desc: "2× cargo for 15s.",       duration: 15000, apply: (now, d) => { state.encounterCargoUntil     = now + d; } },
   minor:   { icon: "🧜", name: "Mermaid's Kiss", desc: "2× value for 15s.",       duration: 15000, apply: (now, d) => { state.encounterValueUntil     = now + d; } },
   major:   { icon: "🗺", name: "Treasure Map",   desc: "Legendary picks for 15s!",duration: 15000, apply: (now, d) => { state.encounterLegendaryUntil = now + d; } },
@@ -1330,12 +1318,15 @@ function finishSpin(outcome, symbols) {
   if (bonus) {
     const now = Date.now();
     bonus.apply(now, bonus.duration);
-    state.bonusCollected = (state.bonusCollected || 0) + 1;
-    if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0 };
+    const isHazard = bonus.kind === "hazard";
+    // Don't count hazards toward the "slot wins" achievements counter.
+    if (!isHazard) state.bonusCollected = (state.bonusCollected || 0) + 1;
+    if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0, shark: 0 };
     state.slotHits[outcome.tier] = (state.slotHits[outcome.tier] || 0) + 1;
     slot.classList.add("win", `win-${outcome.tier}`);
     if (status) status.textContent = `${bonus.icon} ${bonus.name}`;
-    log(`🎰 ${symbols.join(" ")} → ${bonus.icon} ${bonus.name} — ${bonus.desc}`, outcome.tier === "jackpot" ? "legend" : "good");
+    const logKind = isHazard ? "bad" : (outcome.tier === "jackpot" ? "legend" : "good");
+    log(`🎰 ${symbols.join(" ")} → ${bonus.icon} ${bonus.name} — ${bonus.desc}`, logKind);
     if (!suppressFx) showEncounterBanner(bonus);
     if (outcome.tier === "major" || outcome.tier === "jackpot") {
       flashScreen(outcome.tier === "jackpot" ? "legend" : "epic");
@@ -1347,7 +1338,7 @@ function finishSpin(outcome, symbols) {
   }
 
   setTimeout(() => {
-    slot.classList.remove("win", "lose", "win-mini", "win-minor", "win-major", "win-jackpot");
+    slot.classList.remove("win", "lose", "win-mini", "win-minor", "win-major", "win-jackpot", "win-shark");
     // Countdown text is restored by updateSlotCountdown on the next refresh.
   }, 4000);
 }
