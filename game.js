@@ -2353,7 +2353,9 @@ const LB_METRICS = [
   { id: "pearls",         label: "Pearls",   fmt: (n) => fmt(Number(n) || 0) + " 🔮" },
   { id: "total_dives",    label: "Dives",    fmt: (n) => fmt(Number(n) || 0) },
 ];
-let lbCurrentMetric = "total_earned";
+// Pick the first .active tab as the initial metric so each page can choose
+// its own default (Spring Bloom defaults to pollen; main game to cash).
+let lbCurrentMetric = (typeof document !== "undefined" && document.querySelector(".lb-tab.active")?.dataset.metric) || "total_earned";
 let lbLastSyncSig = "";
 
 function escapeHtml(s) {

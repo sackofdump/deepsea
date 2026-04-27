@@ -1735,19 +1735,19 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   bottom: 156px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   z-index: 10;
 }
 .chest-tray:empty { display: none; }
 .chest-btn {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 56px;
+  height: 56px;
   padding: 0;
-  border: 1px solid currentColor;
-  border-radius: 7px;
+  border: 2px solid currentColor;
+  border-radius: 10px;
   background: rgba(255,255,255,0.04);
-  font-size: 22px;
+  font-size: 34px;
   line-height: 1;
   cursor: pointer;
   display: inline-flex;
@@ -2167,7 +2167,7 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   .boost-hint { width: 112px; bottom: 84px; }
   .boost-label { font-size: 13px; }
   .chest-tray { bottom: 132px; left: 14px; }
-  .chest-haul { bottom: 180px; width: 220px; left: 14px; }
+  .chest-haul { bottom: 200px; width: 220px; left: 14px; }
   .chest-haul-row { font-size: 13px; padding: 7px 10px; }
   .chest-haul:has(.chest-haul-row)::after { left: 14px; }
 }
@@ -2310,8 +2310,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 .chest-haul {
   position: absolute;
   left: 20px;
-  /* Bottom = chest-tray bottom (156) + chest height (36) + arrow gap (12). */
-  bottom: 204px;
+  /* Bottom = chest-tray bottom (156) + chest height (56) + arrow gap (12). */
+  bottom: 224px;
   top: 130px;
   width: 280px;
   display: flex;
