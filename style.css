@@ -335,6 +335,10 @@ html, body {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+  /* Rapid clicks were selecting the price text — disable selection on the
+     whole button so spam-buying doesn't highlight anything. */
+  user-select: none;
+  -webkit-user-select: none;
   transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
 }
 .upgrade:hover:not(:disabled) {
