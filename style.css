@@ -2097,6 +2097,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   .boost-btn { width: 112px; height: 64px; }
   .boost-hint { width: 112px; bottom: 84px; }
   .boost-label { font-size: 13px; }
+  .chest-haul { bottom: 132px; width: 220px; }
+  .chest-haul-row { font-size: 13px; padding: 7px 10px; }
 }
 
 /* Haul totals -------------------------------------------------- */
@@ -2234,25 +2236,27 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   position: absolute;
   left: 20px;
   top: 130px;
-  bottom: 110px;
-  width: 230px;
+  /* Sit above the boost hint (bottom: 108px, ~32px tall) with breathing room. */
+  bottom: 156px;
+  width: 280px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 6px;
   pointer-events: none;
   z-index: 9;
   overflow: hidden;
 }
 .chest-haul-row {
-  background: rgba(8, 16, 24, 0.88);
-  border-left: 3px solid var(--gold);
-  border-radius: 4px;
-  padding: 6px 9px;
-  font-size: 12px;
+  background: rgba(8, 16, 24, 0.92);
+  border-left: 4px solid var(--gold);
+  border-radius: 5px;
+  padding: 9px 12px;
+  font-size: 15px;
+  font-weight: 700;
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   animation: chestHaulIn 380ms ease-out, chestHaulFade 700ms ease-in 2.8s forwards;
   text-shadow: 0 1px 2px rgba(0,0,0,0.85);
 }
