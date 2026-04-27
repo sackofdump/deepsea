@@ -858,10 +858,22 @@ function jumpToAchievement(id) {
 }
 
 // XP needed to advance from `level` to `level+1`, rounded to a friendly number.
+// Curve: 1.55× per level through Lv 100 (the original steep climb), then a
+// gentler 1.05× per level past 100 so the extended biomes (Lv 100–500) are
+// actually reachable. Loot value scales ~1.018×/level in the extended biomes,
+// so 1.05× keeps each late-game level a real grind without being impossible.
+const LEVEL_CURVE_KNEE = 100;
+const LEVEL_LATE_MULT  = 1.05;
 const _xpNeededCache = [];
 function levelXpNeeded(level) {
   if (_xpNeededCache[level] !== undefined) return _xpNeededCache[level];
-  const raw = LEVEL_BASE_COST * Math.pow(LEVEL_COST_MULT, level - 1);
+  let raw;
+  if (level <= LEVEL_CURVE_KNEE) {
+    raw = LEVEL_BASE_COST * Math.pow(LEVEL_COST_MULT, level - 1);
+  } else {
+    const baseAtKnee = LEVEL_BASE_COST * Math.pow(LEVEL_COST_MULT, LEVEL_CURVE_KNEE - 1);
+    raw = baseAtKnee * Math.pow(LEVEL_LATE_MULT, level - LEVEL_CURVE_KNEE);
+  }
   // Round up to the nearest "nice" value so the bar's "needed" number is round.
   const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5];
   const exp = Math.floor(Math.log10(raw));
@@ -3421,6 +3433,11 @@ buildAchievements();
 buildCodex();
 injectEventCountdown();
 wireEventWelcome();
+// Convert any pent-up XP to levels before the first paint. Players who
+// hit the old Lv 200 cap kept earning XP while the level number stayed
+// pinned, so on first load with the raised cap we need to drain that
+// backlog or the header will keep displaying their old capped level.
+checkLevelUp();
 catchUpOffline();
 checkAchievements();
 refreshUI();
