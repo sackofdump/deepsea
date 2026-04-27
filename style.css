@@ -411,6 +411,9 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   display: flex;
   flex-direction: column;
   gap: 3px;
+  /* Reserve space for ~6 typical loot rows + a Total row so the Outfitting
+     panel below doesn't jump around as the dive fills cargo. */
+  min-height: 168px;
 }
 .cargo-list li {
   display: flex;
@@ -484,6 +487,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   margin: 0;
   padding: 0;
   font-size: 12px;
+  /* Mirror the cargo-list reservation — 6 rows + Total at this row height. */
+  min-height: 144px;
 }
 #lastHaul li {
   padding: 2px 0;
