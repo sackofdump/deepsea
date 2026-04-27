@@ -287,7 +287,9 @@ html, body {
 .panel.collapsed { padding-bottom: 8px; }
 .panel.collapsed h2 { margin-bottom: 0; }
 .panel.collapsed h2::after { transform: rotate(-90deg); }
-.panel.collapsed > :not(h2) { display: none; }
+/* !important so an ID-scoped display rule (e.g., #lastHaul { display: flex })
+   can't out-specific the collapse and leave the body visible. */
+.panel.collapsed > :not(h2) { display: none !important; }
 
 .stat {
   display: flex;
