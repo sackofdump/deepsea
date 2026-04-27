@@ -1540,7 +1540,7 @@ const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   mini:    { icon: "🌊", name: "Lucky Current", desc: "Doubles every pickup for 15s.", duration: 15000 },
   minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "2× value for 15s.",       duration: 15000 },
   major:   { icon: "🗺", name: "Treasure Map",  desc: "Legendary picks for 15s!",duration: 15000 },
-  jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s!",      duration: 30000 },
+  jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
 };
 
 // Tier → state mutation. Lives here (not in SLOT_BONUSES data) so event configs
@@ -1553,7 +1553,9 @@ function applySlotBonus(tier, now, duration) {
   if (tier === "jackpot") {
     state.encounterCargoUntil     = now + duration;
     state.encounterValueUntil     = now + duration;
-    state.encounterLegendaryUntil = now + duration;
+    // Legendary picks always cap at the standalone major duration even on
+    // jackpot so the highest-rarity floor doesn't run for the full 30s.
+    state.encounterLegendaryUntil = now + ((SLOT_BONUSES.major && SLOT_BONUSES.major.duration) || duration);
   }
 }
 
