@@ -2954,26 +2954,144 @@ $("adminLvlBtn")?.addEventListener("click", () => {
   refreshUI();
 });
 
-// Collapsible sidebar panels.
+// Collapsible + tear-off panels. Each sidebar panel can pop out into a
+// free-floating window the player drags around the screen, then dock back
+// when they want it in the sidebar again. Position + popped state both
+// persist in localStorage so layouts survive reloads.
 const PANEL_KEY = (EVENT && EVENT.panelKey) || "deepSeaPanels_v2";
-const panelState = (() => {
-  try { return JSON.parse(localStorage.getItem(PANEL_KEY) || "{}"); }
-  catch { return {}; }
-})();
+const POP_KEY   = PANEL_KEY + "_popped";
+const panelState  = (() => { try { return JSON.parse(localStorage.getItem(PANEL_KEY) || "{}"); } catch { return {}; } })();
+const poppedState = (() => { try { return JSON.parse(localStorage.getItem(POP_KEY)   || "{}"); } catch { return {}; } })();
 const PANEL_DEFAULT_OPEN = new Set(["submersible", "ondeck", "lastrun", "outfitting"]);
+
+function savePoppedState() {
+  try { localStorage.setItem(POP_KEY, JSON.stringify(poppedState)); } catch {}
+}
+
+function clampPanelPosition(panel) {
+  const rect = panel.getBoundingClientRect();
+  const left = parseFloat(panel.style.left) || rect.left;
+  const top  = parseFloat(panel.style.top)  || rect.top;
+  const maxL = window.innerWidth  - Math.min(rect.width,  window.innerWidth  - 40);
+  const maxT = window.innerHeight - Math.min(rect.height, window.innerHeight - 40);
+  panel.style.left = Math.max(8, Math.min(left, maxL - 8)) + "px";
+  panel.style.top  = Math.max(8, Math.min(top,  maxT - 8)) + "px";
+}
+
+function popOutPanel(panel) {
+  const key = panel.dataset.key;
+  if (!key || panel.classList.contains("floating")) return;
+  // Capture current docked rect so the pop transition starts where it lived.
+  const rect = panel.getBoundingClientRect();
+  panel.classList.add("floating");
+  panel.classList.remove("collapsed"); // floating panels don't collapse
+  panel.style.left = (rect.left || 80) + "px";
+  panel.style.top  = (rect.top  || 80) + "px";
+  // Slight offset so each pop lands visibly on screen even from a hidden panel.
+  if (!rect.width) {
+    panel.style.left = "120px";
+    panel.style.top  = "120px";
+  }
+  clampPanelPosition(panel);
+  poppedState[key] = { left: panel.style.left, top: panel.style.top };
+  savePoppedState();
+}
+
+function dockPanel(panel) {
+  const key = panel.dataset.key;
+  panel.classList.remove("floating");
+  panel.style.left = "";
+  panel.style.top  = "";
+  if (key) {
+    delete poppedState[key];
+    savePoppedState();
+  }
+}
+
+function startPanelDrag(panel, ev) {
+  if (!panel.classList.contains("floating")) return;
+  if (ev.target.closest(".panel-pop-btn")) return; // clicks on the pop button
+  ev.preventDefault();
+  const startX = ev.clientX;
+  const startY = ev.clientY;
+  const rect = panel.getBoundingClientRect();
+  let moved = false;
+  function onMove(e) {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!moved && Math.hypot(dx, dy) < 3) return;
+    moved = true;
+    panel.style.left = (rect.left + dx) + "px";
+    panel.style.top  = (rect.top  + dy) + "px";
+    panel.classList.add("dragging");
+  }
+  function onUp() {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    panel.classList.remove("dragging");
+    if (moved) {
+      clampPanelPosition(panel);
+      const key = panel.dataset.key;
+      if (key) {
+        poppedState[key] = { left: panel.style.left, top: panel.style.top };
+        savePoppedState();
+      }
+    }
+  }
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+}
+
 document.querySelectorAll(".panel").forEach((panel) => {
   const h2 = panel.querySelector("h2");
   if (!h2) return;
   const key = panel.dataset.key;
   if (!key) return;
+
+  // Pop-out / dock toggle button on each header.
+  const popBtn = document.createElement("button");
+  popBtn.className = "panel-pop-btn";
+  popBtn.type = "button";
+  popBtn.title = "Pop out / dock";
+  popBtn.setAttribute("aria-label", "Pop out / dock");
+  popBtn.textContent = "⛶";
+  popBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (panel.classList.contains("floating")) dockPanel(panel);
+    else                                       popOutPanel(panel);
+  });
+  h2.appendChild(popBtn);
+
+  // Initial collapsed state for docked panels.
   const stored = panelState[key];
   const collapsed = stored === undefined ? !PANEL_DEFAULT_OPEN.has(key) : stored;
   if (collapsed) panel.classList.add("collapsed");
-  h2.addEventListener("click", () => {
+
+  // Restore floating state if persisted.
+  if (poppedState[key]) {
+    panel.classList.add("floating");
+    panel.classList.remove("collapsed");
+    panel.style.left = poppedState[key].left;
+    panel.style.top  = poppedState[key].top;
+    // Re-clamp to current viewport in case the window resized between sessions.
+    requestAnimationFrame(() => clampPanelPosition(panel));
+  }
+
+  h2.addEventListener("click", (ev) => {
+    if (panel.classList.contains("floating")) return; // drag-only when floating
+    if (ev.target.closest(".panel-pop-btn")) return;
     panel.classList.toggle("collapsed");
     panelState[key] = panel.classList.contains("collapsed");
     localStorage.setItem(PANEL_KEY, JSON.stringify(panelState));
   });
+
+  h2.addEventListener("mousedown", (ev) => startPanelDrag(panel, ev));
+});
+
+// Re-clamp every floating panel if the window resizes so panels can't end up
+// stranded off-screen (e.g., when a wide-window layout becomes narrow).
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".panel.floating").forEach(clampPanelPosition);
 });
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space" && e.target === document.body) {

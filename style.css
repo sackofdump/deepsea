@@ -303,6 +303,69 @@ input, textarea, [contenteditable="true"] {
    can't out-specific the collapse and leave the body visible. */
 .panel.collapsed > :not(h2) { display: none !important; }
 
+/* Pop-out / dock toggle button — sits on the right of each panel h2. */
+.panel-pop-btn {
+  margin-left: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.panel-pop-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(79,208,255,0.08);
+}
+.panel.floating .panel-pop-btn {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Floating panel — torn off the sidebar, free to move anywhere on screen. */
+.panel.floating {
+  position: fixed;
+  width: 320px;
+  z-index: 60;
+  margin: 0;
+  padding: 14px 16px 16px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(79, 208, 255, 0.15),
+    0 0 22px rgba(79, 208, 255, 0.10);
+}
+.panel.floating h2 {
+  cursor: grab;
+  margin: -4px -4px 10px;
+  padding: 4px;
+  border-radius: 6px;
+}
+.panel.floating h2::after { display: none; } /* no collapse caret on floating */
+.panel.floating h2:hover  { background: rgba(79,208,255,0.06); }
+.panel.floating.dragging,
+.panel.floating.dragging h2 { cursor: grabbing; }
+.panel.floating.dragging {
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.7),
+    0 0 0 1px var(--accent),
+    0 0 30px rgba(79, 208, 255, 0.25);
+}
+
 .stat {
   display: flex;
   justify-content: space-between;
