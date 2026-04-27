@@ -29,16 +29,56 @@ const LEVEL_BASE_COST = 20;
 const LEVEL_COST_MULT = 1.55;
 const TIER_RARITY_UPGRADE = 0.03;    // +3% per rank chance to bump a roll's rarity tier
 const SUB_RANKS = (EVENT && EVENT.subRanks) || [
-  "Deckhand",       // 1
-  "Salvager",       // 2
-  "Captain",        // 3
-  "Commodore",      // 4
-  "Admiral",        // 5
-  "Fleet Admiral",  // 6
-  "Pirate King",    // 7
-  "Sea Lord",       // 8
-  "Leviathan",      // 9
-  "Abyssal Mythic", // 10+
+  "Deckhand",          // 1
+  "Salvager",          // 2
+  "Captain",           // 3
+  "Commodore",         // 4
+  "Admiral",           // 5
+  "Fleet Admiral",     // 6
+  "Pirate King",       // 7
+  "Sea Lord",          // 8
+  "Leviathan",         // 9
+  "Abyssal Mythic",    // 10
+  "Voidfarer",         // 11
+  "Mirrorwalker",      // 12
+  "Echo Warden",       // 13
+  "Constant Keeper",   // 14
+  "Numbered Saint",    // 15
+  "Recursion Lord",    // 16
+  "Loop Sovereign",    // 17
+  "Heat-Death Herald", // 18
+  "Photon Inverter",   // 19
+  "Antichron",         // 20
+  "Quantum Captain",   // 21
+  "Probability Prince",// 22
+  "Mandelbrot Mystic", // 23
+  "Fractal Marquis",   // 24
+  "Imaginary Imperator",//25
+  "Convergence Conqueror",//26
+  "Asymptote Archon",  // 27
+  "Limit Liege",       // 28
+  "Halt Hierarch",     // 29
+  "Frozen Pharaoh",    // 30
+  "Thoughtsmith",      // 31
+  "Ideationist",       // 32
+  "Concept Caesar",    // 33
+  "Truth-bearer",      // 34
+  "Reasonkeeper",      // 35
+  "Logic-Sovereign",   // 36
+  "Identity Czar",     // 37
+  "Self-Referent",     // 38
+  "Fixed-Point Saint", // 39
+  "Bracket Mystic",    // 40
+  "Edge of Knowing",   // 41
+  "Final Arbiter",     // 42
+  "Ur-Captain",        // 43
+  "Apex of Salvage",   // 44
+  "Ascended",          // 45
+  "Beyond Rank",       // 46
+  "Nameless",          // 47
+  "Pre-Form",          // 48
+  "First-Made",        // 49
+  "The Salvager",      // 50+
 ];
 const PITY_LEGENDARY_DIVES = 50;
 const LEVELS_PER_BIOME = 10;
@@ -417,12 +457,18 @@ async function reset() {
   // and sign out so reload starts a fresh anon session.
   if (supaClient && authUser) {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/saves?user_id=eq.${authUser.id}`, {
+      // Only delete THIS scope's cloud save — Reset on the event page must
+      // not nuke the main game's save and vice versa.
+      await fetch(`${SUPABASE_URL}/rest/v1/saves?user_id=eq.${authUser.id}&save_key=eq.${encodeURIComponent(SAVE_KEY)}`, {
         method: "DELETE",
         headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${authToken()}` },
       });
     } catch {}
-    try { await supaClient.auth.signOut(); } catch {}
+    // Sign out only on the main game — event page reset shouldn't drop the
+    // user's identity since their main save is still tied to that auth user.
+    if (!EVENT) {
+      try { await supaClient.auth.signOut(); } catch {}
+    }
   }
   localStorage.clear();
   location.reload();
@@ -1465,7 +1511,9 @@ function updatePrestigeUI() {
       : `${rankName(nextTier)} @ Lv ${reqLevel}`;
   }
   const badge = $("prestigeBadge");
-  if (badge) badge.textContent = pct > 0 ? `LOOT +${pct}%` : "";
+  if (badge) {
+    badge.textContent = pct > 0 ? `LOOT VALUE +${fmt(pct)}%` : "";
+  }
   if (btn) {
     btn.disabled = !ready;
     btn.textContent = ready
@@ -1641,7 +1689,7 @@ function spawnTreasureChest() {
   el.style.top  = `${15 + Math.random() * 45}%`;
 
   let collected = false;
-  const removeTimer = setTimeout(() => { if (!collected) el.remove(); }, 12000);
+  const removeTimer = setTimeout(() => { if (!collected) el.remove(); }, 30000);
   el.addEventListener("click", (ev) => {
     ev.stopPropagation();
     if (collected) return;
@@ -2800,10 +2848,13 @@ async function migrateLegacyPlayerId() {
   if (state.displayName) leaderboardSync(true);
 }
 
+// Each save scope (main game, event) gets its own cloud row keyed by SAVE_KEY,
+// so the Spring Bloom event can sync independently of the main game without
+// either clobbering the other.
 async function pullCloudSave() {
   if (!authUser || !authSession) return null;
   try {
-    const url = `${SUPABASE_URL}/rest/v1/saves?user_id=eq.${authUser.id}&select=state,updated_at`;
+    const url = `${SUPABASE_URL}/rest/v1/saves?user_id=eq.${authUser.id}&save_key=eq.${encodeURIComponent(SAVE_KEY)}&select=state,updated_at`;
     const res = await fetch(url, {
       headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${authToken()}` },
     });
@@ -2823,10 +2874,11 @@ async function pushCloudSave() {
     state.lastTick = Date.now();
     const payload = {
       user_id: authUser.id,
+      save_key: SAVE_KEY,
       state: state,
       updated_at: new Date().toISOString(),
     };
-    await fetch(`${SUPABASE_URL}/rest/v1/saves?on_conflict=user_id`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/saves?on_conflict=user_id,save_key`, {
       method: "POST",
       headers: {
         "apikey": SUPABASE_KEY,
@@ -2874,9 +2926,6 @@ function applyCloudState(cloudState) {
 }
 
 async function syncCloudSaveOnBoot() {
-  // Event pages stay local-only — the saves table is one-row-per-user, so
-  // syncing event progress would clobber the main game's save and vice versa.
-  if (EVENT) return;
   const remote = await pullCloudSave();
   if (!remote) {
     // No cloud save — push local up if we have something worth saving.
@@ -2896,7 +2945,6 @@ async function syncCloudSaveOnBoot() {
 }
 
 function scheduleCloudSaves() {
-  if (EVENT) return; // see syncCloudSaveOnBoot — event pages skip cloud sync.
   if (_cloudSaveTimer) clearInterval(_cloudSaveTimer);
   _cloudSaveTimer = setInterval(() => { if (!resetting) pushCloudSave(); }, 15000);
 }

@@ -64,10 +64,32 @@ create trigger scores_touch
 --      this game's Account modal expects.
 
 create table if not exists public.saves (
-  user_id    uuid        primary key references auth.users(id) on delete cascade,
+  user_id    uuid        not null references auth.users(id) on delete cascade,
+  save_key   text        not null default '',
   state      jsonb       not null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (user_id, save_key)
 );
+
+-- ----- Migration: existing deployments before save_key was added ----------
+-- Adds the save_key column (default '' = main game) and replaces the
+-- single-column PK on user_id with a composite PK so each player can hold
+-- one save per scope (main game, Spring Bloom, future events).
+alter table public.saves
+  add column if not exists save_key text not null default '';
+
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'saves_pkey'
+      and conrelid = 'public.saves'::regclass
+      and pg_get_constraintdef(oid) like '%(user_id)'
+  ) then
+    alter table public.saves drop constraint saves_pkey;
+    alter table public.saves add primary key (user_id, save_key);
+  end if;
+end $$;
 
 alter table public.saves enable row level security;
 
