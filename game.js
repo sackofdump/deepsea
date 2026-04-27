@@ -1167,9 +1167,51 @@ function fmt(n) {
 
 const upgradeRows = {};
 
+// "1" / "10" / "max" — module-local because we don't need to persist it.
+let buyMode = "1";
+
+// Plan a bulk purchase: how many levels can we actually buy at the given
+// budget, capped at `target` (Infinity for max mode). Returns { count, total }.
+function planBulkBuy(def, startLvl, target, cash) {
+  let count = 0, total = 0;
+  while (count < target && count < 10000) {
+    const c = upgradeCost(def, startLvl + count);
+    if (total + c > cash) break;
+    total += c;
+    count += 1;
+  }
+  return { count, total };
+}
+
+function buyTarget() {
+  return buyMode === "max" ? Infinity : parseInt(buyMode, 10);
+}
+
 function buildUpgrades() {
   const root = $("upgrades");
   root.innerHTML = "";
+
+  // Buy-mode picker — three pill buttons at the top of the panel.
+  const modeRow = document.createElement("div");
+  modeRow.className = "buy-mode-row";
+  for (const m of ["1", "10", "max"]) {
+    const b = document.createElement("button");
+    b.className = "buy-mode-btn" + (m === buyMode ? " active" : "");
+    b.type = "button";
+    b.dataset.mode = m;
+    b.textContent = m === "max" ? "Max" : `×${m}`;
+    b.addEventListener("click", () => {
+      if (buyMode === m) return;
+      buyMode = m;
+      modeRow.querySelectorAll(".buy-mode-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.mode === m);
+      });
+      updateUpgrades();
+    });
+    modeRow.appendChild(b);
+  }
+  root.appendChild(modeRow);
+
   for (const def of UPGRADE_DEFS) {
     const btn = document.createElement("button");
     btn.className = "upgrade";
@@ -1179,13 +1221,17 @@ function buildUpgrades() {
         <div class="name">${def.name} <span class="muted lvl">Lv 0</span></div>
         <div class="meta"></div>
       </div>
-      <div class="price">$0</div>
+      <div class="price">
+        <span class="price-amount">$0</span>
+        <span class="price-count"></span>
+      </div>
     `;
     btn.addEventListener("click", () => buy(def.id));
     upgradeRows[def.id] = {
-      lvl:   btn.querySelector(".lvl"),
-      meta:  btn.querySelector(".meta"),
-      price: btn.querySelector(".price"),
+      lvl:    btn.querySelector(".lvl"),
+      meta:   btn.querySelector(".meta"),
+      amount: btn.querySelector(".price-amount"),
+      count:  btn.querySelector(".price-count"),
       btn,
     };
     root.appendChild(btn);
@@ -1197,27 +1243,56 @@ function updateUpgrades() {
     const row = upgradeRows[def.id];
     if (!row) continue;
     const lvl = state.upgrades[def.id];
-    const cost = upgradeCost(def, lvl);
-    const curr = statValue(def, lvl);
-    const next = statValue(def, lvl + 1);
+    const target = buyTarget();
+    // Plan the purchase against current cash to figure out cost + count.
+    const plan = planBulkBuy(def, lvl, target, state.cash);
+    // For x1 / x10, show the full requested cost even if unaffordable so the
+    // player can see what they're saving up for. Max shows what's actually
+    // affordable right now.
+    const showCost = (buyMode === "max")
+      ? plan.total
+      : planFullCost(def, lvl, target);
+    const showCount = (buyMode === "max") ? plan.count : target;
     const fixed = def.fixed ?? 0;
+    const curr = statValue(def, lvl);
+    const next = statValue(def, lvl + Math.max(1, showCount));
     row.lvl.textContent = `Lv ${lvl}`;
     row.meta.textContent = `${def.desc}: ${curr.toFixed(fixed)}${def.suffix} → ${next.toFixed(fixed)}${def.suffix}`;
-    const costText = `$${fmt(cost)}`;
-    if (row.price.textContent !== costText) row.price.textContent = costText;
-    const disabled = state.cash < cost;
-    if (row.btn.disabled !== disabled) row.btn.disabled = disabled;
+    const amountText = `$${fmt(showCost)}`;
+    if (row.amount.textContent !== amountText) row.amount.textContent = amountText;
+    const countText = (buyMode === "1") ? "" : `×${showCount}`;
+    if (row.count.textContent !== countText) row.count.textContent = countText;
+    // Affordability: x1/x10 require the full target; max only needs >=1.
+    const canAfford = (buyMode === "max") ? plan.count >= 1 : plan.count >= target;
+    if (row.btn.disabled === canAfford) row.btn.disabled = !canAfford;
   }
+}
+
+function planFullCost(def, startLvl, n) {
+  let total = 0;
+  for (let i = 0; i < n && i < 10000; i++) total += upgradeCost(def, startLvl + i);
+  return total;
 }
 
 function buy(id) {
   const def = UPGRADE_DEFS.find((d) => d.id === id);
+  if (!def) return;
   const lvl = state.upgrades[id];
-  const cost = upgradeCost(def, lvl);
-  if (state.cash < cost) return;
-  state.cash -= cost;
-  state.upgrades[id] += 1;
-  log(`Upgraded ${def.name} → Lv ${state.upgrades[id]}.`, "good");
+  const target = buyTarget();
+  // x1 / x10 are all-or-nothing — can't afford the requested count, no buy.
+  if (buyMode !== "max") {
+    const fullCost = planFullCost(def, lvl, target);
+    if (state.cash < fullCost) return;
+    state.cash -= fullCost;
+    state.upgrades[id] += target;
+    log(target === 1 ? `Upgraded ${def.name} → Lv ${state.upgrades[id]}.` : `Upgraded ${def.name} ×${target} → Lv ${state.upgrades[id]}.`, "good");
+  } else {
+    const plan = planBulkBuy(def, lvl, target, state.cash);
+    if (plan.count < 1) return;
+    state.cash -= plan.total;
+    state.upgrades[id] += plan.count;
+    log(`Upgraded ${def.name} ×${plan.count} → Lv ${state.upgrades[id]} (max).`, "good");
+  }
   updateUpgrades();
 }
 
