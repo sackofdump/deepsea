@@ -1020,7 +1020,10 @@ function tick(dtSec) {
 function checkLevelUp() {
   const startLevel = state.level;
   const prevBiomeIdx = biomeIndex(state.level);
-  while (state.level < 200 && state.xp >= levelCostCumulative(state.level + 1)) {
+  // Cap matches BIOMES.length × LEVELS_PER_BIOME so every authored biome
+  // is reachable. Bump this if more biomes are appended.
+  const LEVEL_CAP = BIOMES.length * LEVELS_PER_BIOME;
+  while (state.level < LEVEL_CAP && state.xp >= levelCostCumulative(state.level + 1)) {
     state.level += 1;
   }
   if (!suppressFx && state.level > startLevel) {
@@ -2664,8 +2667,13 @@ function ensurePlayerId() {
 }
 
 function leaderboardPayload() {
-  const p = {
+  // The scores table now always carries an event_key (default '' for the
+  // main game) and a composite unique on (player_id, event_key). Always
+  // emitting both fields keeps the upsert working whether the event SQL
+  // migration has been applied or not.
+  return {
     player_id: ensurePlayerId(),
+    event_key: EVENT_KEY || "",
     display_name: ((state.displayName || "").trim().slice(0, 32)) || "Anon",
     total_earned: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.totalEarned || 0)),
     level: state.level || 1,
@@ -2675,11 +2683,6 @@ function leaderboardPayload() {
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,
   };
-  // Only event pages send event_key — keeps the main game compatible with
-  // the original single-column unique(player_id) schema. Event pages need
-  // the composite (player_id, event_key) unique constraint to be present.
-  if (EVENT_KEY) p.event_key = EVENT_KEY;
-  return p;
 }
 
 async function leaderboardSync(force) {
@@ -2689,9 +2692,8 @@ async function leaderboardSync(force) {
   const sig = JSON.stringify(payload);
   if (!force && sig === lbLastSyncSig) return;
   lbLastSyncSig = sig;
-  const conflictCols = EVENT_KEY ? "player_id,event_key" : "player_id";
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/scores?on_conflict=${conflictCols}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/scores?on_conflict=player_id,event_key`, {
       method: "POST",
       headers: {
         "apikey": SUPABASE_KEY,
@@ -2701,7 +2703,16 @@ async function leaderboardSync(force) {
       },
       body: JSON.stringify(payload),
     });
-  } catch { /* offline-tolerant */ }
+    if (!res.ok) {
+      // Bust the cached signature so the next sync retries.
+      lbLastSyncSig = "";
+      const text = await res.text().catch(() => "");
+      log(`⚠ Leaderboard sync failed: ${res.status} ${text.slice(0, 120)}`, "bad");
+    }
+  } catch (e) {
+    lbLastSyncSig = "";
+    log(`⚠ Leaderboard sync error: ${e?.message || e}`, "bad");
+  }
 }
 
 async function leaderboardFetch(metric, limit = 25) {
