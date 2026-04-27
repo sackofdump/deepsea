@@ -2666,6 +2666,13 @@ function ensurePlayerId() {
   return state.playerId;
 }
 
+// Postgres bigint maxes at 9.22e18; cap below that to leave headroom and to
+// stay safely inside JS Number's integer-display range (JSON.stringify still
+// emits a plain integer string, no scientific notation, which PostgREST
+// requires for bigint columns). Number.MAX_SAFE_INTEGER (~9e15) was the old
+// cap and was clipping any player past 9.01Qa pearls / total_earned.
+const LB_BIGINT_CAP = 9e18;
+
 function leaderboardPayload() {
   // The scores table now always carries an event_key (default '' for the
   // main game) and a composite unique on (player_id, event_key). Always
@@ -2675,10 +2682,10 @@ function leaderboardPayload() {
     player_id: ensurePlayerId(),
     event_key: EVENT_KEY || "",
     display_name: ((state.displayName || "").trim().slice(0, 32)) || "Anon",
-    total_earned: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.totalEarned || 0)),
+    total_earned: Math.min(LB_BIGINT_CAP, Math.floor(state.totalEarned || 0)),
     level: state.level || 1,
     prestige_count: state.prestigeCount || 0,
-    pearls: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.pearls || 0)),
+    pearls: Math.min(LB_BIGINT_CAP, Math.floor(state.pearls || 0)),
     jackpots: (state.slotHits && state.slotHits.jackpot) || 0,
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,
