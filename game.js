@@ -583,6 +583,24 @@ function claimAchievement(id) {
   checkLevelUp();
 }
 
+function claimAllAchievements() {
+  let claimed = 0;
+  let total = 0;
+  for (const a of ACHIEVEMENTS) {
+    if (!state.achievements[a.id]) continue;
+    if (state.achievementsClaimed[a.id]) continue;
+    state.cash += a.reward;
+    state.totalEarned += a.reward;
+    state.xp += a.reward;
+    state.achievementsClaimed[a.id] = Date.now();
+    total += a.reward;
+    claimed += 1;
+  }
+  if (claimed === 0) return;
+  log(`🏆 Claimed ${claimed} honor${claimed === 1 ? "" : "s"} (+$${fmt(total)})`, "good");
+  checkLevelUp();
+}
+
 function showAchievementToast(a) {
   const ocean = $("ocean");
   if (!ocean) return;
@@ -1691,6 +1709,11 @@ function updateAchievements() {
       ? `${unlocked}/${ACHIEVEMENTS.length} · ${unclaimed} ready`
       : `${unlocked}/${ACHIEVEMENTS.length}`;
   }
+  const claimAllBtn = $("achClaimAll");
+  if (claimAllBtn) {
+    claimAllBtn.hidden = unclaimed < 2;
+    claimAllBtn.textContent = unclaimed > 1 ? `Claim ${unclaimed}` : "Claim all";
+  }
 }
 
 function updateLifetime() {
@@ -2269,6 +2292,8 @@ function wireAdminGate() {
 $("resetBtn").addEventListener("click", reset);
 $("boostBtn").addEventListener("click", activateBoost);
 $("prestigeBtn").addEventListener("click", doPrestige);
+// stopPropagation so the button doesn't toggle the panel collapse via the h2 click handler.
+$("achClaimAll").addEventListener("click", (ev) => { ev.stopPropagation(); claimAllAchievements(); });
 
 const howToOverlay = $("howToOverlay");
 $("howToBtn").addEventListener("click", () => howToOverlay.hidden = false);
