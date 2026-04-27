@@ -186,6 +186,8 @@ const defaultState = () => ({
     targetDepth: 0,
     cargoKg: 0,
     cargoItems: [],
+    cargoGrouped: {},   // { itemName: { count, totalValue, rarity, icon } }
+    cargoTotalValue: 0,
     mode: "idle", // idle | descending | ascending | selling
   },
   lastTick: Date.now(),
@@ -266,12 +268,39 @@ if (!state.inventory) state.inventory = [];
 if (state.chestsCollected === undefined) state.chestsCollected = 0;
 if (state.playerId === undefined) state.playerId = null;
 if (state.displayName === undefined) state.displayName = "";
+// Cargo aggregator — saves before this fix don't have it; rebuild from cargoItems if needed.
+if (!state.sub.cargoGrouped) {
+  state.sub.cargoGrouped = {};
+  state.sub.cargoTotalValue = 0;
+  if (state.sub.cargoItems && state.sub.cargoItems.length > 0) {
+    for (const it of state.sub.cargoItems) {
+      const g = state.sub.cargoGrouped[it.name] || { count: 0, totalValue: 0, rarity: it.rarity, icon: it.icon };
+      g.count += 1;
+      g.totalValue += it.soldValue || 0;
+      state.sub.cargoGrouped[it.name] = g;
+      state.sub.cargoTotalValue += it.soldValue || 0;
+    }
+  }
+}
 
 // ----- Persistence ----------------------------------------------
-function save() {
+// JSON.stringify of the full state (cargoItems can hold 500+ entries during a
+// long Treasure Map dive) is the most expensive thing the periodic timer does.
+// Defer to an idle callback so it never lands inside an animation frame; the
+// 1s timeout ensures it still runs on busy tabs. Callers that need the write
+// to happen before navigation pass `immediate=true`.
+const _hasIdleCb = typeof requestIdleCallback === "function";
+function save(immediate) {
   if (resetting) return;
   state.lastTick = Date.now();
-  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  if (immediate || !_hasIdleCb) {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch {}
+    return;
+  }
+  requestIdleCallback(() => {
+    if (resetting) return;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch {}
+  }, { timeout: 1000 });
 }
 
 function load() {
@@ -303,11 +332,24 @@ function upgradeCost(def, level) {
   return Math.ceil(def.baseCost * Math.pow(def.costMult, level));
 }
 
+// stats() is called every tick (and again every refresh). statValue iterates
+// `level` times per upgrade, so at high levels this adds up. Cache the result
+// keyed on the upgrades signature; invalidate when buy/prestige/reset mutate
+// the upgrades object. NOTE: callers must treat the returned object as
+// read-only — every caller currently does.
+let _statsCache = null;
+let _statsCacheKey = "";
+
 function stats() {
+  const u = state.upgrades;
+  const key = `${u.depth}|${u.speed}|${u.cargo}|${u.sonar}|${u.value}`;
+  if (key === _statsCacheKey && _statsCache) return _statsCache;
   const s = {};
   for (const def of UPGRADE_DEFS) {
-    s[def.stat] = statValue(def, state.upgrades[def.id]);
+    s[def.stat] = statValue(def, u[def.id]);
   }
+  _statsCache = s;
+  _statsCacheKey = key;
   return s;
 }
 
@@ -377,7 +419,7 @@ function doPrestige() {
   state.xp = 0;
   state.level = 1;
   state.upgrades = { depth: 0, speed: 0, cargo: 0, sonar: 0, value: 0 };
-  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], mode: "idle" };
+  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], cargoGrouped: {}, cargoTotalValue: 0, mode: "idle" };
   state.lastHaul = [];
   state.totalDives = 0;
   state.totalItems = 0;
@@ -658,6 +700,9 @@ function rollLoot(biomeName) {
 // ----- Game loop -------------------------------------------------
 let lootCooldown = 0;
 let suppressFx = false;
+// Set in tryCollect; flushed once at the end of tick() so a single 100ms tick
+// can't trigger hundreds of achievement scans at high sonar.
+let _achievementsDirty = false;
 
 function tick(dtSec) {
   const s = stats();
@@ -678,6 +723,8 @@ function tick(dtSec) {
     sub.depth = 0;
     sub.cargoKg = 0;
     sub.cargoItems = [];
+    sub.cargoGrouped = {};
+    sub.cargoTotalValue = 0;
     // Wipe last dive's pinned loot rows so this dive starts with a clean log.
     if (!suppressFx) clearDiveLoot();
     // All encounters (good and bad) come from the Salvage Slot — no per-dive
@@ -693,11 +740,17 @@ function tick(dtSec) {
     const effCargoMax = s.cargoMax * cargoEncounterMult();
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
     // we force a fast 0.3s interval so picks come quickly while at depth.
+    // Hard-cap iterations: at extreme sonar the interval can shrink below the
+    // 100ms tick and the loop would otherwise run thousands of times per tick.
+    // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
     const treasure = legendaryEncounterActive();
+    let iterations = 0;
     lootCooldown -= dtSec;
-    while (lootCooldown <= 0) {
-      lootCooldown += treasure ? 0.3 : (LOOT_INTERVAL_BASE / sonar);
+    while (lootCooldown <= 0 && iterations < 50) {
+      const interval = treasure ? 0.3 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
+      lootCooldown += interval;
       tryCollect(s);
+      iterations++;
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
 
@@ -718,17 +771,18 @@ function tick(dtSec) {
     }
     // Cargo-full alone doesn't end the dive — sub keeps descending until it
     // visibly reaches the bottom. Picks just stop (handled in the loot loop).
-    return;
-  }
-
-  if (sub.mode === "ascending") {
+  } else if (sub.mode === "ascending") {
     sub.depth -= speed * 1.5 * dtSec; // ascent slightly faster
     if (sub.depth <= 0) {
       sub.depth = 0;
       sellCargo(s);
       sub.mode = "idle";
     }
-    return;
+  }
+
+  if (_achievementsDirty) {
+    checkAchievements();
+    _achievementsDirty = false;
   }
 }
 
@@ -776,6 +830,13 @@ function tryCollect(s) {
   const stored = { ...item, biome: biome.name };
   stored.soldValue = creditItem(item, s);
   sub.cargoItems.push(stored);
+  // Incremental aggregator — render reads from this instead of re-grouping
+  // the entire cargoItems array on every redraw.
+  const g = sub.cargoGrouped[item.name] || { count: 0, totalValue: 0, rarity: item.rarity, icon: item.icon };
+  g.count += 1;
+  g.totalValue += stored.soldValue;
+  sub.cargoGrouped[item.name] = g;
+  sub.cargoTotalValue = (sub.cargoTotalValue || 0) + stored.soldValue;
   state.totalItems += 1;
   state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
   state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
@@ -783,23 +844,41 @@ function tryCollect(s) {
     spawnLootFx(item);
     log(`${item.icon} ${item.name}`, item.rarity);
   }
-  checkAchievements();
+  // Defer to end of tick — achievement scans get hundreds of times per tick
+  // at high sonar otherwise.
+  _achievementsDirty = true;
 }
 
 // Caps on concurrent FX so late-game loot torrents don't pile glows.
 const FX_MAX_LOOT_DOTS  = 8;
 const FX_MAX_VALUE_POPS = 6;
+// Live counters in place of ocean.querySelectorAll() polling per pick — at
+// hundreds of picks per second the scan was a meaningful chunk of frame time.
+let _lootFxCount = 0;
+let _valuePopCount = 0;
+// Cached layout rects for the FX origin. Invalidated when refreshUI moves the
+// sub or the window resizes — between those events, all picks within a tick
+// share the same rect and avoid re-triggering layout sync.
+let _fxRectsValid = false;
+let _fxOceanRect = null;
+let _fxSubRect = null;
+function _invalidateFxRects() { _fxRectsValid = false; }
 
 function spawnLootFx(item) {
   const ocean = $("ocean");
   const sub = $("sub");
   if (!ocean || !sub) return;
-  const oceanRect = ocean.getBoundingClientRect();
-  const subRect = sub.getBoundingClientRect();
+  if (!_fxRectsValid) {
+    _fxOceanRect = ocean.getBoundingClientRect();
+    _fxSubRect = sub.getBoundingClientRect();
+    _fxRectsValid = true;
+  }
+  const oceanRect = _fxOceanRect;
+  const subRect = _fxSubRect;
   const cx = subRect.left - oceanRect.left + subRect.width / 2;
   const cy = subRect.top - oceanRect.top + subRect.height / 2;
 
-  if (ocean.querySelectorAll(".loot-fx").length < FX_MAX_LOOT_DOTS) {
+  if (_lootFxCount < FX_MAX_LOOT_DOTS) {
     const angle = Math.random() * Math.PI;
     const dist = 70 + Math.random() * 90;
     const sx = cx + Math.cos(angle) * dist;
@@ -811,17 +890,19 @@ function spawnLootFx(item) {
     dot.style.setProperty("--dx", `${cx - sx}px`);
     dot.style.setProperty("--dy", `${cy - sy}px`);
     ocean.appendChild(dot);
-    setTimeout(() => dot.remove(), 650);
+    _lootFxCount++;
+    setTimeout(() => { dot.remove(); _lootFxCount--; }, 650);
   }
 
-  if (ocean.querySelectorAll(".value-pop").length < FX_MAX_VALUE_POPS) {
+  if (_valuePopCount < FX_MAX_VALUE_POPS) {
     const pop = document.createElement("div");
     pop.className = `value-pop rarity-${item.rarity}`;
     pop.textContent = `${item.icon || ""} ${item.name}`.trim();
     pop.style.left = `${cx}px`;
     pop.style.top = `${cy - 12}px`;
     ocean.appendChild(pop);
-    setTimeout(() => pop.remove(), 1200);
+    _valuePopCount++;
+    setTimeout(() => { pop.remove(); _valuePopCount--; }, 1200);
   }
 
   // Rare-find celebration: banner at top + screen flash for rare/epic/legend.
@@ -832,10 +913,15 @@ function spawnLootFx(item) {
     }
   }
 
-  // Sub flash: restart animation.
-  sub.classList.remove("collecting");
-  void sub.offsetWidth;
-  sub.classList.add("collecting");
+  // Sub flash: restart animation. Throttled — at high sonar this forced-reflow
+  // (offsetWidth read) was firing hundreds of times per second.
+  const now = performance.now();
+  if (now - _lastSubFlashAt >= SUB_FLASH_THROTTLE_MS) {
+    _lastSubFlashAt = now;
+    sub.classList.remove("collecting");
+    void sub.offsetWidth;
+    sub.classList.add("collecting");
+  }
 }
 
 // Pool the rare-banner and screen-flash elements: keep one of each in the DOM
@@ -846,8 +932,10 @@ let _pooledRareBanner = null;
 let _pooledScreenFlash = null;
 let _lastBannerAt = 0;
 let _lastFlashAt  = 0;
+let _lastSubFlashAt = 0;
 const BANNER_THROTTLE_MS = 2000;
 const FLASH_THROTTLE_MS  = 1200;
+const SUB_FLASH_THROTTLE_MS = 150;
 
 function spawnRareBanner(item) {
   const now = performance.now();
@@ -970,7 +1058,13 @@ function sellCargo(s) {
 }
 
 // ----- Offline catch-up ------------------------------------------
-function catchUpOffline() {
+// True while catchUpOffline is chunking through simulated ticks. The main
+// setInterval loop checks this and skips its own tick + refreshUI calls so
+// the simulated time stays consistent and the UI doesn't pay redraw cost
+// during catch-up.
+let _catchingUp = false;
+
+async function catchUpOffline() {
   const now = Date.now();
   const elapsedMs = Math.min(now - state.lastTick, OFFLINE_CAP_HOURS * 3600 * 1000);
   if (elapsedMs < 5000) return;
@@ -978,12 +1072,23 @@ function catchUpOffline() {
   const seconds = elapsedMs / 1000;
   // Simulate in 1s steps; cap iterations.
   const steps = Math.min(Math.floor(seconds), 60 * 60 * OFFLINE_CAP_HOURS);
+  _catchingUp = true;
   suppressFx = true;
-  for (let i = 0; i < steps; i++) tick(1);
+  // Yield once before any work so the boot path can complete first paint
+  // before we start churning through up to 28,800 ticks.
+  await new Promise(r => setTimeout(r, 0));
+  for (let i = 0; i < steps; i++) {
+    tick(1);
+    // Hand the browser back every 500 simulated seconds so the UI stays
+    // responsive during a long catch-up.
+    if ((i + 1) % 500 === 0) await new Promise(r => setTimeout(r, 0));
+  }
   suppressFx = false;
+  _catchingUp = false;
 
   const mins = Math.floor(seconds / 60);
   log(`Welcome back — caught up ${mins} min of diving.`, "good");
+  refreshUI();
 }
 
 // ----- UI --------------------------------------------------------
@@ -1635,38 +1740,26 @@ let _cargoSig = null;
 function renderCurrentCargo() {
   const ul = $("currentCargo");
   if (!ul) return;
-  const items = state.sub.cargoItems;
-  if (!items || items.length === 0) {
+  const grouped = state.sub.cargoGrouped || {};
+  const total = state.sub.cargoTotalValue || 0;
+  const names = Object.keys(grouped);
+  if (names.length === 0) {
     if (_cargoSig !== "empty") {
       ul.innerHTML = `<li class="muted">Empty</li>`;
       _cargoSig = "empty";
     }
     return;
   }
-  // Cheap signature: count + rough mult bucket. Skip rebuilding innerHTML
-  // unless something actually changed — at high pick rates this rebuild
-  // every tick was the main reason late-game felt laggy.
-  const sig = items.length + ":" + (legendaryEncounterActive() ? "T" : "") + (Date.now() < (state.encounterValueUntil||0) ? "V" : "");
+  // Skip rebuilds when nothing has changed — total only ticks up when items
+  // are added, so this is a precise dirty bit rather than a tick-counter.
+  const sig = `${total}|${names.length}`;
   if (sig === _cargoSig) return;
   _cargoSig = sig;
 
-  const s = stats();
-  const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
-  const treasureMult = legendaryEncounterActive() ? 200 : 1;
-  const grouped = {};
-  let total = 0;
-  for (const it of items) {
-    if (!grouped[it.name]) grouped[it.name] = { count: 0, rarity: it.rarity, value: 0, icon: it.icon };
-    grouped[it.name].count += 1;
-    const v = Math.ceil(it.value * valueMult * treasureMult);
-    grouped[it.name].value += v;
-    total += v;
-  }
-  const rows = Object.entries(grouped)
-    .map(([name, g]) =>
-      `<li class="rarity-${g.rarity}"><span>${g.icon || ""} ${name} ×${g.count}</span><span>$${fmt(g.value)}</span></li>`
-    )
-    .join("");
+  const rows = names.map((name) => {
+    const g = grouped[name];
+    return `<li class="rarity-${g.rarity}"><span>${g.icon || ""} ${name} ×${g.count}</span><span>$${fmt(g.totalValue)}</span></li>`;
+  }).join("");
   ul.innerHTML = rows + `<li class="haul-total"><span>Total</span><span>$${fmt(total)}</span></li>`;
 }
 
@@ -1880,6 +1973,8 @@ function refreshUI() {
   const pct = Math.min(state.sub.depth / s.maxDepth, 1);
   // 4% (surface) to 96% (max)
   sub.style.top = `${4 + pct * 92}%`;
+  // Sub moved — FX rect cache must be recomputed before the next pick uses it.
+  _invalidateFxRects();
 
   updateUpgrades();
   renderActiveEffect();
@@ -2240,6 +2335,7 @@ window.addEventListener("keydown", (e) => {
     activateBoost();
   }
 });
+window.addEventListener("resize", _invalidateFxRects);
 
 buildUpgrades();
 buildAchievements();
@@ -2252,6 +2348,7 @@ wireAdminGate();
 renderLeaderboard();
 
 setInterval(() => {
+  if (_catchingUp) return;
   tick(TICK_MS / 1000);
   refreshUI();
 }, TICK_MS);
@@ -2263,4 +2360,4 @@ setInterval(() => leaderboardSync(false), 60000);
 setInterval(renderLeaderboard, 90000);
 scheduleSlot();
 scheduleTreasure();
-window.addEventListener("beforeunload", () => { if (!resetting) save(); });
+window.addEventListener("beforeunload", () => { if (!resetting) save(true); });
