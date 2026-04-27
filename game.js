@@ -783,7 +783,7 @@ function tick(dtSec) {
       sub.depth = s.maxDepth;
     }
 
-    const effCargoMax = s.cargoMax * cargoEncounterMult();
+    const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
     // we force a fast 0.3s interval so picks come quickly while at depth.
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
@@ -865,13 +865,24 @@ function tryCollect(s) {
   const sub = state.sub;
   // Shark Attack: no loot at all while it's chewing on the sub.
   if (Date.now() < (state.sharkSlowUntil || 0)) return;
-  const effCargoMax = s.cargoMax * cargoEncounterMult();
-  if (sub.cargoKg >= effCargoMax) return;
+  if (sub.cargoKg >= s.cargoMax) return;
   const biome = currentBiome();
   const item = rollLoot(biome.name);
   const weight = item.weight * WEIGHT_MULT;
   // Don't overflow: skip if too heavy and cargo isn't empty.
-  if (sub.cargoKg + weight > effCargoMax && sub.cargoKg > 0) return;
+  if (sub.cargoKg + weight > s.cargoMax && sub.cargoKg > 0) return;
+  addPickup(item, biome, s);
+  // Cargo bonus (Lucky Current / Spring Breeze): every pickup is duplicated
+  // while the buff is active — pick up 1 sprout, get 2. Skip the duplicate
+  // if cargo would overflow.
+  if (cargoEncounterMult() > 1 && sub.cargoKg + weight <= s.cargoMax) {
+    addPickup(item, biome, s);
+  }
+}
+
+function addPickup(item, biome, s) {
+  const sub = state.sub;
+  const weight = item.weight * WEIGHT_MULT;
   sub.cargoKg += weight;
   const stored = { ...item, biome: biome.name };
   stored.soldValue = creditItem(item, s);
@@ -1526,7 +1537,7 @@ const SLOT_OUTCOMES = [
 ];
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
-  mini:    { icon: "🌊", name: "Lucky Current", desc: "2× cargo for 15s.",       duration: 15000 },
+  mini:    { icon: "🌊", name: "Lucky Current", desc: "Doubles every pickup for 15s.", duration: 15000 },
   minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "2× value for 15s.",       duration: 15000 },
   major:   { icon: "🗺", name: "Treasure Map",  desc: "Legendary picks for 30s!",duration: 30000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s!",      duration: 30000 },
@@ -1775,7 +1786,7 @@ function updateLifetime() {
 const ACTIVE_EFFECT_SHORT = {
   major: "Legendary picks",
   minor: "2× value",
-  mini:  "2× cargo",
+  mini:  "Double pickups",
   shark: "No loot",
 };
 
