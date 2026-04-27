@@ -449,6 +449,55 @@ function load() {
   }
 }
 
+// ----- Save export / import ------------------------------------
+// Manual backup so a player who can't or doesn't want to use cloud save
+// can still move their progress between browsers / origins (e.g., when
+// the site moves domain) and not lose progress if localStorage gets
+// cleared. Pairs with the cloud-save flow in initAuth/pushCloudSave.
+function exportSaveFile() {
+  const payload = {
+    save_key: SAVE_KEY,
+    state: state,
+    exported_at: new Date().toISOString(),
+    version: 1,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${SAVE_KEY}-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  log("⬇ Save downloaded.", "good");
+}
+
+function importSaveFromText(text) {
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch (e) { return { ok: false, msg: "File isn't valid JSON." }; }
+  // Accept either {state, save_key, ...} from exportSaveFile, or a bare state object.
+  const importedState = (parsed && parsed.state) ? parsed.state : parsed;
+  if (!importedState || typeof importedState !== "object" || importedState.cash === undefined) {
+    return { ok: false, msg: "File doesn't look like a save." };
+  }
+  const fromKey = parsed && parsed.save_key;
+  if (fromKey && fromKey !== SAVE_KEY) {
+    if (!confirm(`This save is from "${fromKey}", but you're loading it into "${SAVE_KEY}".\n\nLoad anyway?`)) {
+      return { ok: false, msg: "Cancelled." };
+    }
+  }
+  if (!confirm("Replace your current save with the imported one?\n\nYour current progress here will be overwritten.")) {
+    return { ok: false, msg: "Cancelled." };
+  }
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(importedState)); }
+  catch (e) { return { ok: false, msg: "Couldn't write to localStorage: " + e.message }; }
+  // Reload so all the boot-time defaults / migrations re-run on the new state.
+  location.reload();
+  return { ok: true };
+}
+
 let resetting = false;
 async function reset() {
   if (!confirm("Reset EVERYTHING? Rank, pearls, cash, upgrades, achievements, codex, dive history — all wiped. This cannot be undone.")) return;
@@ -3050,6 +3099,20 @@ function wireAccountModal() {
 
 // ----- Boot ------------------------------------------------------
 $("resetBtn")?.addEventListener("click", reset);
+$("exportSaveBtn")?.addEventListener("click", exportSaveFile);
+$("importSaveBtn")?.addEventListener("click", () => $("importSaveFile")?.click());
+$("importSaveFile")?.addEventListener("change", (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const res = importSaveFromText(reader.result);
+    if (!res.ok) log("⚠ Import: " + res.msg, "bad");
+  };
+  reader.onerror = () => log("⚠ Import: couldn't read file.", "bad");
+  reader.readAsText(file);
+  ev.target.value = ""; // allow re-selecting the same file
+});
 $("boostBtn")?.addEventListener("click", activateBoost);
 $("prestigeBtn")?.addEventListener("click", doPrestige);
 // stopPropagation so the button doesn't toggle the panel collapse via the h2 click handler.
