@@ -407,22 +407,34 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   border: 1px solid currentColor;
   min-height: 18px;
   box-sizing: content-box;
+  text-align: center;
+  /* Opaque dark base so the bar reads against any biome (pink Spring Bloom,
+     bright Lava Vents, etc.) — per-tier rules layer a colored tint on top. */
+  background: linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
 }
 .active-effect.eff-map     {
   color: var(--gold);
-  background: linear-gradient(90deg, rgba(255,200,80,0.20), rgba(255,200,80,0.02));
+  background:
+    linear-gradient(90deg, rgba(255,200,80,0.28), rgba(255,200,80,0.04)),
+    linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
 }
 .active-effect.eff-kiss    {
   color: #c79bff;
-  background: linear-gradient(90deg, rgba(199,155,255,0.20), rgba(199,155,255,0.02));
+  background:
+    linear-gradient(90deg, rgba(199,155,255,0.28), rgba(199,155,255,0.04)),
+    linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
 }
 .active-effect.eff-current {
   color: var(--accent);
-  background: linear-gradient(90deg, rgba(79,208,255,0.18), rgba(79,208,255,0.02));
+  background:
+    linear-gradient(90deg, rgba(79,208,255,0.28), rgba(79,208,255,0.04)),
+    linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
 }
 .active-effect.eff-shark {
   color: var(--bad);
-  background: linear-gradient(90deg, rgba(255,122,122,0.20), rgba(255,122,122,0.02));
+  background:
+    linear-gradient(90deg, rgba(255,122,122,0.28), rgba(255,122,122,0.04)),
+    linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
 }
 @keyframes effectPulse {
   from { box-shadow: 0 0 4px  currentColor, inset 0 0 4px rgba(255,255,255,0.04); }
@@ -1780,7 +1792,7 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   position: absolute;
   top: 12px;
   left: 12px;
-  width: 220px;
+  width: 260px;
   z-index: 8;
   pointer-events: none;
   display: flex;
