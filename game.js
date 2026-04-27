@@ -1498,6 +1498,75 @@ const CREATURES_PER_BIOME = (EVENT && EVENT.creatures) || {
   "End of Time":           ["⏳", "♾"],
 };
 
+// ----- Extended biomes (Lv 200-500) -------------------------------
+// 30 procedurally-shaped biomes added past End of Time. Per-biome growth
+// eases from ×4 to ×1.18 so values stay within JS Number precision —
+// deepest legendary at biome 50 ends up around 6×10^15, comfortably under
+// 2^53. Within-biome shape (1 / 3.2 / 9.6 / 28 / 88) matches the originals.
+(function extendBiomes() {
+  const TIERS = [
+    { rarity: "common",   chance: 45, mult: 1,    weight: 0.5 },
+    { rarity: "uncommon", chance: 28, mult: 3.2,  weight: 1   },
+    { rarity: "rare",     chance: 12, mult: 9.6,  weight: 3   },
+    { rarity: "epic",     chance: 12, mult: 28,   weight: 5   },
+    { rarity: "legend",   chance: 3,  mult: 88,   weight: 0.1 },
+  ];
+  // Default per-tier icons; each row's legend gets a unique icon in column 5.
+  const ICONS = ["🪨", "💎", "🔮", "👑", "✨"];
+  function buildLoot(base, names, legendIcon) {
+    return TIERS.map((t, i) => ({
+      icon:    i === 4 ? legendIcon : ICONS[i],
+      name:    names[i],
+      weight:  t.weight,
+      value:   Math.min(Number.MAX_SAFE_INTEGER, Math.round(base * t.mult)),
+      rarity:  t.rarity,
+      chance:  t.chance,
+    }));
+  }
+  // [name, color, accent, [creatureIcons], [5 item names], legendIcon]
+  const ROWS = [
+    ["Liminal Threshold",  "#1a0a30", "#a070ff", ["🚪","🌀"], ["Threshold Stone","Pause Glass","Doorway Pearl","Gatekeeper Gaze","The Between"], "🚪"],
+    ["Mnemonic Reef",      "#1a2a3a", "#9ce0ff", ["🐚","🪼"], ["Memory Coral","Recall Pearl","Forgotten Bone","Forgetting Crown","Last Memory"], "🧠"],
+    ["Glass Tide",         "#0a2a3a", "#d8e8f0", ["🪞","🐚"], ["Crystal Wave","Shard Pearl","Mirror Coral","Glass Crown","Reflection"], "🪞"],
+    ["Forgotten Constants","#3a3a0a", "#ffe070", ["🌀","🌌"], ["Lost Pi","Faded e","Decimal Coral","Number Crown","The Constant"], "π"],
+    ["Numbered Sea",       "#2a2a4a", "#e0c870", ["🌀","💫"], ["Counted Pebble","Tally Pearl","Sequence Coral","Counter Crown","Census"], "🔢"],
+    ["Recursion Bay",      "#1a0a4a", "#9870ff", ["🌀","♾"],  ["Self Stone","Loop Pearl","Repeat Coral","Recursive Crown","Base Case"], "♻"],
+    ["Loop Currents",      "#0a1a4a", "#70a8ff", ["🌀","💫"], ["Cycle Stone","Spiral Pearl","Eddy Coral","Cycle Crown","Eternal Loop"], "♾"],
+    ["Heat Death",         "#3a0a0a", "#ff7070", ["🔥","🌀"], ["Ember Stone","Cooling Pearl","Last Coral","Frost Crown","Stillness"], "❄"],
+    ["Reverse Light",      "#0a0a2a", "#ffd070", ["✨","🌀"], ["Antiglow Stone","Negaphoton Pearl","Anti-Coral","Dark Crown","Reverse Sun"], "🌑"],
+    ["Anti-Time",          "#0a3a3a", "#ffd870", ["⏳","🌀"], ["Untime Stone","Reverse Pearl","Backflow Coral","Untime Crown","Yesterday"], "⏪"],
+    ["Schrödinger Trench", "#1a1a2a", "#a8c0d0", ["🐱","🌀"], ["Maybe Stone","Probability Pearl","Quantum Coral","Wavefunction Crown","Observed"], "🐱"],
+    ["Probability Garden", "#3a0a4a", "#ff9ce0", ["🎲","🌀"], ["Chance Stone","Random Pearl","Distribution Coral","Bell Crown","Roll"], "🎲"],
+    ["Mandelbrot Coast",   "#0a3a3a", "#80c0a0", ["🌀","💎"], ["Fractal Stone","Boundary Pearl","Coastline Coral","Fractal Crown","Infinite Edge"], "🌀"],
+    ["Fractal Depths",     "#1a0a4a", "#c890ff", ["🌀","🪞"], ["Branch Stone","Recursive Pearl","Self-Similar Coral","Depth Crown","Smaller Always"], "🌀"],
+    ["Imaginary Numbers",  "#3a1a3a", "#ffaadc", ["💫","🌀"], ["Imaginary Stone","Complex Pearl","i-Coral","Real Crown","Sqrt(-1)"], "i"],
+    ["Convergence Point",  "#3a3a0a", "#ffe890", ["💫","🌀"], ["Limit Stone","Approach Pearl","Converging Coral","Limit Crown","The Point"], "•"],
+    ["Asymptote Sea",      "#0a3a3a", "#a0e8ff", ["🌀","💫"], ["Tangent Stone","Touchpoint Pearl","Curve Coral","Asymptotic Crown","Never Quite"], "→"],
+    ["Limit's Edge",       "#3a0a1a", "#ff9070", ["💫","🌀"], ["Boundary Stone","Edge Pearl","Limit Coral","Edge Crown","The Frontier"], "⊥"],
+    ["Halt State",         "#1a0a0a", "#ff5050", ["🛑","🌀"], ["Stop Stone","Pause Pearl","Halt Coral","Halt Crown","Termination"], "■"],
+    ["Frozen Compute",     "#0a2a3a", "#a8d0ff", ["❄","🌀"],  ["Frozen Stone","Cold Pearl","Stilled Coral","Frost Crown","No-Op"], "❄"],
+    ["Thought Pool",       "#2a0a3a", "#c890ff", ["🌀","💭"], ["Thought Stone","Idea Pearl","Mind Coral","Thought Crown","Cogito"], "💭"],
+    ["Idea Reef",          "#3a3a1a", "#ffe080", ["🌀","💡"], ["Notion Stone","Concept Pearl","Idea Coral","Idea Crown","Eureka"], "💡"],
+    ["Concept Storm",      "#3a0a3a", "#e090ff", ["⚡","🌀"], ["Conceptual Stone","Storm Pearl","Definition Coral","Concept Crown","The Idea"], "⚡"],
+    ["Truth Currents",     "#3a3a3a", "#fff0a0", ["✨","🌀"], ["Truth Stone","Verity Pearl","Honest Coral","Truth Crown","The True"], "✓"],
+    ["Reason's Edge",      "#1a1a0a", "#d8c878", ["🌀","💭"], ["Logic Stone","Argument Pearl","Reason Coral","Reason Crown","QED"], "□"],
+    ["Logic Sea",          "#0a1a3a", "#80a8e8", ["🌀","💎"], ["Boolean Stone","AND Pearl","Logic Coral","Logic Crown","Tautology"], "&"],
+    ["Identity Bay",       "#2a2a3a", "#d0d0e0", ["🪞","🌀"], ["Self Stone","Identity Pearl","Same Coral","Identity Crown","I = I"], "="],
+    ["Self-Reference",     "#1a0a2a", "#a890ff", ["🪞","♾"],  ["Recursive Stone","Self Pearl","Reflexive Coral","Reference Crown","Strange Loop"], "♾"],
+    ["Fixed Point",        "#0a0a1a", "#c8b890", ["💫","🌀"], ["Stable Stone","Fixed Pearl","Steady Coral","Anchor Crown","The Fix"], "•"],
+    ["The Last Bracket",   "#000000", "#ffffff", ["🌀","✨"], ["Closing Stone","Final Pearl","Bracket Coral","Last Crown","]"], "]"],
+  ];
+  const START_BASE = 600e9;       // biome 21 common (eases up from biome 20's 500B)
+  const GROWTH = 1.18;            // per-biome multiplier
+  let base = START_BASE;
+  for (const [name, color, accent, creatures, names, legendIcon] of ROWS) {
+    BIOMES.push({ name, color, accent });
+    LOOT[name] = buildLoot(base, names, legendIcon);
+    CREATURES_PER_BIOME[name] = creatures;
+    base = base * GROWTH;
+  }
+})();
+
 // Reveal popup used by bonus loot clicks (and other reward moments).
 function showItemReveal(item, value, tierLabel) {
   const ocean = $("ocean");

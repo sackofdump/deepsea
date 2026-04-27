@@ -494,6 +494,74 @@ window.EVENT_CONFIG = {
     jackpot: { icon: "🌷", name: "BLOOM BURST",    desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
   },
 };
+
+// Extended Spring biomes (Lv 200-500) — same procedural shape as the main
+// game extension. Per-biome growth ×1.18 keeps deepest legendary inside JS
+// Number precision out to biome 50.
+(function extendSpringBiomes() {
+  const cfg = window.EVENT_CONFIG;
+  const TIERS = [
+    { rarity: "common",   chance: 45, mult: 1,    weight: 0.5 },
+    { rarity: "uncommon", chance: 28, mult: 3.2,  weight: 1   },
+    { rarity: "rare",     chance: 12, mult: 9.6,  weight: 3   },
+    { rarity: "epic",     chance: 12, mult: 28,   weight: 5   },
+    { rarity: "legend",   chance: 3,  mult: 88,   weight: 0.1 },
+  ];
+  const ICONS = ["🌿", "🌷", "🌸", "👑", "✨"];
+  function buildLoot(base, names, legendIcon) {
+    return TIERS.map(function (t, i) {
+      return {
+        icon:   i === 4 ? legendIcon : ICONS[i],
+        name:   names[i],
+        weight: t.weight,
+        value:  Math.min(Number.MAX_SAFE_INTEGER, Math.round(base * t.mult)),
+        rarity: t.rarity,
+        chance: t.chance,
+      };
+    });
+  }
+  const ROWS = [
+    ["Forever Garden",     "#3a6a4a", "#a0e0a0", ["🦋","🐝"], ["Forever Sprout","Eternal Bud","Endless Bloom","Forever Crown","Endless Petal"], "🌹"],
+    ["Seedling Cosmos",    "#1a2a3a", "#a0c0ff", ["🌱","✨"], ["Cosmic Seed","Sprout Star","Bud Galaxy","Seed Crown","First Sprout"], "🌌"],
+    ["Petal Drift",        "#ff9ac4", "#ffe0f0", ["🌸","🦋"], ["Drift Petal","Falling Bloom","Wind Bud","Drift Crown","Eternal Drift"], "🌸"],
+    ["Honey Veil",         "#ffd870", "#fff0c0", ["🐝","🍯"], ["Veil Drop","Honey Mist","Sweet Pearl","Honey Crown","Goldveil"], "🍯"],
+    ["Bloom Stream",       "#a0d0ff", "#e0f0ff", ["🦋","🌸"], ["Stream Petal","River Bloom","Flowing Bud","Stream Crown","Source Bloom"], "💐"],
+    ["Pollen Web",         "#ffe0a0", "#fff0d0", ["🐝","🦋"], ["Pollen Strand","Web Pearl","Spider Bloom","Web Crown","Center Pollen"], "🕸"],
+    ["Nectar Veins",       "#c0a0ff", "#e0d0ff", ["🦋","🌹"], ["Vein Drop","Nectar Pearl","Channel Bloom","Vein Crown","Heart Nectar"], "🩸"],
+    ["Living Marble",      "#d8c8b0", "#f0e8d0", ["🌸","💎"], ["Marble Bud","Living Stone","Veined Bloom","Stone Crown","First Marble"], "🪨"],
+    ["Rose Spire",         "#c83878", "#ffaad0", ["🌹","🦋"], ["Spire Petal","Tower Bloom","Rose Pearl","Rose Crown","First Rose"], "🌹"],
+    ["Iris Ring",          "#9050d0", "#d8a8ff", ["🌷","🦋"], ["Ring Petal","Iris Pearl","Eye Bloom","Iris Crown","All-Seeing"], "🌷"],
+    ["Bloom Halo",         "#ffe080", "#fff0c0", ["✨","🌸"], ["Halo Petal","Aureole Pearl","Saint Bloom","Halo Crown","Blessed Bloom"], "😇"],
+    ["Garden Wheel",       "#80c080", "#c0e8c0", ["🌿","🦋"], ["Wheel Petal","Spinning Bud","Spoke Bloom","Wheel Crown","Center Garden"], "☸"],
+    ["Rooted Sky",         "#b08850", "#e0c898", ["🌳","🌿"], ["Sky Root","High Bud","Cloud Bloom","Root Crown","First Root"], "🌳"],
+    ["Branched Universe",  "#3a6a4a", "#a0c8a0", ["🌿","🌳"], ["Branch Star","Twig Pearl","Forking Bloom","Branch Crown","All Branches"], "🌳"],
+    ["Leaf Memory",        "#5a8a6a", "#c0d8a8", ["🍃","🌳"], ["Leaf Trace","Memory Bud","Echo Bloom","Leaf Crown","First Leaf"], "🍃"],
+    ["Bud Eternity",       "#ffa8c8", "#ffd0e0", ["🌷","🦋"], ["Forever Bud","Eternal Sprout","Permanent Bloom","Bud Crown","First Bud"], "🌷"],
+    ["Wreath Spiral",      "#80c080", "#c0e8c0", ["🌿","✨"], ["Wreath Petal","Spiral Bloom","Coiled Bud","Wreath Crown","Eternal Wreath"], "🍀"],
+    ["Vine Galaxy",        "#3a4a6a", "#a0c0e8", ["🌿","🌌"], ["Vine Star","Galactic Bud","Spiral Bloom","Vine Crown","World Vine"], "🌌"],
+    ["Pollen Mind",        "#a868ff", "#d0a0ff", ["🐝","💭"], ["Mind Pollen","Thought Pearl","Idea Bloom","Mind Crown","First Thought"], "💭"],
+    ["Bloom Mind",         "#ff8ac8", "#ffc0e0", ["🌸","💭"], ["Bloom Thought","Petal Pearl","Conscious Bloom","Mind Crown","Aware Bloom"], "💭"],
+    ["Garden Memory",      "#90c898", "#d0e8d0", ["🌿","🦋"], ["Memory Sprout","Recall Pearl","Forgotten Bud","Memory Crown","Eternal Memory"], "🍂"],
+    ["Spring Beyond",      "#ffaaf0", "#ffd0f8", ["🌸","✨"], ["Beyond Sprout","Other Bud","Far Bloom","Beyond Crown","First Beyond"], "🌅"],
+    ["Eternal Petal",      "#fff0c0", "#ffe890", ["🌸","✨"], ["Eternal Drop","Forever Pearl","Lasting Bloom","Eternal Crown","First Eternal"], "🌸"],
+    ["First Pollen",       "#ffe890", "#fff0c0", ["🐝","✨"], ["First Grain","Original Pearl","Earliest Bloom","First Crown","Origin Pollen"], "🐝"],
+    ["Original Bloom",     "#ffaad0", "#ffd0e8", ["🌸","🦋"], ["Origin Bud","Original Pearl","First Bloom","Original Crown","The First"], "🌸"],
+    ["Pre-Spring",         "#a0a8a0", "#d0d8d0", ["🌑","🌀"], ["Quiet Sprout","Waiting Pearl","Pre-Bloom","Waiting Crown","Before Time"], "❄"],
+    ["Sprout-Before-Time", "#80a890", "#c0d8a8", ["🌱","🌀"], ["Pre-Sprout","Time-Pearl","Earliest Bloom","Pre-Crown","Sprout-Zero"], "🌱"],
+    ["Garden of Becoming", "#c8a0ff", "#e8d0ff", ["✨","🦋"], ["Becoming Sprout","Forming Pearl","Manifest Bloom","Becoming Crown","Self-Made"], "✨"],
+    ["Final Petal",        "#fff0c0", "#fff8e0", ["🌸","🦋"], ["Last Petal","Final Pearl","Last Bloom","Final Crown","The Last"], "🌸"],
+    ["The Eternal Bloom",  "#ffffff", "#fffff0", ["🌸","✨"], ["Forever Petal","Eternal Pearl","Endless Bloom","Eternal Crown","Bloom Forever"], "🌸"],
+  ];
+  let base = 600e9;
+  const GROWTH = 1.18;
+  for (const row of ROWS) {
+    const name = row[0], color = row[1], accent = row[2], creatures = row[3], names = row[4], legendIcon = row[5];
+    cfg.biomes.push({ name: name, color: color, accent: accent });
+    cfg.loot[name] = buildLoot(base, names, legendIcon);
+    cfg.creatures[name] = creatures;
+    base = base * GROWTH;
+  }
+})();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="game.js?v=31"></script>
