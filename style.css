@@ -1726,10 +1726,17 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 }
 
 /* Chest tray (header, next to cash) ---------------------------- */
+/* Chest tray sits in the bottom-left of the ocean, above the boost-hint.
+   Boost-hint occupies bottom: 108 → ~140px from bottom; tray sits above
+   it with a small gap. */
 .chest-tray {
-  display: inline-flex;
+  position: absolute;
+  left: 20px;
+  bottom: 156px;
+  display: flex;
   align-items: center;
   gap: 6px;
+  z-index: 10;
 }
 .chest-tray:empty { display: none; }
 .chest-btn {
@@ -2159,8 +2166,10 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   .boost-btn { width: 112px; height: 64px; }
   .boost-hint { width: 112px; bottom: 84px; }
   .boost-label { font-size: 13px; }
-  .chest-haul { bottom: 132px; width: 220px; }
+  .chest-tray { bottom: 132px; left: 14px; }
+  .chest-haul { bottom: 180px; width: 220px; left: 14px; }
   .chest-haul-row { font-size: 13px; padding: 7px 10px; }
+  .chest-haul:has(.chest-haul-row)::after { left: 14px; }
 }
 
 /* Haul totals -------------------------------------------------- */
@@ -2294,12 +2303,16 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 }
 
 /* Chest opening haul (left side of ocean, separate from dive log) */
+/* Chest-haul rolls upward out of the chest tray. The container sits just
+   above the tray; rows pile from the bottom up. The ::after caret hangs
+   below the bottom of the listing, pointing down at the chest that
+   produced it (visual "this loot came from here" indicator). */
 .chest-haul {
   position: absolute;
   left: 20px;
+  /* Bottom = chest-tray bottom (156) + chest height (36) + arrow gap (12). */
+  bottom: 204px;
   top: 130px;
-  /* Sit above the boost hint (bottom: 108px, ~32px tall) with breathing room. */
-  bottom: 156px;
   width: 280px;
   display: flex;
   flex-direction: column;
@@ -2307,7 +2320,19 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   gap: 6px;
   pointer-events: none;
   z-index: 9;
-  overflow: hidden;
+}
+/* Visible only when the container has at least one row of loot. */
+.chest-haul:has(.chest-haul-row)::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  bottom: -10px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 10px solid var(--gold);
+  filter: drop-shadow(0 0 8px rgba(255,204,102,0.55));
 }
 .chest-haul-row {
   background: rgba(8, 16, 24, 0.92);
