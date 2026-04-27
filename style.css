@@ -383,9 +383,7 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   box-sizing: content-box;
 }
 .active-effect.empty {
-  visibility: hidden;
-  animation: none;
-  border-color: transparent;
+  display: none;
 }
 .active-effect.eff-map     {
   color: var(--gold);
