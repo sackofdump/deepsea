@@ -23,6 +23,18 @@ html, body {
   overflow: hidden;
 }
 
+/* Block accidental highlighting across the whole game UI. Inputs and
+   textareas explicitly opt back in below so account/leaderboard fields
+   still work normally. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 #app {
   display: grid;
   grid-template-columns: 360px 1fr;
