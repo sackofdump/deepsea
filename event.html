@@ -106,6 +106,7 @@
 
     <footer>
       <button id="howToBtn" class="ghost">How to Play</button>
+      <button id="accountBtn" class="ghost">Account</button>
       <button id="exportSaveBtn" class="ghost">⬇ Save</button>
       <button id="importSaveBtn" class="ghost">⬆ Load</button>
       <input id="importSaveFile" type="file" accept="application/json,.json" hidden />
@@ -194,6 +195,30 @@
         <p>Achievements unlock as you play but aren't free — open the Honors panel and click each one to claim its cash reward.</p>
       </section>
     </div>
+  </div>
+</div>
+<div id="accountOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal account-modal">
+    <button class="howto-close" id="accountClose" aria-label="Close">×</button>
+    <h2>👤 Account</h2>
+    <div class="account-state">
+      <div id="accountStateLine" class="account-state-line">Connecting…</div>
+      <div id="accountStateBlurb" class="account-state-blurb">Setting up your account.</div>
+    </div>
+    <div id="accountAuthForm" class="account-auth-form" hidden>
+      <input id="accountEmail"    type="email"    placeholder="Email"    autocomplete="email" />
+      <input id="accountPassword" type="password" placeholder="Password" autocomplete="current-password" />
+      <div class="account-actions">
+        <button id="accountSignInBtn" class="account-btn primary">Sign in</button>
+        <button id="accountSignUpBtn" class="account-btn">Create account</button>
+      </div>
+      <div class="account-help muted">Cross-device save: sign in from anywhere with your email and password.</div>
+    </div>
+    <div id="accountSignedInActions" class="account-signed-in" hidden>
+      <button id="accountSignOutBtn" class="account-btn ghost-btn">Sign out</button>
+    </div>
+    <div id="accountMsg" class="account-msg"></div>
+    <button id="accountSkipBtn" class="account-skip" hidden>Continue without an account</button>
   </div>
 </div>
 <div id="adminOverlay" class="howto-overlay" hidden>

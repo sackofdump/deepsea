@@ -2999,23 +2999,41 @@ function scheduleCloudSaves() {
 }
 
 // ----- Account modal --------------------------------------------
+// Single email+password form with two action buttons: "Sign in" (existing
+// account) and "Create account" (new account or anonymous → permanent).
+// One status block at the top describes where the player stands; messages
+// surface inline below the form.
+function _accountMsg(text, ok) {
+  const m = $("accountMsg");
+  if (!m) return;
+  m.textContent = text || "";
+  m.className = "account-msg" + (text ? (ok ? " ok" : " bad") : "");
+}
+
 async function handleAccountSignUp(email, password) {
-  if (!supaClient || !authUser) return { ok: false, msg: "Auth not ready." };
-  if (!isAnonymous()) return { ok: false, msg: "You're already signed in." };
-  const { error } = await supaClient.auth.updateUser({ email, password });
+  if (!supaClient) return { ok: false, msg: "Auth unavailable. Try Save / Load instead." };
+  // Anonymous → permanent: keeps the same user_id, so cloud save stays attached.
+  if (authUser && isAnonymous()) {
+    const { error } = await supaClient.auth.updateUser({ email, password });
+    if (error) return { ok: false, msg: error.message };
+    await pushCloudSave();
+    return { ok: true, msg: "Account created. Your progress is saved." };
+  }
+  // Plain signup (no anonymous session — e.g., dashboard has anon disabled).
+  const { data, error } = await supaClient.auth.signUp({ email, password });
   if (error) return { ok: false, msg: error.message };
-  // Push current progress under the (now-permanent) account immediately.
-  await pushCloudSave();
-  return { ok: true, msg: "Account linked. Check your email if confirmation is required." };
+  authSession = data.session || null;
+  authUser    = data.user    || null;
+  if (authUser) await pushCloudSave();
+  return { ok: true, msg: data.session ? "Account created and signed in." : "Account created. Check your email to confirm." };
 }
 
 async function handleAccountSignIn(email, password) {
-  if (!supaClient) return { ok: false, msg: "Auth not ready." };
+  if (!supaClient) return { ok: false, msg: "Auth unavailable. Try Save / Load instead." };
   const { data, error } = await supaClient.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, msg: error.message };
   authSession = data.session;
   authUser = data.user;
-  // Pull this account's cloud save and adopt if newer than local.
   await syncCloudSaveOnBoot();
   refreshUI();
   return { ok: true, msg: "Signed in." };
@@ -3024,75 +3042,148 @@ async function handleAccountSignIn(email, password) {
 async function handleAccountSignOut() {
   if (!supaClient) return;
   await supaClient.auth.signOut();
-  // Page reload starts a fresh anon session and a clean local cache.
   location.reload();
 }
 
 function refreshAccountUI() {
-  const status = $("accountStatus");
-  if (status) {
-    if (!authReady)            status.textContent = "Connecting…";
-    else if (!authUser)         status.textContent = "Offline (no account)";
-    else if (isAnonymous())     status.textContent = "Signed in as guest";
-    else                        status.textContent = `Signed in: ${authEmail()}`;
+  const stateLine  = $("accountStateLine");
+  const stateBlurb = $("accountStateBlurb");
+  const authForm   = $("accountAuthForm");
+  const signedInActions = $("accountSignedInActions");
+  const skipBtn    = $("accountSkipBtn");
+  const badge      = $("accountBadge");
+
+  if (!authReady) {
+    if (stateLine)  stateLine.textContent  = "Connecting…";
+    if (stateBlurb) stateBlurb.textContent = "Setting up your session.";
+    if (authForm)   authForm.hidden = true;
+    if (signedInActions) signedInActions.hidden = true;
+    if (skipBtn)    skipBtn.hidden = true;
+    if (badge)      badge.hidden = true;
+    return;
   }
-  const badge = $("accountBadge");
-  if (badge) {
-    badge.hidden = !authReady;
-    if (!authUser)              badge.textContent = "offline";
-    else if (isAnonymous())     badge.textContent = "guest";
-    else                        badge.textContent = authEmail().split("@")[0];
-    badge.classList.toggle("anon",   isAnonymous());
-    badge.classList.toggle("linked", !!authUser && !isAnonymous());
+  if (badge) badge.hidden = false;
+
+  if (!authUser) {
+    if (stateLine)  stateLine.textContent  = "Sign in to save your progress";
+    if (stateBlurb) stateBlurb.textContent = "Same account = same save on every device. Climb the leaderboard with one identity.";
+    if (authForm)   authForm.hidden = false;
+    if (signedInActions) signedInActions.hidden = true;
+    if (skipBtn)    skipBtn.hidden = false;
+    if (badge) {
+      badge.textContent = "offline";
+      badge.classList.remove("anon", "linked");
+    }
+  } else if (isAnonymous()) {
+    if (stateLine)  stateLine.textContent  = "Playing as guest";
+    if (stateBlurb) stateBlurb.textContent = "Create an account to keep this save and load it on other devices.";
+    if (authForm)   authForm.hidden = false;
+    if (signedInActions) signedInActions.hidden = true;
+    if (skipBtn)    skipBtn.hidden = false;
+    if (badge) {
+      badge.textContent = "guest";
+      badge.classList.add("anon");
+      badge.classList.remove("linked");
+    }
+  } else {
+    if (stateLine)  stateLine.textContent  = `Signed in as ${authEmail()}`;
+    if (stateBlurb) stateBlurb.textContent = "Cloud save active. Your progress syncs every 15 seconds.";
+    if (authForm)   authForm.hidden = true;
+    if (signedInActions) signedInActions.hidden = false;
+    if (skipBtn)    skipBtn.hidden = true;
+    if (badge) {
+      badge.textContent = authEmail().split("@")[0];
+      badge.classList.add("linked");
+      badge.classList.remove("anon");
+    }
   }
-  // Toggle which form is visible inside the modal.
-  const signupForm = $("accountSignUpForm");
-  const signinForm = $("accountSignInForm");
-  const signoutRow = $("accountSignOutRow");
-  if (signupForm) signupForm.hidden = !isAnonymous();
-  if (signinForm) signinForm.hidden = !isAnonymous();
-  if (signoutRow) signoutRow.hidden = isAnonymous() || !authUser;
+}
+
+const _LOGIN_SKIP_KEY = "ddsLoginSkip_v1";
+function maybeShowLoginGate() {
+  if (!authReady) return;
+  if (authUser && !isAnonymous()) return; // already signed in
+  let skipped = false;
+  try { skipped = !!localStorage.getItem(_LOGIN_SKIP_KEY); } catch {}
+  if (skipped) return;
+  const overlay = $("accountOverlay");
+  if (!overlay) return;
+  refreshAccountUI();
+  _accountMsg("");
+  overlay.hidden = false;
+}
+function markLoginSkipped() {
+  try { localStorage.setItem(_LOGIN_SKIP_KEY, "1"); } catch {}
+}
+function clearLoginSkipped() {
+  try { localStorage.removeItem(_LOGIN_SKIP_KEY); } catch {}
 }
 
 function wireAccountModal() {
   const overlay = $("accountOverlay");
   const openBtn = $("accountBtn");
-  if (!overlay || !openBtn) return;
-  function close() { overlay.hidden = true; clearAccountMsg(); }
-  function clearAccountMsg() {
-    const m = $("accountMsg");
-    if (m) { m.textContent = ""; m.className = "account-msg"; }
+  if (!overlay) return;
+  function close() {
+    overlay.hidden = true;
+    _accountMsg("");
+    // Closing while not signed in counts as "skip for now" — saves the player
+    // from seeing the gate every reload. They can still open Account anytime.
+    if (!authUser || isAnonymous()) markLoginSkipped();
   }
-  function showAccountMsg(text, ok) {
-    const m = $("accountMsg");
-    if (!m) return;
-    m.textContent = text;
-    m.className = "account-msg " + (ok ? "ok" : "bad");
-  }
-  openBtn.addEventListener("click", () => { refreshAccountUI(); clearAccountMsg(); overlay.hidden = false; });
+  openBtn?.addEventListener("click", () => { refreshAccountUI(); _accountMsg(""); overlay.hidden = false; });
   $("accountClose")?.addEventListener("click", close);
   overlay.addEventListener("click", (ev) => { if (ev.target === overlay) close(); });
+  $("accountSkipBtn")?.addEventListener("click", close);
 
-  $("accountSignUpBtn")?.addEventListener("click", async () => {
-    const email = $("accountSignUpEmail").value.trim();
-    const password = $("accountSignUpPassword").value;
-    if (!email || password.length < 6) { showAccountMsg("Email + 6-character password.", false); return; }
-    showAccountMsg("Linking…", true);
-    const res = await handleAccountSignUp(email, password);
-    showAccountMsg(res.msg, res.ok);
-    if (res.ok) refreshAccountUI();
-  });
+  function readForm() {
+    const email = ($("accountEmail")?.value || "").trim();
+    const password = $("accountPassword")?.value || "";
+    if (!email || !email.includes("@")) return { err: "Enter a valid email." };
+    if (password.length < 6) return { err: "Password needs 6+ characters." };
+    return { email, password };
+  }
+  function setBusy(b) {
+    $("accountSignInBtn") && ($("accountSignInBtn").disabled = b);
+    $("accountSignUpBtn") && ($("accountSignUpBtn").disabled = b);
+  }
+
   $("accountSignInBtn")?.addEventListener("click", async () => {
-    const email = $("accountSignInEmail").value.trim();
-    const password = $("accountSignInPassword").value;
-    if (!email || !password) { showAccountMsg("Enter email and password.", false); return; }
-    showAccountMsg("Signing in…", true);
-    const res = await handleAccountSignIn(email, password);
-    showAccountMsg(res.msg, res.ok);
-    if (res.ok) refreshAccountUI();
+    const f = readForm();
+    if (f.err) { _accountMsg(f.err, false); return; }
+    _accountMsg("Signing in…", true);
+    setBusy(true);
+    const res = await handleAccountSignIn(f.email, f.password);
+    setBusy(false);
+    _accountMsg(res.msg, res.ok);
+    if (res.ok) {
+      clearLoginSkipped();
+      refreshAccountUI();
+      setTimeout(() => { overlay.hidden = true; }, 600);
+    }
+  });
+  $("accountSignUpBtn")?.addEventListener("click", async () => {
+    const f = readForm();
+    if (f.err) { _accountMsg(f.err, false); return; }
+    _accountMsg("Creating account…", true);
+    setBusy(true);
+    const res = await handleAccountSignUp(f.email, f.password);
+    setBusy(false);
+    _accountMsg(res.msg, res.ok);
+    if (res.ok) {
+      clearLoginSkipped();
+      refreshAccountUI();
+      // Leave modal up so success message shows; auto-close shortly after.
+      setTimeout(() => { if (authUser && !isAnonymous()) overlay.hidden = true; }, 1200);
+    }
+  });
+  // Enter inside the form triggers Sign in (the most common action).
+  ["accountEmail", "accountPassword"].forEach(id => {
+    $(id)?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); $("accountSignInBtn")?.click(); }
+    });
   });
   $("accountSignOutBtn")?.addEventListener("click", async () => {
-    if (!confirm("Sign out? Your save stays in the cloud — sign back in to restore it on this device.")) return;
+    if (!confirm("Sign out? Your cloud save stays — sign back in any time to restore it.")) return;
     await handleAccountSignOut();
   });
 }
@@ -3330,6 +3421,11 @@ renderLeaderboard();
   await syncCloudSaveOnBoot();
   refreshAccountUI();
   scheduleCloudSaves();
+  // First-visit login gate: pop the Account modal so a new player picks
+  // sign-in / create / continue-as-guest before they start playing. The
+  // modal also covers "you've been signed out" or "anon auth disabled in
+  // dashboard" cases. Dismissing once persists the skip flag.
+  maybeShowLoginGate();
 })();
 
 setInterval(() => {

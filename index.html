@@ -200,28 +200,24 @@
   <div class="howto-modal account-modal">
     <button class="howto-close" id="accountClose" aria-label="Close">×</button>
     <h2>👤 Account</h2>
-    <div id="accountStatus" class="account-status">Connecting…</div>
-    <p class="account-blurb muted">
-      Link an email + password to access your save on another device.
-      You stay signed in here automatically.
-    </p>
-    <div id="accountSignUpForm" class="account-form" hidden>
-      <h3>Link this guest account</h3>
-      <input id="accountSignUpEmail"    type="email"    placeholder="email" autocomplete="email" />
-      <input id="accountSignUpPassword" type="password" placeholder="password (6+ characters)" autocomplete="new-password" />
-      <button id="accountSignUpBtn" class="ghost block">Link account</button>
+    <div class="account-state">
+      <div id="accountStateLine" class="account-state-line">Connecting…</div>
+      <div id="accountStateBlurb" class="account-state-blurb">Setting up your account.</div>
     </div>
-    <div id="accountSignInForm" class="account-form" hidden>
-      <h3>Already have an account?</h3>
-      <p class="muted account-warn">Signing in replaces this device's save with the cloud copy if it's newer.</p>
-      <input id="accountSignInEmail"    type="email"    placeholder="email" autocomplete="email" />
-      <input id="accountSignInPassword" type="password" placeholder="password" autocomplete="current-password" />
-      <button id="accountSignInBtn" class="ghost block">Sign in</button>
+    <div id="accountAuthForm" class="account-auth-form" hidden>
+      <input id="accountEmail"    type="email"    placeholder="Email"    autocomplete="email" />
+      <input id="accountPassword" type="password" placeholder="Password" autocomplete="current-password" />
+      <div class="account-actions">
+        <button id="accountSignInBtn" class="account-btn primary">Sign in</button>
+        <button id="accountSignUpBtn" class="account-btn">Create account</button>
+      </div>
+      <div class="account-help muted">Cross-device save: sign in from anywhere with your email and password.</div>
     </div>
-    <div id="accountSignOutRow" class="account-form" hidden>
-      <button id="accountSignOutBtn" class="ghost block">Sign out</button>
+    <div id="accountSignedInActions" class="account-signed-in" hidden>
+      <button id="accountSignOutBtn" class="account-btn ghost-btn">Sign out</button>
     </div>
     <div id="accountMsg" class="account-msg"></div>
+    <button id="accountSkipBtn" class="account-skip" hidden>Continue without an account</button>
   </div>
 </div>
 <div id="adminOverlay" class="howto-overlay" hidden>
