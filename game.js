@@ -1539,7 +1539,7 @@ const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
   mini:    { icon: "🌊", name: "Lucky Current", desc: "Doubles every pickup for 15s.", duration: 15000 },
   minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "2× value for 15s.",       duration: 15000 },
-  major:   { icon: "🗺", name: "Treasure Map",  desc: "Legendary picks for 30s!",duration: 30000 },
+  major:   { icon: "🗺", name: "Treasure Map",  desc: "Legendary picks for 15s!",duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s!",      duration: 30000 },
 };
 
