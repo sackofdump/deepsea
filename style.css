@@ -389,9 +389,6 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   margin: 10px 0 0;
   padding: 0;
   font-variant-numeric: tabular-nums;
-  height: 180px;
-  overflow-y: auto;
-  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -468,9 +465,6 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   margin: 0;
   padding: 0;
   font-size: 12px;
-  max-height: 140px;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 #lastHaul li {
   padding: 2px 0;
