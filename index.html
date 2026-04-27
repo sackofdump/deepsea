@@ -15,6 +15,7 @@
   <aside id="sidebar">
     <header>
       <h1>Deep Sea Salvage</h1>
+      <span id="accountBadge" class="account-badge" hidden></span>
       <div class="cash-wrap">
         <div class="cash"><span id="cash">0</span></div>
         <div class="prestige-badge" id="prestigeBadge"></div>
@@ -106,6 +107,7 @@
 
     <footer>
       <button id="howToBtn" class="ghost">How to Play</button>
+      <button id="accountBtn" class="ghost">Account</button>
       <button id="adminBtn" class="ghost">Admin</button>
       <button id="resetBtn" class="ghost">Reset Save</button>
     </footer>
@@ -189,6 +191,34 @@
     </div>
   </div>
 </div>
+<div id="accountOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal account-modal">
+    <button class="howto-close" id="accountClose" aria-label="Close">×</button>
+    <h2>👤 Account</h2>
+    <div id="accountStatus" class="account-status">Connecting…</div>
+    <p class="account-blurb muted">
+      Link an email + password to access your save on another device.
+      You stay signed in here automatically.
+    </p>
+    <div id="accountSignUpForm" class="account-form" hidden>
+      <h3>Link this guest account</h3>
+      <input id="accountSignUpEmail"    type="email"    placeholder="email" autocomplete="email" />
+      <input id="accountSignUpPassword" type="password" placeholder="password (6+ characters)" autocomplete="new-password" />
+      <button id="accountSignUpBtn" class="ghost block">Link account</button>
+    </div>
+    <div id="accountSignInForm" class="account-form" hidden>
+      <h3>Already have an account?</h3>
+      <p class="muted account-warn">Signing in replaces this device's save with the cloud copy if it's newer.</p>
+      <input id="accountSignInEmail"    type="email"    placeholder="email" autocomplete="email" />
+      <input id="accountSignInPassword" type="password" placeholder="password" autocomplete="current-password" />
+      <button id="accountSignInBtn" class="ghost block">Sign in</button>
+    </div>
+    <div id="accountSignOutRow" class="account-form" hidden>
+      <button id="accountSignOutBtn" class="ghost block">Sign out</button>
+    </div>
+    <div id="accountMsg" class="account-msg"></div>
+  </div>
+</div>
 <div id="adminOverlay" class="howto-overlay" hidden>
   <div class="howto-modal admin-modal">
     <button class="howto-close" id="adminClose" aria-label="Close">×</button>
@@ -205,6 +235,7 @@
   </div>
 </div>
 
-<script src="game.js?v=28"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="game.js?v=30"></script>
 </body>
 </html>

@@ -314,9 +314,20 @@ function load() {
 }
 
 let resetting = false;
-function reset() {
+async function reset() {
   if (!confirm("Reset EVERYTHING? Rank, pearls, cash, upgrades, achievements, codex, dive history — all wiped. This cannot be undone.")) return;
   resetting = true;
+  // Wipe cloud save first (otherwise it'd restore on next anonymous sign-in)
+  // and sign out so reload starts a fresh anon session.
+  if (supaClient && authUser) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/saves?user_id=eq.${authUser.id}`, {
+        method: "DELETE",
+        headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${authToken()}` },
+      });
+    } catch {}
+    try { await supaClient.auth.signOut(); } catch {}
+  }
   localStorage.clear();
   location.reload();
 }
@@ -2288,6 +2299,290 @@ function wireAdminGate() {
   pwInput?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") unlock(); });
 }
 
+// ----- Supabase Auth + Cloud Saves -------------------------------
+// Anonymous-first auth: every visitor gets a real auth.users row from the
+// jump (silent), so their save and leaderboard entry survive across devices
+// once they upgrade to email+password via the Account modal. The Supabase
+// JS SDK is loaded by index.html as a UMD bundle and exposed at
+// window.supabase. If the CDN fails to load, the game falls back to the
+// pre-auth localStorage-only behavior.
+const supaClient = (typeof window !== "undefined" && window.supabase && window.supabase.createClient)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, storageKey: "deepSeaAuth_v1" },
+    })
+  : null;
+
+let authUser = null;
+let authSession = null;
+let authReady = false;
+let _cloudSaveBusy = false;
+let _cloudSaveDirty = false;
+let _cloudSaveTimer = null;
+
+function authToken() { return authSession?.access_token || SUPABASE_KEY; }
+function isAnonymous()      { return !!authUser && (authUser.is_anonymous === true || !authUser.email); }
+function authEmail()        { return authUser?.email || ""; }
+
+async function initAuth() {
+  if (!supaClient) {
+    // SDK didn't load — keep working in local-only mode using the existing
+    // random playerId. Leaderboard still works via the publishable apikey.
+    authReady = true;
+    return;
+  }
+  try {
+    const { data: { session } } = await supaClient.auth.getSession();
+    if (session) {
+      authSession = session;
+      authUser = session.user;
+    } else {
+      const { data, error } = await supaClient.auth.signInAnonymously();
+      if (error) {
+        // Anonymous sign-ins likely not enabled in the dashboard. Fall back
+        // to local-only and surface a one-time hint in the log.
+        console.warn("Anonymous sign-in failed:", error.message);
+        log("⚠ Cloud saves unavailable — anonymous auth not enabled.", "bad");
+      } else {
+        authSession = data.session;
+        authUser = data.user;
+      }
+    }
+  } catch (e) {
+    console.warn("initAuth failed:", e);
+  }
+  authReady = true;
+
+  // Keep our handles in sync as the SDK refreshes tokens or the user signs
+  // in/out from the Account modal.
+  supaClient.auth.onAuthStateChange((_event, session) => {
+    authSession = session;
+    authUser = session?.user || null;
+    refreshAccountUI();
+  });
+}
+
+async function migrateLegacyPlayerId() {
+  if (!authUser) return;
+  if (state.legacyMigratedAt) return;
+  const oldPlayerId = state.playerId;
+  // Future writes go under the auth user_id.
+  state.playerId = authUser.id;
+  state.legacyMigratedAt = Date.now();
+  save();
+  if (!oldPlayerId || oldPlayerId === authUser.id) return;
+  // Best-effort delete of the orphaned leaderboard row so the same player
+  // doesn't appear twice. Open RLS makes this work; if RLS later tightens,
+  // the request will 4xx and we silently move on (the orphan will fall off
+  // the top of the board as others advance).
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/scores?player_id=eq.${encodeURIComponent(oldPlayerId)}`, {
+      method: "DELETE",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+  } catch {}
+  // Re-post the leaderboard row under the new player_id.
+  if (state.displayName) leaderboardSync(true);
+}
+
+async function pullCloudSave() {
+  if (!authUser || !authSession) return null;
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/saves?user_id=eq.${authUser.id}&select=state,updated_at`;
+    const res = await fetch(url, {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${authToken()}` },
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function pushCloudSave() {
+  if (!authUser || !authSession) return;
+  if (_cloudSaveBusy) { _cloudSaveDirty = true; return; }
+  _cloudSaveBusy = true;
+  try {
+    state.lastTick = Date.now();
+    const payload = {
+      user_id: authUser.id,
+      state: state,
+      updated_at: new Date().toISOString(),
+    };
+    await fetch(`${SUPABASE_URL}/rest/v1/saves?on_conflict=user_id`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${authToken()}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch { /* offline-tolerant */ }
+  finally {
+    _cloudSaveBusy = false;
+    if (_cloudSaveDirty) {
+      _cloudSaveDirty = false;
+      // Re-run on next tick so we don't stack microtasks.
+      setTimeout(pushCloudSave, 0);
+    }
+  }
+}
+
+function applyCloudState(cloudState) {
+  if (!cloudState) return;
+  // Bind the cloud save to the current auth identity (in case the cloud
+  // save predates the legacy migration).
+  cloudState.playerId = authUser ? authUser.id : cloudState.playerId;
+  // Replay the same defensive defaults the boot block applies to localStorage
+  // saves so older shapes don't leave undefined fields after replacement.
+  if (!cloudState.boost) cloudState.boost = { activeUntil: 0, readyAt: 0 };
+  if (cloudState.level === undefined) cloudState.level = 1;
+  if (cloudState.xp === undefined) cloudState.xp = cloudState.totalEarned || 0;
+  if (cloudState.totalDives === undefined) cloudState.totalDives = 0;
+  if (cloudState.totalItems === undefined) cloudState.totalItems = 0;
+  if (cloudState.boostsUsed === undefined) cloudState.boostsUsed = 0;
+  if (!cloudState.rarityCounts) cloudState.rarityCounts = { common: 0, uncommon: 0, rare: 0, epic: 0, legend: 0 };
+  if (!cloudState.lifetimeItems) cloudState.lifetimeItems = {};
+  if (!cloudState.achievements) cloudState.achievements = {};
+  if (!cloudState.achievementsClaimed) cloudState.achievementsClaimed = {};
+  if (!cloudState.slotHits) cloudState.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0 };
+  if (!cloudState.inventory) cloudState.inventory = [];
+  if (!cloudState.sub) cloudState.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], cargoGrouped: {}, cargoTotalValue: 0, mode: "idle" };
+  if (!cloudState.sub.cargoGrouped) cloudState.sub.cargoGrouped = {};
+  if (cloudState.sub.cargoTotalValue === undefined) cloudState.sub.cargoTotalValue = 0;
+  state = cloudState;
+  save(true);
+}
+
+async function syncCloudSaveOnBoot() {
+  const remote = await pullCloudSave();
+  if (!remote) {
+    // No cloud save — push local up if we have something worth saving.
+    if (state.totalEarned > 0 || state.level > 1) await pushCloudSave();
+    return;
+  }
+  const remoteTick = (remote.state && remote.state.lastTick) || 0;
+  const localTick  = state.lastTick || 0;
+  // Cloud meaningfully newer (>30s) → adopt it. Same-ish or older → push local up.
+  if (remoteTick > localTick + 30000) {
+    applyCloudState(remote.state);
+    log("☁️ Loaded cloud save (newer than local).", "good");
+    refreshUI();
+  } else if (localTick > remoteTick + 30000) {
+    await pushCloudSave();
+  }
+}
+
+function scheduleCloudSaves() {
+  if (_cloudSaveTimer) clearInterval(_cloudSaveTimer);
+  _cloudSaveTimer = setInterval(() => { if (!resetting) pushCloudSave(); }, 15000);
+}
+
+// ----- Account modal --------------------------------------------
+async function handleAccountSignUp(email, password) {
+  if (!supaClient || !authUser) return { ok: false, msg: "Auth not ready." };
+  if (!isAnonymous()) return { ok: false, msg: "You're already signed in." };
+  const { error } = await supaClient.auth.updateUser({ email, password });
+  if (error) return { ok: false, msg: error.message };
+  // Push current progress under the (now-permanent) account immediately.
+  await pushCloudSave();
+  return { ok: true, msg: "Account linked. Check your email if confirmation is required." };
+}
+
+async function handleAccountSignIn(email, password) {
+  if (!supaClient) return { ok: false, msg: "Auth not ready." };
+  const { data, error } = await supaClient.auth.signInWithPassword({ email, password });
+  if (error) return { ok: false, msg: error.message };
+  authSession = data.session;
+  authUser = data.user;
+  // Pull this account's cloud save and adopt if newer than local.
+  await syncCloudSaveOnBoot();
+  refreshUI();
+  return { ok: true, msg: "Signed in." };
+}
+
+async function handleAccountSignOut() {
+  if (!supaClient) return;
+  await supaClient.auth.signOut();
+  // Page reload starts a fresh anon session and a clean local cache.
+  location.reload();
+}
+
+function refreshAccountUI() {
+  const status = $("accountStatus");
+  if (status) {
+    if (!authReady)            status.textContent = "Connecting…";
+    else if (!authUser)         status.textContent = "Offline (no account)";
+    else if (isAnonymous())     status.textContent = "Signed in as guest";
+    else                        status.textContent = `Signed in: ${authEmail()}`;
+  }
+  const badge = $("accountBadge");
+  if (badge) {
+    badge.hidden = !authReady;
+    if (!authUser)              badge.textContent = "offline";
+    else if (isAnonymous())     badge.textContent = "guest";
+    else                        badge.textContent = authEmail().split("@")[0];
+    badge.classList.toggle("anon",   isAnonymous());
+    badge.classList.toggle("linked", !!authUser && !isAnonymous());
+  }
+  // Toggle which form is visible inside the modal.
+  const signupForm = $("accountSignUpForm");
+  const signinForm = $("accountSignInForm");
+  const signoutRow = $("accountSignOutRow");
+  if (signupForm) signupForm.hidden = !isAnonymous();
+  if (signinForm) signinForm.hidden = !isAnonymous();
+  if (signoutRow) signoutRow.hidden = isAnonymous() || !authUser;
+}
+
+function wireAccountModal() {
+  const overlay = $("accountOverlay");
+  const openBtn = $("accountBtn");
+  if (!overlay || !openBtn) return;
+  function close() { overlay.hidden = true; clearAccountMsg(); }
+  function clearAccountMsg() {
+    const m = $("accountMsg");
+    if (m) { m.textContent = ""; m.className = "account-msg"; }
+  }
+  function showAccountMsg(text, ok) {
+    const m = $("accountMsg");
+    if (!m) return;
+    m.textContent = text;
+    m.className = "account-msg " + (ok ? "ok" : "bad");
+  }
+  openBtn.addEventListener("click", () => { refreshAccountUI(); clearAccountMsg(); overlay.hidden = false; });
+  $("accountClose")?.addEventListener("click", close);
+  overlay.addEventListener("click", (ev) => { if (ev.target === overlay) close(); });
+
+  $("accountSignUpBtn")?.addEventListener("click", async () => {
+    const email = $("accountSignUpEmail").value.trim();
+    const password = $("accountSignUpPassword").value;
+    if (!email || password.length < 6) { showAccountMsg("Email + 6-character password.", false); return; }
+    showAccountMsg("Linking…", true);
+    const res = await handleAccountSignUp(email, password);
+    showAccountMsg(res.msg, res.ok);
+    if (res.ok) refreshAccountUI();
+  });
+  $("accountSignInBtn")?.addEventListener("click", async () => {
+    const email = $("accountSignInEmail").value.trim();
+    const password = $("accountSignInPassword").value;
+    if (!email || !password) { showAccountMsg("Enter email and password.", false); return; }
+    showAccountMsg("Signing in…", true);
+    const res = await handleAccountSignIn(email, password);
+    showAccountMsg(res.msg, res.ok);
+    if (res.ok) refreshAccountUI();
+  });
+  $("accountSignOutBtn")?.addEventListener("click", async () => {
+    if (!confirm("Sign out? Your save stays in the cloud — sign back in to restore it on this device.")) return;
+    await handleAccountSignOut();
+  });
+}
+
 // ----- Boot ------------------------------------------------------
 $("resetBtn").addEventListener("click", reset);
 $("boostBtn").addEventListener("click", activateBoost);
@@ -2370,7 +2665,20 @@ checkAchievements();
 refreshUI();
 wireLeaderboard();
 wireAdminGate();
+wireAccountModal();
+refreshAccountUI();
 renderLeaderboard();
+
+// Auth + cloud save bootstrap. Runs alongside the synchronous boot above so
+// the UI is interactive immediately; cloud progress streams in once it's
+// ready. Failures are non-fatal — the game stays playable in local-only mode.
+(async () => {
+  await initAuth();
+  await migrateLegacyPlayerId();
+  await syncCloudSaveOnBoot();
+  refreshAccountUI();
+  scheduleCloudSaves();
+})();
 
 setInterval(() => {
   if (_catchingUp) return;

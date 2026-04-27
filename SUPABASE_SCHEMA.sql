@@ -48,3 +48,45 @@ drop trigger if exists scores_touch on public.scores;
 create trigger scores_touch
   before update on public.scores
   for each row execute function public.touch_scores_updated_at();
+
+-- ===== Cloud saves ========================================================
+-- One row per authenticated user. The full game state goes in `state` as
+-- JSONB. RLS makes a user's save readable/writable only by themselves.
+--
+-- Dashboard step (do this once, manually):
+--   1. Authentication → Providers → Anonymous → toggle ON.
+--      Without this, supabase.auth.signInAnonymously() fails and the game
+--      can't auto-create accounts for new players.
+--   2. Authentication → Sign In / Providers → Email → "Confirm email" → OFF.
+--      With it ON, anonymous-to-permanent upgrade leaves the email "pending"
+--      until the player clicks a confirmation link, blocking sign-in on
+--      another device until then. OFF gives the smoother cross-device UX
+--      this game's Account modal expects.
+
+create table if not exists public.saves (
+  user_id    uuid        primary key references auth.users(id) on delete cascade,
+  state      jsonb       not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.saves enable row level security;
+
+drop policy if exists "saves read self"   on public.saves;
+drop policy if exists "saves insert self" on public.saves;
+drop policy if exists "saves update self" on public.saves;
+
+create policy "saves read self"   on public.saves for select using (auth.uid() = user_id);
+create policy "saves insert self" on public.saves for insert with check (auth.uid() = user_id);
+create policy "saves update self" on public.saves for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create or replace function public.touch_saves_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+drop trigger if exists saves_touch on public.saves;
+create trigger saves_touch
+  before update on public.saves
+  for each row execute function public.touch_saves_updated_at();
