@@ -368,9 +368,18 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   margin-top: auto;
 }
 
-/* Active-effect banner (encounters) ----------------------------- */
-.active-effect {
+/* Active-effect stack (encounters) ----------------------------- */
+/* #activeEffect is the container — each running bonus is a child .active-effect
+   row, so multiple buffs stack on top of each other instead of only showing
+   the longest-remaining one. Container collapses to nothing when empty. */
+#activeEffect:empty { display: none; }
+#activeEffect:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin: 10px 0 4px;
+}
+.active-effect {
   padding: 7px 10px;
   border-radius: 5px;
   font-size: 11.5px;
@@ -381,9 +390,6 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   border: 1px solid currentColor;
   min-height: 18px;
   box-sizing: content-box;
-}
-.active-effect.empty {
-  display: none;
 }
 .active-effect.eff-map     {
   color: var(--gold);
@@ -396,6 +402,10 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 .active-effect.eff-current {
   color: var(--accent);
   background: linear-gradient(90deg, rgba(79,208,255,0.18), rgba(79,208,255,0.02));
+}
+.active-effect.eff-shark {
+  color: var(--bad);
+  background: linear-gradient(90deg, rgba(255,122,122,0.20), rgba(255,122,122,0.02));
 }
 @keyframes effectPulse {
   from { box-shadow: 0 0 4px  currentColor, inset 0 0 4px rgba(255,255,255,0.04); }

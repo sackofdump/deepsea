@@ -1794,36 +1794,28 @@ function renderActiveEffect() {
   const el = $("activeEffect");
   if (!el) return;
   const now = Date.now();
-  const sharkUntil = state.sharkSlowUntil          || 0;
-  const choices = [
-    { until: state.encounterLegendaryUntil || 0, tier: "major", cls: "eff-map" },
-    { until: state.encounterValueUntil     || 0, tier: "minor", cls: "eff-kiss" },
-    { until: state.encounterCargoUntil     || 0, tier: "mini",  cls: "eff-current" },
-  ].filter(c => c.until > now);
+  // Hazard pinned to the top of the stack so the player can watch it tick down.
+  const rows = [];
+  if ((state.sharkSlowUntil          || 0) > now) rows.push({ until: state.sharkSlowUntil,          tier: "shark", cls: "eff-shark" });
+  if ((state.encounterLegendaryUntil || 0) > now) rows.push({ until: state.encounterLegendaryUntil, tier: "major", cls: "eff-map" });
+  if ((state.encounterValueUntil     || 0) > now) rows.push({ until: state.encounterValueUntil,     tier: "minor", cls: "eff-kiss" });
+  if ((state.encounterCargoUntil     || 0) > now) rows.push({ until: state.encounterCargoUntil,     tier: "mini",  cls: "eff-current" });
 
-  let top = null;
-  // Hazard wins display so the player can watch it tick down.
-  if (sharkUntil > now) top = { until: sharkUntil, tier: "shark", cls: "eff-shark" };
-  else if (choices.length > 0) {
-    choices.sort((a, b) => b.until - a.until);
-    top = choices[0];
-  }
-
-  if (top) {
-    const bonus = SLOT_BONUSES[top.tier];
-    const remaining = Math.max(1, Math.ceil((top.until - now) / 1000));
-    const shortDesc = ACTIVE_EFFECT_SHORT[top.tier] || "";
-    const name = (bonus && bonus.name) || top.tier;
+  // The container itself has no styling (CSS uses :empty / :not(:empty) to
+  // toggle margin + flex layout). Each active bonus becomes a child row.
+  el.innerHTML = "";
+  for (const r of rows) {
+    const bonus = SLOT_BONUSES[r.tier];
+    const remaining = Math.max(1, Math.ceil((r.until - now) / 1000));
+    const shortDesc = ACTIVE_EFFECT_SHORT[r.tier] || "";
+    const name = (bonus && bonus.name) || r.tier;
     const icon = (bonus && bonus.icon) || "✨";
     const fullDesc = (bonus && bonus.desc) || "";
-    el.className = `active-effect ${top.cls}`;
-    el.textContent = `${icon}  ${name.toUpperCase()} — ${shortDesc} · ${remaining}s`;
-    el.title = `${name}\n\n${fullDesc}`;
-    el.classList.remove("empty");
-  } else {
-    el.className = "active-effect empty";
-    el.textContent = "";
-    el.removeAttribute("title");
+    const row = document.createElement("div");
+    row.className = `active-effect ${r.cls}`;
+    row.title = `${name}\n\n${fullDesc}`;
+    row.textContent = `${icon}  ${name.toUpperCase()} — ${shortDesc} · ${remaining}s`;
+    el.appendChild(row);
   }
 }
 
