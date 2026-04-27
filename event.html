@@ -108,7 +108,6 @@
 
     <footer>
       <button id="howToBtn" class="ghost">How to Play</button>
-      <button id="adminBtn" class="ghost">Admin</button>
       <button id="resetBtn" class="ghost">Reset Save</button>
       <a href="index.html" class="ghost block back-to-main">← Main game</a>
     </footer>
@@ -373,6 +372,27 @@ window.EVENT_CONFIG = {
 
   // Symbol order: [hazard, mini, minor, major, jackpot]
   slotSymbols: ["🌧", "🌿", "🦋", "🌈", "🌷"],
+
+  chestTiers: {
+    bronze: {
+      name: "Seed Pouch", icon: "🪺",
+      rarities: ["rare", "epic", "legend"],
+      rarityWeights: { rare: 55, epic: 35, legend: 10 },
+      items: 3, valueMult: 1.6,
+    },
+    silver: {
+      name: "Honey Pot",  icon: "🍯",
+      rarities: ["epic", "legend"],
+      rarityWeights: { epic: 55, legend: 45 },
+      items: 4, valueMult: 2.4,
+    },
+    gold: {
+      name: "Bloom Bouquet", icon: "💐",
+      rarities: ["legend", "epic"],
+      rarityWeights: { legend: 90, epic: 10 },
+      items: 6, valueMult: 3.5,
+    },
+  },
 
   slotBonuses: {
     shark:   { icon: "🌧", name: "Spring Storm",   desc: "No loot for 10s!",         duration: 10000, kind: "hazard" },

@@ -318,38 +318,56 @@ html, body {
 }
 
 /* Upgrades ------------------------------------------------------ */
+/* Whole row is the buy button — full-bar click target, the price lives inside.
+   Button-element-as-row carries focus, hover, disabled, and active states. */
 .upgrade {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 10px;
+  width: 100%;
+  padding: 10px 12px;
   margin-bottom: 6px;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 6px;
   font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+.upgrade:hover:not(:disabled) {
+  background: rgba(79,208,255,0.10);
+  border-color: var(--accent);
+}
+.upgrade:active:not(:disabled) { transform: scale(0.99); }
+.upgrade:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
-.upgrade .info { line-height: 1.35; }
+.upgrade .info { line-height: 1.35; min-width: 0; flex: 1 1 auto; }
 .upgrade .name { font-weight: 600; }
 .upgrade .meta { color: var(--muted); font-size: 11px; }
 
-.upgrade button {
+.upgrade .price {
+  flex: 0 0 auto;
+  margin-left: 12px;
+  padding: 6px 12px;
+  border-radius: 4px;
   background: var(--accent);
   color: #00131c;
-  border: 0;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
+  min-width: 64px;
+  text-align: center;
+  transition: background 120ms ease, color 120ms ease;
 }
-
-.upgrade button:disabled {
+.upgrade:disabled .price {
   background: var(--line);
   color: var(--muted);
-  cursor: not-allowed;
 }
 
 button.ghost {
@@ -371,13 +389,14 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 /* Active-effect stack (encounters) ----------------------------- */
 /* #activeEffect is the container — each running bonus is a child .active-effect
    row, so multiple buffs stack on top of each other instead of only showing
-   the longest-remaining one. Container collapses to nothing when empty. */
-#activeEffect:empty { display: none; }
-#activeEffect:not(:empty) {
+   the longest-remaining one. Always reserves enough space for two rows so
+   bonuses appearing/disappearing doesn't push the cargo list around. */
+#activeEffect {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin: 10px 0 4px;
+  min-height: 76px;
 }
 .active-effect {
   padding: 7px 10px;
@@ -421,9 +440,9 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   display: flex;
   flex-direction: column;
   gap: 3px;
-  /* Reserve space for ~6 typical loot rows + a Total row so the Outfitting
+  /* Reserve space for ~7 typical loot rows + a Total row so the Outfitting
      panel below doesn't jump around as the dive fills cargo. */
-  min-height: 168px;
+  min-height: 196px;
 }
 .cargo-list li {
   display: flex;
@@ -497,8 +516,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   margin: 0;
   padding: 0;
   font-size: 12px;
-  /* Mirror the cargo-list reservation — 6 rows + Total at this row height. */
-  min-height: 144px;
+  /* Mirror the cargo-list reservation — 7 rows + Total at this row height. */
+  min-height: 168px;
 }
 #lastHaul li {
   padding: 2px 0;

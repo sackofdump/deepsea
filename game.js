@@ -1171,23 +1171,24 @@ function buildUpgrades() {
   const root = $("upgrades");
   root.innerHTML = "";
   for (const def of UPGRADE_DEFS) {
-    const row = document.createElement("div");
-    row.className = "upgrade";
-    row.innerHTML = `
+    const btn = document.createElement("button");
+    btn.className = "upgrade";
+    btn.type = "button";
+    btn.innerHTML = `
       <div class="info">
         <div class="name">${def.name} <span class="muted lvl">Lv 0</span></div>
         <div class="meta"></div>
       </div>
-      <button>$0</button>
+      <div class="price">$0</div>
     `;
-    const btn = row.querySelector("button");
     btn.addEventListener("click", () => buy(def.id));
     upgradeRows[def.id] = {
-      lvl: row.querySelector(".lvl"),
-      meta: row.querySelector(".meta"),
+      lvl:   btn.querySelector(".lvl"),
+      meta:  btn.querySelector(".meta"),
+      price: btn.querySelector(".price"),
       btn,
     };
-    root.appendChild(row);
+    root.appendChild(btn);
   }
 }
 
@@ -1203,7 +1204,7 @@ function updateUpgrades() {
     row.lvl.textContent = `Lv ${lvl}`;
     row.meta.textContent = `${def.desc}: ${curr.toFixed(fixed)}${def.suffix} → ${next.toFixed(fixed)}${def.suffix}`;
     const costText = `$${fmt(cost)}`;
-    if (row.btn.textContent !== costText) row.btn.textContent = costText;
+    if (row.price.textContent !== costText) row.price.textContent = costText;
     const disabled = state.cash < cost;
     if (row.btn.disabled !== disabled) row.btn.disabled = disabled;
   }
@@ -1339,7 +1340,7 @@ function showItemReveal(item, value, tierLabel) {
 }
 
 // ----- Treasure chests + inventory ------------------------------
-const CHEST_TIERS = {
+const CHEST_TIERS = (EVENT && EVENT.chestTiers) || {
   bronze: {
     name: "Bronze Chest", icon: "📦",
     rarities: ["rare", "epic", "legend"],
@@ -1539,7 +1540,7 @@ const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
   mini:    { icon: "🌊", name: "Lucky Current", desc: "Doubles every pickup for 15s.", duration: 15000 },
   minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "2× value for 15s.",       duration: 15000 },
-  major:   { icon: "🗺", name: "Treasure Map",  desc: "Legendary picks for 15s!",duration: 15000 },
+  major:   { icon: "🗺", name: "Deep Dive Bonus", desc: "Legendary picks for 15s!", duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
 };
 
