@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spring Bloom — Limited Time Event</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="event.css?v=1" />
+</head>
+<body class="event-spring">
+<div id="app">
+  <aside id="sidebar">
+    <header>
+      <a href="index.html" class="event-link-banner back-banner">&lsaquo; Back to Deep Sea Salvage</a>
+      <h1>Spring Bloom</h1>
+      <div class="cash-wrap">
+        <div class="cash"><span id="cash">0</span></div>
+        <div class="prestige-badge" id="prestigeBadge"></div>
+        <div id="chestTray" class="chest-tray"></div>
+      </div>
+      <div class="header-level">
+        Lv <span id="headerLevel">1</span> · <span id="headerBiome">Cherry Blossom Pond</span>
+      </div>
+      <div class="header-progress-row">
+        <span class="muted">Next level</span>
+        <span><span id="levelMoney">0</span> / <span id="levelMoneyMax">100</span> XP</span>
+      </div>
+      <div class="bar"><div class="bar-fill bar-fill-level" id="levelBar"></div></div>
+      <div class="next-biome-info" id="nextBiomeInfo">10 levels to Tulip Field</div>
+    </header>
+
+    <section class="panel" data-key="submersible">
+      <h2>🌷 Forager</h2>
+      <div class="stat"><span>Status</span><span id="status">Surface</span></div>
+      <div class="stat"><span>Depth</span><span><span id="depth">0</span> / <span id="maxDepth">50</span> m</span></div>
+      <div class="stat"><span>Basket</span><span><span id="cargo">0</span> / <span id="cargoMax">4</span> kg</span></div>
+      <div class="bar"><div class="bar-fill" id="cargoBar"></div></div>
+    </section>
+
+    <section class="panel" data-key="ondeck">
+      <h2>🧺 In Basket</h2>
+      <div id="activeEffect" class="active-effect empty"></div>
+      <ul id="currentCargo" class="cargo-list"><li class="muted">Empty</li></ul>
+    </section>
+
+    <section class="panel" data-key="lastrun">
+      <h2>📜 Last Trip</h2>
+      <ul id="lastHaul"><li class="muted">Nothing yet.</li></ul>
+    </section>
+
+    <section class="panel" data-key="outfitting">
+      <h2>🔧 Outfitting</h2>
+      <div id="upgrades"></div>
+    </section>
+
+    <section class="panel" id="prestigePanel" data-key="promotion">
+      <h2>🌱 Promotion</h2>
+      <div class="stat"><span>Rank</span><span id="subTier">Sprout</span></div>
+      <div class="stat"><span>Rarity upgrade</span><span id="prestigeRarity">+0%</span></div>
+      <div class="stat"><span>Loot worth</span><span id="prestigeMult">+0%</span></div>
+      <div class="stat"><span>Pollen banked</span><span id="prestigePearls">0</span></div>
+      <div class="stat"><span>Pending pollen</span><span id="prestigePending">0</span></div>
+      <div class="stat"><span>Next rank</span><span id="nextTierInfo">Bud @ Lv 25</span></div>
+      <button id="prestigeBtn" class="prestige-btn" disabled>Bloom Up</button>
+      <div class="muted prestige-hint">Each promotion: +3% chance per loot roll to bump the item up one rarity tier. Pollen gives +0.5% loot value forever — bank more by pushing further before promoting.</div>
+    </section>
+
+    <section class="panel" data-key="log">
+      <h2>📊 Field Notes</h2>
+      <div class="stat"><span>Total earned</span><span>$<span id="lifeEarned">0</span></span></div>
+      <div class="stat"><span>Items found</span><span id="lifeItems">0</span></div>
+      <div class="stat"><span>Trips</span><span id="lifeDives">0</span></div>
+      <div class="stat"><span>Boosts used</span><span id="lifeBoosts">0</span></div>
+      <div class="stat"><span>Rare+ finds</span><span id="lifeRare">0</span></div>
+      <div class="stat"><span>Bonus drops</span><span id="lifeBonus">0</span></div>
+    </section>
+
+    <section class="panel" data-key="honors">
+      <h2>🏆 Honors <span class="muted" id="achCount">0/0</span><button type="button" id="achClaimAll" hidden>Claim all</button></h2>
+      <div id="achievements" class="achievement-list"></div>
+    </section>
+
+    <section class="panel" data-key="journal">
+      <h2>📖 Field Journal <span class="muted" id="codexCount">0/0</span></h2>
+      <div id="codex" class="codex-grid"></div>
+    </section>
+
+    <section class="panel" data-key="leaderboard">
+      <h2>🏅 Spring Leaderboard</h2>
+      <div class="lb-name-row">
+        <input id="lbName" placeholder="Display name" maxlength="32" />
+        <button id="lbSync" class="ghost">Sync</button>
+      </div>
+      <div class="lb-tabs">
+        <button class="lb-tab active" data-metric="total_earned">Cash</button>
+        <button class="lb-tab" data-metric="level">Level</button>
+        <button class="lb-tab" data-metric="prestige_count">Blooms</button>
+        <button class="lb-tab" data-metric="jackpots">Bursts</button>
+        <button class="lb-tab" data-metric="pearls">Pollen</button>
+        <button class="lb-tab" data-metric="total_dives">Trips</button>
+      </div>
+      <div id="lbBoard" class="lb-board"></div>
+    </section>
+
+    <footer>
+      <button id="howToBtn" class="ghost">How to Play</button>
+      <button id="adminBtn" class="ghost">Admin</button>
+      <button id="resetBtn" class="ghost">Reset Save</button>
+      <a href="index.html" class="ghost block back-to-main">← Main game</a>
+    </footer>
+  </aside>
+
+  <main id="ocean">
+    <div id="surface"></div>
+    <div id="water">
+      <div id="sub">
+        <div class="sub-light"></div>
+        <div class="sub-fin"></div>
+        <div class="sub-prop"></div>
+        <div class="sub-body">
+          <div class="sub-window"></div>
+          <div class="sub-stripe"></div>
+        </div>
+      </div>
+    </div>
+    <div id="depthMarkers"></div>
+    <div id="chestHaul" class="chest-haul"></div>
+    <div id="slotMachine" class="slot-machine" data-state="idle">
+      <div class="slot-title">🌷 CHANCE AT BLOOM</div>
+      <div class="slot-reels">
+        <div class="slot-reel" id="slotReel0"><div class="slot-strip">🌿</div></div>
+        <div class="slot-reel" id="slotReel1"><div class="slot-strip">🦋</div></div>
+        <div class="slot-reel" id="slotReel2"><div class="slot-strip">🌈</div></div>
+      </div>
+      <div class="slot-status">Next spin in 15s</div>
+    </div>
+    <div id="log"></div>
+    <div class="boost-hint">+200% speed &amp; pickup rate</div>
+    <button id="boostBtn" class="boost-btn" title="Boost (Space)">
+      <span class="boost-label">⚡ BOOST</span>
+      <span class="boost-sub"></span>
+      <span class="boost-cooldown" id="boostCooldown"></span>
+    </button>
+  </main>
+</div>
+
+<div id="howToOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal">
+    <button class="howto-close" id="howToClose" aria-label="Close">×</button>
+    <h2>🌷 How to Play — Spring Bloom</h2>
+    <div class="howto-body">
+      <section>
+        <h3>🌸 Limited time event</h3>
+        <p>Spring Bloom has its own leaderboard. Final standings lock at midnight on May 8. Your save here is separate from the main game.</p>
+      </section>
+      <section>
+        <h3>🌊 Trip cycle</h3>
+        <p>Your forager auto-descends into the bloom, gathers spring loot, and surfaces to sell. You don't pilot it — you upgrade it.</p>
+      </section>
+      <section>
+        <h3>⚡ Boost</h3>
+        <p>Tap the boost button (or press <strong>Space</strong>) for +200% speed and pickup rate. Tap again while active to add +1 second, up to a 10s cap. Cooldown starts after it ends.</p>
+      </section>
+      <section>
+        <h3>🔧 Outfitting</h3>
+        <p>Spend cash to upgrade Hull, Thrusters, Basket, Sonar, and Appraiser. Levels are permanent within a run, but reset on Bloom Up.</p>
+      </section>
+      <section>
+        <h3>🧺 In Basket &amp; encounters</h3>
+        <p>Items collected this trip show in your basket. Every encounter — bonuses (<strong>Spring Breeze</strong>, <strong>Butterfly Kiss</strong>, <strong>Rainbow Pact</strong>) and the <strong>Spring Storm</strong> hazard — comes from the Bloom Slot.</p>
+      </section>
+      <section>
+        <h3>🌷 Bloom Slot</h3>
+        <p>The slot in the corner auto-pulls every 15s. Triple matches: 🌿 Spring Breeze (2× basket, 15s), 🦋 Butterfly Kiss (2× value, 15s), 🌈 Rainbow Pact (legendary picks at 10× value, 30s), 🌷 Bloom Burst (all three, 30s). 🌧 triple = Spring Storm (no loot for 10s).</p>
+      </section>
+      <section>
+        <h3>📦 Treasure chests</h3>
+        <p>Bronze/Silver/Gold chests spawn occasionally. Click to add to your tray (next to the cash). Open them whenever — multi-item rolls biased toward higher rarity.</p>
+      </section>
+      <section>
+        <h3>🌱 Bloom Up &amp; pollen</h3>
+        <p>Hit a tier's level threshold to bloom up (Sprout → Bud → …). Bloom Up banks <strong>pollen</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each pollen is +0.5% loot value, forever. Push deeper before blooming up to bank more.</p>
+      </section>
+      <section>
+        <h3>🏆 Honors</h3>
+        <p>Achievements unlock as you play but aren't free — open the Honors panel and click each one to claim its cash reward.</p>
+      </section>
+    </div>
+  </div>
+</div>
+<div id="adminOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal admin-modal">
+    <button class="howto-close" id="adminClose" aria-label="Close">×</button>
+    <h2>🛠 Admin</h2>
+    <div id="adminGate">
+      <input id="adminPw" type="password" placeholder="Password" autocomplete="off" />
+      <button id="adminUnlock" class="ghost block">Unlock</button>
+    </div>
+    <div id="adminTools" hidden>
+      <button id="adminLvlBtn"   class="ghost block">+10 Lv</button>
+      <button id="adminCashBtn"  class="ghost block">+$1M</button>
+      <button id="adminBoostBtn" class="ghost block">Boost: OFF</button>
+    </div>
+  </div>
+</div>
+
+<div id="eventWelcomeOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal event-welcome-modal">
+    <button class="howto-close" id="eventWelcomeClose" aria-label="Close">×</button>
+    <h2>🌸 Welcome to Spring Bloom</h2>
+    <div class="howto-body">
+      <section>
+        <h3>Limited-time event</h3>
+        <p>Spring Bloom runs until <strong>midnight on May 8, 2026</strong>. Once the timer hits zero the leaderboard locks and the event closes — push as deep as you can before then.</p>
+      </section>
+      <section>
+        <h3>Separate save</h3>
+        <p>Your progress here is its own world — it doesn't touch your main Deep Sea Salvage save. Cash, level, pollen, codex, and honors all start fresh.</p>
+      </section>
+      <section>
+        <h3>Bloom Slot bonuses</h3>
+        <p>The slot in the corner pulls every 15 seconds. Triple matches trigger:</p>
+        <ul class="event-welcome-bonuses">
+          <li><span class="bonus-icon">🌿</span> <strong>Spring Breeze</strong> — 2× basket capacity for 15s. Carry twice as much loot per trip.</li>
+          <li><span class="bonus-icon">🦋</span> <strong>Butterfly Kiss</strong> — 2× value on every pickup for 15s. Stacks with Appraiser and Pollen.</li>
+          <li><span class="bonus-icon">🌈</span> <strong>Rainbow Pact</strong> — every pickup forces the highest-rarity tier in the current biome for 30s. Forced legendaries also get a 25× value multiplier on top.</li>
+          <li><span class="bonus-icon">🌷</span> <strong>Bloom Burst (jackpot)</strong> — all three bonuses stack for 30s. The big one.</li>
+          <li class="hazard"><span class="bonus-icon">🌧</span> <strong>Spring Storm (hazard)</strong> — no loot at all for 10s. Slot bonuses drain this 10× faster, so keep spinning.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Own leaderboard</h3>
+        <p>The leaderboard on this page only shows Spring Bloom scores — separate ranking from the main game. Set a name in the leaderboard panel and click Sync to compete.</p>
+      </section>
+    </div>
+    <div class="event-welcome-footer">
+      <label class="event-welcome-noshow">
+        <input type="checkbox" id="eventWelcomeNoShow" />
+        Don't show this again
+      </label>
+      <button id="eventWelcomeOk" class="ghost">Got it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Spring Bloom event configuration. Loaded before game.js so the game picks
+// up the themed data tables, save scope, and end-time freeze.
+window.EVENT_CONFIG = {
+  name: "Spring Bloom",
+  eventKey: "spring2026",
+  saveKey: "springBloom_v1",
+  panelKey: "springBloomPanels_v1",
+  // Local end of May 8, 2026 — May 9 00:00 in the player's timezone.
+  endAt: new Date(2026, 4, 9, 0, 0, 0).getTime(),
+
+  subRanks: [
+    "Sprout",         // 1
+    "Bud",            // 2
+    "Bloom",          // 3
+    "Pollinator",     // 4
+    "Gardener",       // 5
+    "Beekeeper",      // 6
+    "Spring Spirit",  // 7
+    "Bloom Lord",     // 8
+    "Sun Herald",     // 9
+    "Spring Mythic",  // 10+
+  ],
+
+  biomes: [
+    { name: "Cherry Blossom Pond",  color: "#ffd6e6", accent: "#fff0f5" },
+    { name: "Tulip Field",          color: "#ffb280", accent: "#ffd6a8" },
+    { name: "Dewy Meadow",          color: "#a8e6c1", accent: "#d4f5e1" },
+    { name: "Misty Marsh",          color: "#a0c8e0", accent: "#d4ebf5" },
+    { name: "Lavender Field",       color: "#c8a6e0", accent: "#e0c8f0" },
+    { name: "Bee Garden",           color: "#ffd870", accent: "#ffefb0" },
+    { name: "Butterfly Glade",      color: "#ff9ac4", accent: "#ffc8e0" },
+    { name: "Rainbow Falls",        color: "#90e0d0", accent: "#c0f0e8" },
+    { name: "Ancient Grove",        color: "#5a8a4a", accent: "#90c080" },
+    { name: "Heart of Spring",     color: "#7a4a9a", accent: "#c890e0" },
+  ],
+
+  loot: {
+    "Cherry Blossom Pond": [
+      { icon: "🌱", name: "Sprout",          weight: 0.2, value: 1,    rarity: "common",   chance: 50 },
+      { icon: "🌸", name: "Pink Petal",      weight: 0.1, value: 3,    rarity: "common",   chance: 30 },
+      { icon: "🐞", name: "Sleepy Ladybug",  weight: 0.3, value: 8,    rarity: "uncommon", chance: 15 },
+      { icon: "🍀", name: "Tangled Clover",  weight: 1.5, value: 18,   rarity: "uncommon", chance: 4 },
+      { icon: "🍯", name: "Honey Drop",      weight: 0.4, value: 60,   rarity: "rare",     chance: 1 },
+    ],
+    "Tulip Field": [
+      { icon: "🌿", name: "Fresh Vine",      weight: 1.2, value: 4,     rarity: "common",   chance: 47 },
+      { icon: "🌾", name: "Sturdy Stalk",    weight: 0.5, value: 12,    rarity: "common",   chance: 25 },
+      { icon: "🌷", name: "Tulip Bloom",     weight: 0.1, value: 40,    rarity: "uncommon", chance: 18 },
+      { icon: "🐝", name: "Bumblebee",       weight: 4,   value: 110,   rarity: "rare",     chance: 7 },
+      { icon: "🦋", name: "Butterfly Wing",  weight: 0.6, value: 300,   rarity: "rare",     chance: 2 },
+      { icon: "🪺", name: "Robin's Nest",    weight: 8,   value: 1200,  rarity: "epic",     chance: 1 },
+    ],
+    "Dewy Meadow": [
+      { icon: "💧", name: "Dewdrop",         weight: 6,   value: 25,    rarity: "common",   chance: 48 },
+      { icon: "🌼", name: "Daisy Wreath",    weight: 9,   value: 80,    rarity: "uncommon", chance: 30 },
+      { icon: "🍄", name: "Toadstool",       weight: 0.1, value: 250,   rarity: "rare",     chance: 10 },
+      { icon: "🦔", name: "Hedgehog Quill",  weight: 4,   value: 750,   rarity: "epic",     chance: 10 },
+      { icon: "🐰", name: "Rabbit's Foot",   weight: 1,   value: 2400,  rarity: "legend",   chance: 2 },
+    ],
+    "Misty Marsh": [
+      { icon: "🪨", name: "Smooth Stone",    weight: 2,   value: 130,    rarity: "common",   chance: 45 },
+      { icon: "🐸", name: "Frog Egg",        weight: 1,   value: 400,    rarity: "uncommon", chance: 28 },
+      { icon: "🪷", name: "Sacred Lotus",    weight: 3,   value: 1100,   rarity: "rare",     chance: 12 },
+      { icon: "🥚", name: "Speckled Egg",    weight: 5,   value: 3200,   rarity: "epic",     chance: 12 },
+      { icon: "💎", name: "Marsh Crystal",   weight: 0.4, value: 10000,  rarity: "legend",   chance: 3 },
+    ],
+    "Lavender Field": [
+      { icon: "🌾", name: "Wheat Stalk",     weight: 4,   value: 500,    rarity: "common",   chance: 45 },
+      { icon: "🪻", name: "Lavender Bunch",  weight: 0.5, value: 1600,   rarity: "uncommon", chance: 28 },
+      { icon: "🦋", name: "Glass Wing",      weight: 6,   value: 4500,   rarity: "rare",     chance: 12 },
+      { icon: "🐝", name: "Queen Bee",       weight: 2,   value: 13000,  rarity: "epic",     chance: 12 },
+      { icon: "🌟", name: "Pollen Star",     weight: 0.1, value: 40000,  rarity: "legend",   chance: 3 },
+    ],
+    "Bee Garden": [
+      { icon: "🐝", name: "Worker Bee",       weight: 3,   value: 2000,    rarity: "common",   chance: 45 },
+      { icon: "🍯", name: "Royal Jelly",      weight: 0.4, value: 6000,    rarity: "uncommon", chance: 28 },
+      { icon: "🌻", name: "Sunflower Heart",  weight: 1,   value: 18000,   rarity: "rare",     chance: 12 },
+      { icon: "👑", name: "Honeycomb Crown",  weight: 5,   value: 55000,   rarity: "epic",     chance: 12 },
+      { icon: "🪶", name: "Phoenix Feather",  weight: 0.05,value: 170000,  rarity: "legend",   chance: 3 },
+    ],
+    "Butterfly Glade": [
+      { icon: "🍃", name: "Glow Leaf",        weight: 0.5, value: 8000,    rarity: "common",   chance: 45 },
+      { icon: "🦋", name: "Monarch Wing",     weight: 0.3, value: 25000,   rarity: "uncommon", chance: 28 },
+      { icon: "💧", name: "Nectar Drop",      weight: 1,   value: 75000,   rarity: "rare",     chance: 12 },
+      { icon: "🌺", name: "Iris Bloom",       weight: 2,   value: 220000,  rarity: "epic",     chance: 12 },
+      { icon: "🏮", name: "Eternal Lantern",  weight: 0.5, value: 700000,  rarity: "legend",   chance: 3 },
+    ],
+    "Rainbow Falls": [
+      { icon: "💦", name: "Mist Pearl",       weight: 1,   value: 32000,   rarity: "common",   chance: 45 },
+      { icon: "🌈", name: "Rainbow Shard",    weight: 0.5, value: 100000,  rarity: "uncommon", chance: 28 },
+      { icon: "💎", name: "Prism Gem",        weight: 2,   value: 300000,  rarity: "rare",     chance: 12 },
+      { icon: "✨", name: "Iridescent Wing", weight: 0.1, value: 900000,  rarity: "epic",     chance: 12 },
+      { icon: "⏳", name: "Dawn Hourglass",   weight: 0.3, value: 2800000, rarity: "legend",   chance: 3 },
+    ],
+    "Ancient Grove": [
+      { icon: "🌰", name: "Ancient Acorn",     weight: 0.05,value: 130000,    rarity: "common",   chance: 45 },
+      { icon: "🍂", name: "Druid Leaf",        weight: 1,   value: 400000,    rarity: "uncommon", chance: 28 },
+      { icon: "🦌", name: "Stag Antler",       weight: 2,   value: 1200000,   rarity: "rare",     chance: 12 },
+      { icon: "👑", name: "Mossy Crown",       weight: 3,   value: 3600000,   rarity: "epic",     chance: 12 },
+      { icon: "📜", name: "World Tree Scroll", weight: 5,   value: 11000000,  rarity: "legend",   chance: 3 },
+    ],
+    "Heart of Spring": [
+      { icon: "🌟", name: "Spring Spark",      weight: 0.1, value: 500000,    rarity: "common",   chance: 45 },
+      { icon: "🌷", name: "Eternal Bud",       weight: 0.05,value: 1600000,   rarity: "uncommon", chance: 28 },
+      { icon: "🔮", name: "Bloom Stone",       weight: 1,   value: 4800000,   rarity: "rare",     chance: 12 },
+      { icon: "⚛", name: "Life Sphere",       weight: 5,   value: 14000000,  rarity: "epic",     chance: 12 },
+      { icon: "🌸", name: "The First Flower", weight: 0.01,value: 44000000,  rarity: "legend",   chance: 3 },
+    ],
+  },
+
+  creatures: {
+    "Cherry Blossom Pond": ["🐝", "🦋", "🐞"],
+    "Tulip Field":         ["🦋", "🐝", "🐞"],
+    "Dewy Meadow":         ["🐝", "🐞", "🦋"],
+    "Misty Marsh":         ["🐸", "🦋", "🐝"],
+    "Lavender Field":      ["🐝", "🦋", "🐞"],
+    "Bee Garden":          ["🐝", "🐝", "🦋"],
+    "Butterfly Glade":     ["🦋", "🦋", "🐝"],
+    "Rainbow Falls":       ["🦋", "🐝", "🐞"],
+    "Ancient Grove":       ["🦔", "🦌", "🐿"],
+    "Heart of Spring":     ["🦋", "🌸", "🌟"],
+  },
+
+  // Symbol order: [hazard, mini, minor, major, jackpot]
+  slotSymbols: ["🌧", "🌿", "🦋", "🌈", "🌷"],
+
+  slotBonuses: {
+    shark:   { icon: "🌧", name: "Spring Storm",   desc: "No loot for 10s!",         duration: 10000, kind: "hazard" },
+    mini:    { icon: "🌿", name: "Spring Breeze",  desc: "2× basket for 15s.",        duration: 15000 },
+    minor:   { icon: "🦋", name: "Butterfly Kiss", desc: "2× value for 15s.",         duration: 15000 },
+    major:   { icon: "🌈", name: "Rainbow Pact",   desc: "Legendary picks for 30s!",  duration: 30000 },
+    jackpot: { icon: "🌷", name: "BLOOM BURST",    desc: "All bonuses · 30s!",        duration: 30000 },
+  },
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="game.js?v=31"></script>
+</body>
+</html>

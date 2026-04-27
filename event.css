@@ -1,0 +1,225 @@
+/* Spring Bloom event overrides — layered on top of style.css. */
+
+body.event-spring {
+  --accent: #ff9ac4;
+  --good:   #6effa3;
+  --gold:   #ffd870;
+}
+
+/* Sidebar title in spring colors. */
+body.event-spring #sidebar h1 {
+  background: linear-gradient(180deg, #ffe5ee 0%, #ff9ac4 55%, #b9468a 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 12px rgba(255, 154, 196, 0.35);
+}
+
+/* Cash gradient stays warm-gold — fine over spring backgrounds. */
+
+/* Surface band — soft sunrise/sunlit pollen. */
+body.event-spring #surface {
+  background: linear-gradient(180deg, #fff1f8, #ffd6a8);
+  border-bottom: 2px solid #ffe0c0;
+}
+
+/* Sub palette becomes a watering-can / pastel butterfly. */
+body.event-spring #sub {
+  --sub-c1: #fff1c2;
+  --sub-c2: #ff9ac4;
+  --sub-c3: #b9468a;
+  --sub-border: #5a1f3a;
+  --sub-glow: rgba(255, 154, 196, 0.55);
+}
+body.event-spring .sub-window {
+  background: radial-gradient(circle at 30% 30%, #fff5fa 0%, #ff9ac4 45%, #6a204a 100%);
+  border-color: #5a1f3a;
+}
+body.event-spring .sub-fin,
+body.event-spring .sub-prop {
+  background: linear-gradient(180deg, #ff9ac4, #b9468a);
+  border-color: #5a1f3a;
+}
+body.event-spring .sub-stripe { background: #5a1f3a; }
+
+/* Event countdown lives in the sidebar header. */
+.event-countdown {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: linear-gradient(90deg, rgba(255,154,196,0.18), rgba(255,216,112,0.18));
+  border: 1px solid rgba(255,154,196,0.4);
+  color: #ffe0ee;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.event-countdown.ended {
+  background: linear-gradient(90deg, rgba(140,140,140,0.25), rgba(80,80,80,0.25));
+  border-color: rgba(255,255,255,0.25);
+  color: #d8d8d8;
+}
+
+/* Event-ended overlay covers the play area; leaderboard stays visible. */
+.event-ended-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(20,8,24,0.78) 0%, rgba(10,4,12,0.92) 70%);
+  backdrop-filter: blur(3px);
+  z-index: 100;
+  padding: 40px;
+}
+.event-ended-card {
+  max-width: 460px;
+  padding: 30px 36px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(40,16,40,0.95), rgba(20,8,24,0.95));
+  border: 1px solid rgba(255,154,196,0.4);
+  box-shadow: 0 0 60px rgba(255,154,196,0.25);
+  text-align: center;
+}
+.event-ended-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  background: linear-gradient(180deg, #ffe5ee 0%, #ff9ac4 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  margin-bottom: 8px;
+}
+.event-ended-sub {
+  font-size: 14px;
+  color: #ffd6e6;
+  margin-bottom: 16px;
+}
+.event-ended-msg {
+  font-size: 13px;
+  color: #c0a8b8;
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+.event-ended-btn {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ff9ac4, #b9468a);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.3px;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.event-ended-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255,154,196,0.4);
+}
+
+/* When event has ended, dim the dive UI subtly behind the overlay. */
+body.event-ended #boostBtn,
+body.event-ended .boost-hint,
+body.event-ended #slotMachine {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* "Back to main" footer link, sized like the other footer ghost buttons. */
+.back-to-main {
+  text-align: center;
+  text-decoration: none;
+  color: var(--muted);
+}
+.back-to-main:hover { color: var(--text); }
+
+/* The header back-banner reuses .event-link-banner from style.css; this just
+   tweaks colors to point "back to deep sea" rather than "forward to spring". */
+.event-link-banner.back-banner {
+  margin: 0 0 12px;
+  background: linear-gradient(90deg, rgba(79,208,255,0.18), rgba(174,240,255,0.12));
+  border-color: rgba(79,208,255,0.4);
+  color: #d6f0ff;
+}
+.event-link-banner.back-banner:hover {
+  background: linear-gradient(90deg, rgba(79,208,255,0.32), rgba(174,240,255,0.22));
+  box-shadow: 0 4px 14px rgba(79,208,255,0.25);
+}
+
+/* Welcome modal ------------------------------------------------- */
+.event-welcome-modal h2 {
+  background: linear-gradient(180deg, #ffe5ee 0%, #ff9ac4 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+.event-welcome-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.event-welcome-noshow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.event-welcome-noshow input[type="checkbox"] {
+  accent-color: #ff9ac4;
+  width: 14px;
+  height: 14px;
+}
+.event-welcome-modal #eventWelcomeOk {
+  padding: 8px 18px;
+  background: linear-gradient(180deg, #ff9ac4, #b9468a);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.event-welcome-modal #eventWelcomeOk:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255,154,196,0.4);
+}
+
+.event-welcome-bonuses {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 8px;
+}
+.event-welcome-bonuses li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255,154,196,0.08);
+  border: 1px solid rgba(255,154,196,0.2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.event-welcome-bonuses li strong { color: #ffd6e6; }
+.event-welcome-bonuses li.hazard {
+  background: rgba(255,122,122,0.08);
+  border-color: rgba(255,122,122,0.3);
+}
+.event-welcome-bonuses li.hazard strong { color: #ffaaaa; }
+.event-welcome-bonuses .bonus-icon {
+  font-size: 20px;
+  text-align: center;
+  line-height: 1;
+}

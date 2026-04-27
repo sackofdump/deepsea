@@ -90,3 +90,54 @@ drop trigger if exists saves_touch on public.saves;
 create trigger saves_touch
   before update on public.saves
   for each row execute function public.touch_saves_updated_at();
+
+-- ===== Limited-time events (Spring Bloom etc.) ===========================
+-- Run this block ONLY when you're ready to deploy a themed event page
+-- (event.html). It swaps the single-column unique on player_id for a
+-- composite (player_id, event_key) so each player can hold one row per
+-- event AND one for the main game (event_key = '').
+--
+-- Main-game-only deployments don't need this — the original schema above
+-- is what production uses today.
+
+alter table public.scores
+  add column if not exists event_key text not null default '';
+
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'scores_player_id_key'
+      and conrelid = 'public.scores'::regclass
+  ) then
+    alter table public.scores drop constraint scores_player_id_key;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'scores_player_event_key'
+      and conrelid = 'public.scores'::regclass
+  ) then
+    alter table public.scores
+      add constraint scores_player_event_key unique (player_id, event_key);
+  end if;
+end $$;
+
+-- Composite indexes so per-event leaderboard queries stay cheap.
+create index if not exists scores_event_total_earned_idx on public.scores (event_key, total_earned   desc);
+create index if not exists scores_event_level_idx        on public.scores (event_key, level          desc);
+create index if not exists scores_event_prestige_idx     on public.scores (event_key, prestige_count desc);
+create index if not exists scores_event_jackpots_idx     on public.scores (event_key, jackpots       desc);
+create index if not exists scores_event_pearls_idx       on public.scores (event_key, pearls         desc);
+create index if not exists scores_event_dives_idx        on public.scores (event_key, total_dives    desc);
+
+-- Drop the original single-column indexes once the composites are in place.
+drop index if exists public.scores_total_earned_idx;
+drop index if exists public.scores_level_idx;
+drop index if exists public.scores_prestige_idx;
+drop index if exists public.scores_jackpots_idx;
+drop index if exists public.scores_pearls_idx;
+drop index if exists public.scores_dives_idx;

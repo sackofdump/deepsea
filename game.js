@@ -1,7 +1,15 @@
 "use strict";
 
 // ----- Config ----------------------------------------------------
-const SAVE_KEY = "deepSeaSalvage_v1";
+// Event support: pages can set window.EVENT_CONFIG before loading this script
+// to swap themed data tables, save scope, and a countdown. See event.html.
+const EVENT = (typeof window !== "undefined" && window.EVENT_CONFIG) || null;
+const EVENT_KEY = (EVENT && EVENT.eventKey) || "";
+const EVENT_END = (EVENT && EVENT.endAt) || 0;
+const EVENT_NAME = (EVENT && EVENT.name) || "";
+function eventEnded() { return EVENT_END > 0 && Date.now() >= EVENT_END; }
+
+const SAVE_KEY = (EVENT && EVENT.saveKey) || "deepSeaSalvage_v1";
 // Supabase (publishable/anon key — fine to ship in client; RLS controls writes).
 const SUPABASE_URL = "https://tppirwsigzjhbmrixetf.supabase.co";
 const SUPABASE_KEY = "sb_publishable_wI2pKiS0TznsBVUq8hKIOA_iIXXfhEF";
@@ -20,7 +28,7 @@ const LOOT_INTERVAL_BASE = 6;        // seconds between attempts at sonar=1
 const LEVEL_BASE_COST = 20;
 const LEVEL_COST_MULT = 1.55;
 const TIER_RARITY_UPGRADE = 0.03;    // +3% per rank chance to bump a roll's rarity tier
-const SUB_RANKS = [
+const SUB_RANKS = (EVENT && EVENT.subRanks) || [
   "Deckhand",       // 1
   "Salvager",       // 2
   "Captain",        // 3
@@ -35,7 +43,7 @@ const SUB_RANKS = [
 const PITY_LEGENDARY_DIVES = 50;
 const LEVELS_PER_BIOME = 10;
 
-const BIOMES = [
+const BIOMES = (EVENT && EVENT.biomes) || [
   { name: "Sunlit Reef",           color: "#7fc6e8", accent: "#aef0ff" },
   { name: "Twilight Wreck",        color: "#2a8fc4", accent: "#5fb0e0" },
   { name: "Midnight Trench",       color: "#0f3a5a", accent: "#7d90c8" },
@@ -49,7 +57,7 @@ const BIOMES = [
 ];
 
 // Loot table — weighted picks per biome. Scales ~4x per biome.
-const LOOT = {
+const LOOT = (EVENT && EVENT.loot) || {
   "Sunlit Reef": [
     { icon: "🍾", name: "Plastic Bottle",    weight: 0.2, value: 1,    rarity: "common",   chance: 50 },
     { icon: "🪙", name: "Rusty Coin",        weight: 0.1, value: 3,    rarity: "common",   chance: 30 },
@@ -231,6 +239,14 @@ const defaultState = () => ({
 });
 
 let state = load() || defaultState();
+// Defensive defaults — old saves or partial-load states sometimes miss
+// fields the tick loop relies on. Without sub.mode the dive cycle never
+// auto-starts and the sub stays pinned at the surface.
+if (!state.sub) state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], cargoGrouped: {}, cargoTotalValue: 0, mode: "idle" };
+if (!state.sub.mode) state.sub.mode = "idle";
+if (state.sub.depth === undefined) state.sub.depth = 0;
+if (state.sub.cargoKg === undefined) state.sub.cargoKg = 0;
+if (!state.sub.cargoItems) state.sub.cargoItems = [];
 if (!state.boost) state.boost = { activeUntil: 0, readyAt: 0 };
 if (state.level === undefined) state.level = 1;
 // XP is the new level driver. Pre-XP saves: carry over their lifetime cash
@@ -464,7 +480,7 @@ function allLootItems() {
 }
 
 // ----- Achievements ---------------------------------------------
-const ACHIEVEMENTS = [
+const ACHIEVEMENTS = (EVENT && EVENT.achievements) || [
   // Dives
   { id: "first_dive",    name: "First Dive",       desc: "Complete your first dive.",   icon: "🌊", reward: 50,        check: (s) => s.totalDives >= 1 },
   { id: "ten_dives",     name: "Regular",          desc: "Complete 10 dives.",          icon: "🤿", reward: 250,       check: (s) => s.totalDives >= 10 },
@@ -641,9 +657,9 @@ function jumpToAchievement(id) {
   if (panel && panel.classList.contains("collapsed")) {
     panel.classList.remove("collapsed");
     try {
-      const panels = JSON.parse(localStorage.getItem("deepSeaPanels_v2") || "{}");
+      const panels = JSON.parse(localStorage.getItem(PANEL_KEY) || "{}");
       panels[panel.dataset.key] = false;
-      localStorage.setItem("deepSeaPanels_v2", JSON.stringify(panels));
+      localStorage.setItem(PANEL_KEY, JSON.stringify(panels));
     } catch {}
   }
   // Wait a frame so the panel-expand reflow finishes before scrolling.
@@ -734,6 +750,7 @@ let suppressFx = false;
 let _achievementsDirty = false;
 
 function tick(dtSec) {
+  if (eventEnded()) return;
   const s = stats();
   const sub = state.sub;
   const boosting = state.adminBoostAlwaysOn || Date.now() < state.boost.activeUntil;
@@ -1094,6 +1111,7 @@ function sellCargo(s) {
 let _catchingUp = false;
 
 async function catchUpOffline() {
+  if (eventEnded()) return;
   const now = Date.now();
   const elapsedMs = Math.min(now - state.lastTick, OFFLINE_CAP_HOURS * 3600 * 1000);
   if (elapsedMs < 5000) return;
@@ -1280,7 +1298,7 @@ function updatePrestigeUI() {
 }
 
 // ----- Background creatures ------------------------------------
-const CREATURES_PER_BIOME = {
+const CREATURES_PER_BIOME = (EVENT && EVENT.creatures) || {
   "Sunlit Reef":           ["🐠", "🐟", "🐙"],
   "Twilight Wreck":        ["🐡", "🦑", "🦀"],
   "Midnight Trench":       ["🐙", "🦞", "🐚"],
@@ -1365,8 +1383,10 @@ function spawnTreasureChest() {
 }
 
 function scheduleTreasure() {
+  if (eventEnded()) return;
   const delay = 60000 + Math.random() * 80000; // 60-140s
   setTimeout(() => {
+    if (eventEnded()) return;
     spawnTreasureChest();
     scheduleTreasure();
   }, delay);
@@ -1494,26 +1514,37 @@ function biomeAvgValue(biomeName) {
 // The slot is the ONLY source of bonus encounters now. Each match triggers a
 // specific buff; jackpot stacks all three with a longer duration.
 // Reel faces are the icons of the bonuses they grant. 🦈 is the lone hazard.
-const SLOT_SYMBOLS = ["🦈", "🌊", "🧜", "🗺", "🌟"];
+// Symbol order (must stay aligned across themes): [hazard, mini, minor, major, jackpot].
+const SLOT_SYMBOLS = (EVENT && EVENT.slotSymbols) || ["🦈", "🌊", "🧜", "🗺", "🌟"];
 const SLOT_OUTCOMES = [
   { tier: "none",    weight: 56, pick: () => slotNonMatch() },
-  { tier: "shark",   weight: 8,  pick: () => ["🦈", "🦈", "🦈"] },
-  { tier: "mini",    weight: 18, pick: () => ["🌊", "🌊", "🌊"] },
-  { tier: "minor",   weight: 12, pick: () => ["🧜", "🧜", "🧜"] },
-  { tier: "major",   weight: 4,  pick: () => ["🗺", "🗺", "🗺"] },
-  { tier: "jackpot", weight: 2,  pick: () => ["🌟", "🌟", "🌟"] },
+  { tier: "shark",   weight: 8,  pick: () => [SLOT_SYMBOLS[0], SLOT_SYMBOLS[0], SLOT_SYMBOLS[0]] },
+  { tier: "mini",    weight: 18, pick: () => [SLOT_SYMBOLS[1], SLOT_SYMBOLS[1], SLOT_SYMBOLS[1]] },
+  { tier: "minor",   weight: 12, pick: () => [SLOT_SYMBOLS[2], SLOT_SYMBOLS[2], SLOT_SYMBOLS[2]] },
+  { tier: "major",   weight: 4,  pick: () => [SLOT_SYMBOLS[3], SLOT_SYMBOLS[3], SLOT_SYMBOLS[3]] },
+  { tier: "jackpot", weight: 2,  pick: () => [SLOT_SYMBOLS[4], SLOT_SYMBOLS[4], SLOT_SYMBOLS[4]] },
 ];
-const SLOT_BONUSES = {
-  shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",       duration: 10000, kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
-  mini:    { icon: "🌊", name: "Lucky Current",  desc: "2× cargo for 15s.",       duration: 15000, apply: (now, d) => { state.encounterCargoUntil     = now + d; } },
-  minor:   { icon: "🧜", name: "Mermaid's Kiss", desc: "2× value for 15s.",       duration: 15000, apply: (now, d) => { state.encounterValueUntil     = now + d; } },
-  major:   { icon: "🗺", name: "Treasure Map",   desc: "Legendary picks for 30s!",duration: 30000, apply: (now, d) => { state.encounterLegendaryUntil = now + d; } },
-  jackpot: { icon: "🎰", name: "JACKPOT",        desc: "All bonuses · 30s!",      duration: 30000, apply: (now, d) => {
-    state.encounterCargoUntil     = now + d;
-    state.encounterValueUntil     = now + d;
-    state.encounterLegendaryUntil = now + d;
-  } },
+const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
+  shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
+  mini:    { icon: "🌊", name: "Lucky Current", desc: "2× cargo for 15s.",       duration: 15000 },
+  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "2× value for 15s.",       duration: 15000 },
+  major:   { icon: "🗺", name: "Treasure Map",  desc: "Legendary picks for 30s!",duration: 30000 },
+  jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s!",      duration: 30000 },
 };
+
+// Tier → state mutation. Lives here (not in SLOT_BONUSES data) so event configs
+// loaded from a different script tag don't have to close over `state`.
+function applySlotBonus(tier, now, duration) {
+  if (tier === "shark")   { state.sharkSlowUntil          = now + duration; return; }
+  if (tier === "mini")    { state.encounterCargoUntil     = now + duration; return; }
+  if (tier === "minor")   { state.encounterValueUntil     = now + duration; return; }
+  if (tier === "major")   { state.encounterLegendaryUntil = now + duration; return; }
+  if (tier === "jackpot") {
+    state.encounterCargoUntil     = now + duration;
+    state.encounterValueUntil     = now + duration;
+    state.encounterLegendaryUntil = now + duration;
+  }
+}
 
 function slotNonMatch() {
   while (true) {
@@ -1581,7 +1612,7 @@ function finishSpin(outcome, symbols) {
   const bonus = SLOT_BONUSES[outcome.tier];
   if (bonus) {
     const now = Date.now();
-    bonus.apply(now, bonus.duration);
+    applySlotBonus(outcome.tier, now, bonus.duration);
     const isHazard = bonus.kind === "hazard";
     // Don't count hazards toward the "slot wins" achievements counter.
     if (!isHazard) state.bonusCollected = (state.bonusCollected || 0) + 1;
@@ -1611,10 +1642,12 @@ function finishSpin(outcome, symbols) {
 const SLOT_INTERVAL_MS = 15000;
 
 function scheduleSlot() {
+  if (eventEnded()) return;
   // Honor the persisted timestamp so reloads / closing the tab don't restart
   // the countdown. If the saved spin time is in the past, fire immediately.
   const delay = Math.max(0, state.nextSpinAt - Date.now());
   setTimeout(() => {
+    if (eventEnded()) return;
     spinSlot();
     state.nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
     scheduleSlot();
@@ -1737,31 +1770,44 @@ function updateLifetime() {
   $("lifeBonus").textContent  = fmt(state.bonusCollected || 0);
 }
 
+// Inline summaries are universal across themes — names and icons come from
+// SLOT_BONUSES so themed events (Spring Bloom etc.) render their own copy.
+const ACTIVE_EFFECT_SHORT = {
+  major: "Legendary picks",
+  minor: "2× value",
+  mini:  "2× cargo",
+  shark: "No loot",
+};
+
 function renderActiveEffect() {
   const el = $("activeEffect");
   if (!el) return;
   const now = Date.now();
-  let text = "", cls = "", tip = "";
-  const legUntil  = state.encounterLegendaryUntil || 0;
-  const valUntil  = state.encounterValueUntil     || 0;
-  const cargUntil = state.encounterCargoUntil     || 0;
-  // Pick whichever effect has the longest remaining time.
+  const sharkUntil = state.sharkSlowUntil          || 0;
   const choices = [
-    { until: legUntil,  cls: "eff-map",     fmt: (s) => [`🗺  TREASURE MAP — Legendary picks · ${s}s`,  `Treasure Map\n\nEvery item collected is forced to the highest-rarity tier available in this biome and picks come fast. Lasts ${s}s.`] },
-    { until: valUntil,  cls: "eff-kiss",    fmt: (s) => [`🧜  MERMAID'S KISS — 2× value · ${s}s`,        `Mermaid's Kiss\n\nEvery item sells for 2× while active. Stacks with Appraiser and Pearls. Lasts ${s}s.`] },
-    { until: cargUntil, cls: "eff-current", fmt: (s) => [`🌊  LUCKY CURRENT — 2× cargo · ${s}s`,         `Lucky Current\n\nCargo capacity is 2× while active. Lasts ${s}s.`] },
+    { until: state.encounterLegendaryUntil || 0, tier: "major", cls: "eff-map" },
+    { until: state.encounterValueUntil     || 0, tier: "minor", cls: "eff-kiss" },
+    { until: state.encounterCargoUntil     || 0, tier: "mini",  cls: "eff-current" },
   ].filter(c => c.until > now);
-  if (choices.length > 0) {
+
+  let top = null;
+  // Hazard wins display so the player can watch it tick down.
+  if (sharkUntil > now) top = { until: sharkUntil, tier: "shark", cls: "eff-shark" };
+  else if (choices.length > 0) {
     choices.sort((a, b) => b.until - a.until);
-    const top = choices[0];
-    const remaining = Math.max(1, Math.ceil((top.until - now) / 1000));
-    [text, tip] = top.fmt(remaining);
-    cls = top.cls;
+    top = choices[0];
   }
-  if (text) {
-    el.className = `active-effect ${cls}`;
-    el.textContent = text;
-    el.title = tip;
+
+  if (top) {
+    const bonus = SLOT_BONUSES[top.tier];
+    const remaining = Math.max(1, Math.ceil((top.until - now) / 1000));
+    const shortDesc = ACTIVE_EFFECT_SHORT[top.tier] || "";
+    const name = (bonus && bonus.name) || top.tier;
+    const icon = (bonus && bonus.icon) || "✨";
+    const fullDesc = (bonus && bonus.desc) || "";
+    el.className = `active-effect ${top.cls}`;
+    el.textContent = `${icon}  ${name.toUpperCase()} — ${shortDesc} · ${remaining}s`;
+    el.title = `${name}\n\n${fullDesc}`;
     el.classList.remove("empty");
   } else {
     el.className = "active-effect empty";
@@ -1872,6 +1918,7 @@ function renderDepthMarkers(maxDepth) {
 }
 
 function activateBoost() {
+  if (eventEnded()) return;
   const now = Date.now();
   if (now < state.boost.activeUntil) {
     // Active: extend by 0.5s, capped so remaining never exceeds 10s.
@@ -2022,6 +2069,85 @@ function refreshUI() {
   renderDepthMarkers(s.maxDepth);
   updateBoostUI();
   updateSlotCountdown();
+  refreshEventCountdown();
+}
+
+// ----- Event welcome modal --------------------------------------
+function wireEventWelcome() {
+  if (!EVENT_KEY) return;
+  const overlay = document.getElementById("eventWelcomeOverlay");
+  if (!overlay) return;
+  const seenKey = `event_welcome_seen_${EVENT_KEY}`;
+  const close = () => {
+    overlay.hidden = true;
+    if (document.getElementById("eventWelcomeNoShow")?.checked) {
+      try { localStorage.setItem(seenKey, "1"); } catch {}
+    }
+  };
+  document.getElementById("eventWelcomeClose")?.addEventListener("click", close);
+  document.getElementById("eventWelcomeOk")?.addEventListener("click", close);
+  overlay.addEventListener("click", (ev) => { if (ev.target === overlay) close(); });
+  // Show on first visit (or every visit until "don't show again" is checked).
+  let seen = false;
+  try { seen = !!localStorage.getItem(seenKey); } catch {}
+  if (!seen) overlay.hidden = false;
+}
+
+// ----- Event countdown / end-of-event freeze --------------------
+function injectEventCountdown() {
+  if (EVENT_END <= 0) return;
+  const header = document.querySelector("#sidebar header");
+  if (!header || document.getElementById("eventCountdown")) return;
+  const el = document.createElement("div");
+  el.id = "eventCountdown";
+  el.className = "event-countdown";
+  header.appendChild(el);
+}
+
+function refreshEventCountdown() {
+  if (EVENT_END <= 0) return;
+  const el = document.getElementById("eventCountdown");
+  if (!el) return;
+  const now = Date.now();
+  if (now >= EVENT_END) {
+    if (!el.classList.contains("ended")) {
+      el.classList.add("ended");
+      el.textContent = `🌸 ${EVENT_NAME || "Event"} ended — final standings below`;
+    }
+    if (!document.body.classList.contains("event-ended")) {
+      document.body.classList.add("event-ended");
+      showEventEndedOverlay();
+    }
+    return;
+  }
+  const remaining = EVENT_END - now;
+  const days  = Math.floor(remaining / 86400000);
+  const hours = Math.floor((remaining % 86400000) / 3600000);
+  const mins  = Math.floor((remaining % 3600000) / 60000);
+  const secs  = Math.floor((remaining % 60000) / 1000);
+  let txt;
+  if (days > 0)        txt = `${days}d ${hours}h ${mins}m`;
+  else if (hours > 0)  txt = `${hours}h ${mins}m ${secs}s`;
+  else                 txt = `${mins}m ${secs}s`;
+  el.textContent = `🌸 ${EVENT_NAME || "Event"} — ends in ${txt}`;
+}
+
+function showEventEndedOverlay() {
+  if (document.getElementById("eventEndedOverlay")) return;
+  const ocean = document.getElementById("ocean");
+  if (!ocean) return;
+  const ov = document.createElement("div");
+  ov.id = "eventEndedOverlay";
+  ov.className = "event-ended-overlay";
+  ov.innerHTML = `
+    <div class="event-ended-card">
+      <div class="event-ended-title">🌸 Event Ended</div>
+      <div class="event-ended-sub">${escapeHtml(EVENT_NAME || "")} has closed.</div>
+      <div class="event-ended-msg">Final leaderboard is locked. See the sidebar for the standings.</div>
+      <a href="index.html" class="event-ended-btn">← Back to main game</a>
+    </div>
+  `;
+  ocean.appendChild(ov);
 }
 
 const LOG_LIFETIME_MS = 5000;
@@ -2163,7 +2289,7 @@ function ensurePlayerId() {
 }
 
 function leaderboardPayload() {
-  return {
+  const p = {
     player_id: ensurePlayerId(),
     display_name: ((state.displayName || "").trim().slice(0, 32)) || "Anon",
     total_earned: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.totalEarned || 0)),
@@ -2174,16 +2300,23 @@ function leaderboardPayload() {
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,
   };
+  // Only event pages send event_key — keeps the main game compatible with
+  // the original single-column unique(player_id) schema. Event pages need
+  // the composite (player_id, event_key) unique constraint to be present.
+  if (EVENT_KEY) p.event_key = EVENT_KEY;
+  return p;
 }
 
 async function leaderboardSync(force) {
   if (!state.displayName) return;
+  if (eventEnded()) return;
   const payload = leaderboardPayload();
   const sig = JSON.stringify(payload);
   if (!force && sig === lbLastSyncSig) return;
   lbLastSyncSig = sig;
+  const conflictCols = EVENT_KEY ? "player_id,event_key" : "player_id";
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/scores?on_conflict=player_id`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/scores?on_conflict=${conflictCols}`, {
       method: "POST",
       headers: {
         "apikey": SUPABASE_KEY,
@@ -2197,7 +2330,9 @@ async function leaderboardSync(force) {
 }
 
 async function leaderboardFetch(metric, limit = 25) {
-  const url = `${SUPABASE_URL}/rest/v1/scores?select=display_name,player_id,${metric}&order=${metric}.desc&limit=${limit}`;
+  let url = `${SUPABASE_URL}/rest/v1/scores?select=display_name,player_id,${metric}`;
+  if (EVENT_KEY) url += `&event_key=eq.${encodeURIComponent(EVENT_KEY)}`;
+  url += `&order=${metric}.desc&limit=${limit}`;
   const res = await fetch(url, {
     headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` },
   });
@@ -2461,6 +2596,9 @@ function applyCloudState(cloudState) {
 }
 
 async function syncCloudSaveOnBoot() {
+  // Event pages stay local-only — the saves table is one-row-per-user, so
+  // syncing event progress would clobber the main game's save and vice versa.
+  if (EVENT) return;
   const remote = await pullCloudSave();
   if (!remote) {
     // No cloud save — push local up if we have something worth saving.
@@ -2480,6 +2618,7 @@ async function syncCloudSaveOnBoot() {
 }
 
 function scheduleCloudSaves() {
+  if (EVENT) return; // see syncCloudSaveOnBoot — event pages skip cloud sync.
   if (_cloudSaveTimer) clearInterval(_cloudSaveTimer);
   _cloudSaveTimer = setInterval(() => { if (!resetting) pushCloudSave(); }, 15000);
 }
@@ -2584,22 +2723,22 @@ function wireAccountModal() {
 }
 
 // ----- Boot ------------------------------------------------------
-$("resetBtn").addEventListener("click", reset);
-$("boostBtn").addEventListener("click", activateBoost);
-$("prestigeBtn").addEventListener("click", doPrestige);
+$("resetBtn")?.addEventListener("click", reset);
+$("boostBtn")?.addEventListener("click", activateBoost);
+$("prestigeBtn")?.addEventListener("click", doPrestige);
 // stopPropagation so the button doesn't toggle the panel collapse via the h2 click handler.
-$("achClaimAll").addEventListener("click", (ev) => { ev.stopPropagation(); claimAllAchievements(); });
+$("achClaimAll")?.addEventListener("click", (ev) => { ev.stopPropagation(); claimAllAchievements(); });
 
 const howToOverlay = $("howToOverlay");
-$("howToBtn").addEventListener("click", () => howToOverlay.hidden = false);
-$("howToClose").addEventListener("click", () => howToOverlay.hidden = true);
-howToOverlay.addEventListener("click", (ev) => {
+$("howToBtn")?.addEventListener("click", () => { if (howToOverlay) howToOverlay.hidden = false; });
+$("howToClose")?.addEventListener("click", () => { if (howToOverlay) howToOverlay.hidden = true; });
+howToOverlay?.addEventListener("click", (ev) => {
   if (ev.target === howToOverlay) howToOverlay.hidden = true;
 });
 window.addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape" && !howToOverlay.hidden) howToOverlay.hidden = true;
+  if (ev.key === "Escape" && howToOverlay && !howToOverlay.hidden) howToOverlay.hidden = true;
 });
-$("adminCashBtn").addEventListener("click", () => {
+$("adminCashBtn")?.addEventListener("click", () => {
   state.cash += 1000000;
   state.totalEarned += 1000000;
   state.xp += 1000000;
@@ -2607,15 +2746,19 @@ $("adminCashBtn").addEventListener("click", () => {
   log(`[admin] +$1,000,000.`);
   refreshUI();
 });
-$("adminBoostBtn").addEventListener("click", () => {
+$("adminBoostBtn")?.addEventListener("click", () => {
   state.adminBoostAlwaysOn = !state.adminBoostAlwaysOn;
-  $("adminBoostBtn").textContent = `Boost: ${state.adminBoostAlwaysOn ? "ON" : "OFF"} (admin)`;
+  const b = $("adminBoostBtn");
+  if (b) b.textContent = `Boost: ${state.adminBoostAlwaysOn ? "ON" : "OFF"} (admin)`;
   log(`[admin] Always-boost ${state.adminBoostAlwaysOn ? "enabled" : "disabled"}.`);
   refreshUI();
 });
 // Restore button label on load.
-if (state.adminBoostAlwaysOn) $("adminBoostBtn").textContent = "Boost: ON (admin)";
-$("adminLvlBtn").addEventListener("click", () => {
+if (state.adminBoostAlwaysOn) {
+  const b = $("adminBoostBtn");
+  if (b) b.textContent = "Boost: ON (admin)";
+}
+$("adminLvlBtn")?.addEventListener("click", () => {
   const prevBiomeIdx = biomeIndex(state.level);
   state.level += 10;
   state.xp = Math.max(state.xp, levelCostCumulative(state.level));
@@ -2629,7 +2772,7 @@ $("adminLvlBtn").addEventListener("click", () => {
 });
 
 // Collapsible sidebar panels.
-const PANEL_KEY = "deepSeaPanels_v2";
+const PANEL_KEY = (EVENT && EVENT.panelKey) || "deepSeaPanels_v2";
 const panelState = (() => {
   try { return JSON.parse(localStorage.getItem(PANEL_KEY) || "{}"); }
   catch { return {}; }
@@ -2660,6 +2803,8 @@ window.addEventListener("resize", _invalidateFxRects);
 buildUpgrades();
 buildAchievements();
 buildCodex();
+injectEventCountdown();
+wireEventWelcome();
 catchUpOffline();
 checkAchievements();
 refreshUI();
