@@ -1767,9 +1767,39 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 }
 .treasure-chest:hover  { transform: scale(1.12); }
 .treasure-chest:active { transform: scale(0.94); }
-.treasure-chest.tier-bronze { color: #c98e2a; }
-.treasure-chest.tier-silver { color: #c4d3df; }
-.treasure-chest.tier-gold   { color: var(--gold); }
+.treasure-chest.tier-common    { color: #b8c6d2; animation-duration: 0.4s, 4s, 1.4s; }
+.treasure-chest.tier-rare      { color: var(--accent); animation-duration: 0.4s, 3s, 1.0s; }
+.treasure-chest.tier-epic {
+  color: #c79bff;
+  animation-duration: 0.4s, 2.5s, 0.7s;
+}
+.treasure-chest.tier-epic::before {
+  /* Faint sparkle layer that rotates above an epic chest. */
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 12px;
+  background: conic-gradient(from 0deg, transparent 0%, rgba(199,155,255,0.35) 25%, transparent 50%, rgba(199,155,255,0.35) 75%, transparent 100%);
+  animation: chestSpin 3s linear infinite;
+  z-index: -1;
+  filter: blur(4px);
+}
+.treasure-chest.tier-legendary {
+  color: var(--gold);
+  animation-duration: 0.4s, 2s, 0.5s;
+  border-width: 3px;
+}
+.treasure-chest.tier-legendary::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 14px;
+  background: conic-gradient(from 0deg, rgba(255,204,102,0.55), rgba(255,255,180,0.85), rgba(255,204,102,0.55), rgba(255,160,80,0.7), rgba(255,204,102,0.55));
+  animation: chestSpin 1.6s linear infinite;
+  z-index: -1;
+  filter: blur(5px);
+}
+@keyframes chestSpin { to { transform: rotate(360deg); } }
 @keyframes chestEnter {
   from { opacity: 0; transform: scale(0.2); }
   to   { opacity: 1; transform: scale(1); }
@@ -1797,11 +1827,30 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   left: 20px;
   bottom: 156px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 10px;
   z-index: 10;
 }
 .chest-tray:empty { display: none; }
+.chest-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.chest-slot-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: currentColor;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+  font-variant-numeric: tabular-nums;
+}
+.chest-slot.tier-common    { color: #b8c6d2; }
+.chest-slot.tier-rare      { color: var(--accent); }
+.chest-slot.tier-epic      { color: #c79bff; }
+.chest-slot.tier-legendary { color: var(--gold); }
 .chest-btn {
   position: relative;
   width: 56px;
@@ -1817,13 +1866,14 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   align-items: center;
   justify-content: center;
   transition: transform 100ms ease;
-  animation: chestTrayPulse 1.1s ease-in-out infinite alternate;
+  animation: chestTrayPulse 1.4s ease-in-out infinite alternate;
 }
 .chest-btn:hover  { transform: scale(1.12); }
 .chest-btn:active { transform: scale(0.92); }
-.chest-btn.tier-bronze { color: #c98e2a; }
-.chest-btn.tier-silver { color: #c4d3df; }
-.chest-btn.tier-gold   { color: var(--gold); animation-duration: 0.7s; }
+.chest-btn.tier-common    { color: #b8c6d2; animation-duration: 1.6s; }
+.chest-btn.tier-rare      { color: var(--accent); animation-duration: 1.2s; }
+.chest-btn.tier-epic      { color: #c79bff;   animation-duration: 0.9s; }
+.chest-btn.tier-legendary { color: var(--gold);animation-duration: 0.6s; }
 @keyframes chestTrayPulse {
   from { box-shadow: 0 0 4px  currentColor;                                filter: brightness(0.95); }
   to   { box-shadow: 0 0 14px currentColor, 0 0 22px currentColor;         filter: brightness(1.25); }
@@ -2373,8 +2423,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 .chest-haul {
   position: absolute;
   left: 20px;
-  /* Bottom = chest-tray bottom (156) + chest height (56) + arrow gap (12). */
-  bottom: 224px;
+  /* Bottom = chest-tray bottom (156) + slot height (~71 = btn 56 + label 12 + gap 3) + arrow gap (12). */
+  bottom: 240px;
   top: 130px;
   width: 280px;
   display: flex;

@@ -466,20 +466,26 @@ window.EVENT_CONFIG = {
   slotSymbols: ["🌧", "🌿", "🦋", "🌈", "🌷"],
 
   chestTiers: {
-    bronze: {
-      name: "Seed Pouch", icon: "🪺",
+    common: {
+      name: "Sprout Basket", icon: "🌱", label: "Common",
+      rarities: ["common", "uncommon", "rare"],
+      rarityWeights: { common: 55, uncommon: 35, rare: 10 },
+      items: 2, valueMult: 1.0,
+    },
+    rare: {
+      name: "Seed Pouch", icon: "🪺", label: "Rare",
       rarities: ["rare", "epic", "legend"],
       rarityWeights: { rare: 55, epic: 35, legend: 10 },
       items: 3, valueMult: 1.6,
     },
-    silver: {
-      name: "Honey Pot",  icon: "🍯",
+    epic: {
+      name: "Honey Pot", icon: "🍯", label: "Epic",
       rarities: ["epic", "legend"],
       rarityWeights: { epic: 55, legend: 45 },
       items: 4, valueMult: 2.4,
     },
-    gold: {
-      name: "Bloom Bouquet", icon: "💐",
+    legendary: {
+      name: "Bloom Bouquet", icon: "💐", label: "Legendary",
       rarities: ["legend", "epic"],
       rarityWeights: { legend: 90, epic: 10 },
       items: 6, valueMult: 3.5,

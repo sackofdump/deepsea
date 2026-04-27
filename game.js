@@ -1585,34 +1585,53 @@ function showItemReveal(item, value, tierLabel) {
 
 // ----- Treasure chests + inventory ------------------------------
 const CHEST_TIERS = (EVENT && EVENT.chestTiers) || {
-  bronze: {
-    name: "Bronze Chest", icon: "📦",
+  common: {
+    name: "Salvage Crate", icon: "📦", label: "Common",
+    rarities: ["common", "uncommon", "rare"],
+    rarityWeights: { common: 55, uncommon: 35, rare: 10 },
+    items: 2, valueMult: 1.0,
+  },
+  rare: {
+    name: "Steel Lockbox", icon: "🗃", label: "Rare",
     rarities: ["rare", "epic", "legend"],
     rarityWeights: { rare: 55, epic: 35, legend: 10 },
     items: 3, valueMult: 1.6,
   },
-  silver: {
-    name: "Silver Chest", icon: "📦",
+  epic: {
+    name: "Sunken Vault", icon: "⚱", label: "Epic",
     rarities: ["epic", "legend"],
     rarityWeights: { epic: 55, legend: 45 },
     items: 4, valueMult: 2.4,
   },
-  gold: {
-    name: "Gold Chest", icon: "📦",
+  legendary: {
+    name: "Atlantean Reliquary", icon: "🪙", label: "Legendary",
     rarities: ["legend", "epic"],
     rarityWeights: { legend: 90, epic: 10 },
     items: 6, valueMult: 3.5,
   },
 };
 
+// Migrate older saves that have the bronze/silver/gold tier names. The new
+// tiers map roughly to the old ones (the old common tier didn't exist yet).
+const _LEGACY_CHEST_RENAME = { bronze: "rare", silver: "epic", gold: "legendary" };
+if (state.inventory && state.inventory.length) {
+  state.inventory = state.inventory.map(t => _LEGACY_CHEST_RENAME[t] || t);
+}
+
+const CHEST_ORDER = ["legendary", "epic", "rare", "common"];
+
 function spawnTreasureChest() {
   const ocean = $("ocean");
   if (!ocean) return;
+  // Spawn weights — common most often, legendary rare. Skewed slightly toward
+  // higher tiers compared to the old 3-tier mix because spawns also fire
+  // ~3× more often now (see scheduleTreasure).
   const r = Math.random();
   let tier;
-  if (r < 0.05)      tier = "gold";
-  else if (r < 0.30) tier = "silver";
-  else               tier = "bronze";
+  if (r < 0.04)       tier = "legendary"; // 4%
+  else if (r < 0.14)  tier = "epic";      // 10%
+  else if (r < 0.40)  tier = "rare";      // 26%
+  else                tier = "common";    // 60%
   const def = CHEST_TIERS[tier];
 
   const el = document.createElement("div");
@@ -1630,7 +1649,7 @@ function spawnTreasureChest() {
     clearTimeout(removeTimer);
     state.inventory.push(tier);
     state.chestsCollected = (state.chestsCollected || 0) + 1;
-    log(`${def.icon} ${def.name} added to inventory!`, "good");
+    log(`${def.icon} ${def.name} (${def.label}) added to inventory!`, "good");
     el.classList.add("fading");
     setTimeout(() => el.remove(), 500);
     checkAchievements();
@@ -1640,7 +1659,7 @@ function spawnTreasureChest() {
 
 function scheduleTreasure() {
   if (eventEnded()) return;
-  const delay = 60000 + Math.random() * 80000; // 60-140s
+  const delay = 20000 + Math.random() * 25000; // 20-45s — was 60-140s
   setTimeout(() => {
     if (eventEnded()) return;
     spawnTreasureChest();
@@ -1738,21 +1757,28 @@ function renderInventory() {
     });
     inventoryDelegated = true;
   }
-  const counts = { bronze: 0, silver: 0, gold: 0 };
+  const counts = { common: 0, rare: 0, epic: 0, legendary: 0 };
   for (const t of (state.inventory || [])) counts[t] = (counts[t] || 0) + 1;
-  const sig = `${counts.gold}|${counts.silver}|${counts.bronze}`;
+  const sig = CHEST_ORDER.map(t => counts[t]).join("|");
   if (sig === inventorySig) return;
   inventorySig = sig;
   root.innerHTML = "";
-  for (const tier of ["gold", "silver", "bronze"]) {
+  for (const tier of CHEST_ORDER) {
     if (!counts[tier]) continue;
     const def = CHEST_TIERS[tier];
+    const slot = document.createElement("div");
+    slot.className = `chest-slot tier-${tier}`;
     const btn = document.createElement("button");
     btn.className = `chest-btn tier-${tier}`;
     btn.dataset.tier = tier;
     btn.title = `${def.name} ×${counts[tier]} — click to open`;
-    btn.innerHTML = `${def.icon}<span class="chest-btn-count">${counts[tier]}</span>`;
-    root.appendChild(btn);
+    btn.innerHTML = `<span class="chest-btn-icon">${def.icon}</span><span class="chest-btn-count">${counts[tier]}</span>`;
+    slot.appendChild(btn);
+    const lbl = document.createElement("div");
+    lbl.className = "chest-slot-label";
+    lbl.textContent = def.label;
+    slot.appendChild(lbl);
+    root.appendChild(slot);
   }
 }
 
