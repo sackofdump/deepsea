@@ -1817,7 +1817,7 @@ function renderActiveEffect() {
     const row = document.createElement("div");
     row.className = `active-effect ${r.cls}`;
     row.title = `${name}\n\n${fullDesc}`;
-    row.textContent = `${icon}  ${name.toUpperCase()} — ${shortDesc} · ${remaining}s`;
+    row.innerHTML = `<span class="ae-label">${icon} ${escapeHtml(name.toUpperCase())} — ${escapeHtml(shortDesc)}</span><span class="ae-timer">${remaining}s</span>`;
     el.appendChild(row);
   }
 }

@@ -401,20 +401,55 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   gap: 4px;
 }
 .active-effect {
-  padding: 7px 10px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 36px 6px 10px; /* extra right padding for the timer pop-out */
   border-radius: 5px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
   text-shadow: 0 1px 2px rgba(0,0,0,0.7);
   animation: effectPulse 1.4s ease-in-out infinite alternate;
   border: 1px solid currentColor;
-  min-height: 18px;
-  box-sizing: content-box;
-  text-align: center;
+  box-sizing: border-box;
   /* Opaque dark base so the bar reads against any biome (pink Spring Bloom,
      bright Lava Vents, etc.) — per-tier rules layer a colored tint on top. */
   background: linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
+}
+.active-effect .ae-label {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.25;
+}
+/* Timer chip pops out the right edge — futuristic neon-LED feel: monospace,
+   sharp clipped corners, currentColor inner/outer glow, blinking caret feel
+   from the inherited effectPulse animation. */
+.active-effect .ae-timer {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 3px 7px;
+  min-width: 38px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: currentColor;
+  background: linear-gradient(180deg, #050a12, #02060c);
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  /* Hexagonal-ish notched chip — the cut corners give it the "hardware
+     readout" look without needing SVG. */
+  clip-path: polygon(8% 0, 100% 0, 100% 100%, 8% 100%, 0 50%);
+  box-shadow:
+    0 0 8px currentColor,
+    inset 0 0 6px rgba(255,255,255,0.10);
+  text-shadow: 0 0 6px currentColor, 0 0 2px rgba(0,0,0,0.9);
 }
 .active-effect.eff-map     {
   color: var(--gold);
@@ -1796,18 +1831,18 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   position: absolute;
   top: 12px;
   left: 12px;
-  width: 260px;
+  width: 200px;
   z-index: 8;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   font-family: var(--font-sans);
 }
 .slot-machine {
   width: 100%;
-  padding: 8px 12px 10px;
-  border-radius: 12px;
+  padding: 7px 10px 8px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
@@ -1817,12 +1852,12 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 .slot-title {
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-size: 9px;
+  letter-spacing: 1.6px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.7);
   text-align: center;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 .slot-reels {
   display: grid;
@@ -1834,8 +1869,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .slot-reel {
-  height: 38px;
-  border-radius: 6px;
+  height: 32px;
+  border-radius: 5px;
   background: linear-gradient(180deg, #182838, #0c1620);
   display: flex;
   align-items: center;
@@ -1845,7 +1880,7 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
 }
 .slot-strip {
-  font-size: 26px;
+  font-size: 22px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -2046,8 +2081,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   /* Activity log stays compact */
   #log { font-size: 11px; }
   /* Slot machine — keep it tucked into corner on phones */
-  .slot-stack { width: 168px; top: 8px; left: 8px; gap: 6px; }
-  .slot-machine { padding: 6px 8px 7px; }
+  .slot-stack { width: 156px; top: 8px; left: 8px; gap: 5px; }
+  .slot-machine { padding: 5px 8px 6px; }
   .slot-title { font-size: 9px; letter-spacing: 1.3px; }
   .slot-reel { height: 30px; }
   .slot-strip { font-size: 20px; }
