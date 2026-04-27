@@ -387,16 +387,14 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 }
 
 /* Active-effect stack (encounters) ----------------------------- */
-/* #activeEffect is the container — each running bonus is a child .active-effect
-   row, so multiple buffs stack on top of each other instead of only showing
-   the longest-remaining one. Always reserves enough space for two rows so
-   bonuses appearing/disappearing doesn't push the cargo list around. */
-#activeEffect {
+/* Lives inside .slot-stack — sits right below the slot at the same width.
+   Each running bonus is a child .active-effect row so multiple buffs stack
+   instead of only showing the longest-remaining one. */
+#activeEffect:empty { display: none; }
+#activeEffect:not(:empty) {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 10px 0 4px;
-  min-height: 76px;
 }
 .active-effect {
   padding: 7px 10px;
@@ -1776,22 +1774,30 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 }
 
 /* Salvage Slot ------------------------------------------------- */
-.slot-machine {
+/* The slot + bonus stack share a single absolutely-positioned column so the
+   active-effect bars sit directly under the slot at the same width. */
+.slot-stack {
   position: absolute;
   top: 12px;
   left: 12px;
-  width: 168px;
-  padding: 8px 10px 9px;
+  width: 220px;
+  z-index: 8;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--font-sans);
+}
+.slot-machine {
+  width: 100%;
+  padding: 8px 12px 10px;
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
     0 4px 14px rgba(0, 0, 0, 0.55),
     inset 0 0 0 1px rgba(0, 0, 0, 0.4);
-  z-index: 8;
-  pointer-events: none;
   user-select: none;
-  font-family: var(--font-sans);
   transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 .slot-title {
@@ -2024,7 +2030,8 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   /* Activity log stays compact */
   #log { font-size: 11px; }
   /* Slot machine — keep it tucked into corner on phones */
-  .slot-machine { width: 132px; padding: 6px 8px 7px; top: 8px; left: 8px; }
+  .slot-stack { width: 168px; top: 8px; left: 8px; gap: 6px; }
+  .slot-machine { padding: 6px 8px 7px; }
   .slot-title { font-size: 9px; letter-spacing: 1.3px; }
   .slot-reel { height: 30px; }
   .slot-strip { font-size: 20px; }

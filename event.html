@@ -39,7 +39,6 @@
       <div class="stat"><span>Depth</span><span><span id="depth">0</span> / <span id="maxDepth">50</span> m</span></div>
       <div class="stat"><span>Basket</span><span><span id="cargo">0</span> / <span id="cargoMax">4</span> kg</span></div>
       <div class="bar"><div class="bar-fill" id="cargoBar"></div></div>
-      <div id="activeEffect"></div>
     </section>
 
     <section class="panel" data-key="ondeck">
@@ -128,14 +127,17 @@
     </div>
     <div id="depthMarkers"></div>
     <div id="chestHaul" class="chest-haul"></div>
-    <div id="slotMachine" class="slot-machine" data-state="idle">
-      <div class="slot-title">🌷 CHANCE AT BLOOM</div>
-      <div class="slot-reels">
-        <div class="slot-reel" id="slotReel0"><div class="slot-strip">🌿</div></div>
-        <div class="slot-reel" id="slotReel1"><div class="slot-strip">🦋</div></div>
-        <div class="slot-reel" id="slotReel2"><div class="slot-strip">🌈</div></div>
+    <div class="slot-stack">
+      <div id="slotMachine" class="slot-machine" data-state="idle">
+        <div class="slot-title">🌷 CHANCE AT BLOOM</div>
+        <div class="slot-reels">
+          <div class="slot-reel" id="slotReel0"><div class="slot-strip">🌿</div></div>
+          <div class="slot-reel" id="slotReel1"><div class="slot-strip">🦋</div></div>
+          <div class="slot-reel" id="slotReel2"><div class="slot-strip">🌈</div></div>
+        </div>
+        <div class="slot-status">Next spin in 15s</div>
       </div>
-      <div class="slot-status">Next spin in 15s</div>
+      <div id="activeEffect"></div>
     </div>
     <div id="log"></div>
     <div class="boost-hint">+200% speed &amp; pickup rate</div>
