@@ -2279,17 +2279,17 @@ function biomeAvgValue(biomeName) {
 // Reel faces are the icons of the bonuses they grant. 🦈 is the lone hazard.
 // Symbol order (must stay aligned across themes): [hazard, mini, minor, major, jackpot].
 const SLOT_SYMBOLS = (EVENT && EVENT.slotSymbols) || ["🦈", "📦", "🧜", "🗺", "🌟"];
-// Base bonus chances: each positive tier gets +1 weight on top of the half-
-// rate floor (mini 9→10, minor 6→7, major 2→3, jackpot 1→2); "none" absorbs
-// the difference. Shark stays at 8 — it's a hazard, not a bonus. Lucky
-// Salvage Charm still boosts major + jackpot on top via slotLuckWeight().
+// Base bonus chances. Mini (Chest Frenzy) and shark (hazard) hold steady at
+// 10 / 8; the kiss / map / jackpot ladder gets another +1 each (minor 7→8,
+// major 3→4, jackpot 2→3). "none" absorbs the +3. Lucky Salvage Charm still
+// boosts major + jackpot on top via slotLuckWeight().
 const SLOT_OUTCOMES = [
-  { tier: "none",    weight: 70, pick: () => slotNonMatch() },
+  { tier: "none",    weight: 67, pick: () => slotNonMatch() },
   { tier: "shark",   weight: 8,  pick: () => [SLOT_SYMBOLS[0], SLOT_SYMBOLS[0], SLOT_SYMBOLS[0]] },
   { tier: "mini",    weight: 10, pick: () => [SLOT_SYMBOLS[1], SLOT_SYMBOLS[1], SLOT_SYMBOLS[1]] },
-  { tier: "minor",   weight: 7,  pick: () => [SLOT_SYMBOLS[2], SLOT_SYMBOLS[2], SLOT_SYMBOLS[2]] },
-  { tier: "major",   weight: 3,  pick: () => [SLOT_SYMBOLS[3], SLOT_SYMBOLS[3], SLOT_SYMBOLS[3]] },
-  { tier: "jackpot", weight: 2,  pick: () => [SLOT_SYMBOLS[4], SLOT_SYMBOLS[4], SLOT_SYMBOLS[4]] },
+  { tier: "minor",   weight: 8,  pick: () => [SLOT_SYMBOLS[2], SLOT_SYMBOLS[2], SLOT_SYMBOLS[2]] },
+  { tier: "major",   weight: 4,  pick: () => [SLOT_SYMBOLS[3], SLOT_SYMBOLS[3], SLOT_SYMBOLS[3]] },
+  { tier: "jackpot", weight: 3,  pick: () => [SLOT_SYMBOLS[4], SLOT_SYMBOLS[4], SLOT_SYMBOLS[4]] },
 ];
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },

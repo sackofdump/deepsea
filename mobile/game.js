@@ -1377,16 +1377,15 @@ function biomeAvgValue(biomeName) {
 // specific buff; jackpot stacks all three with a longer duration.
 // Reel faces are the icons of the bonuses they grant. 🦈 is the lone hazard.
 const SLOT_SYMBOLS = ["🦈", "🌊", "🧜", "🗺", "🌟"];
-// Base bonus chances: each positive tier gets +1 over the half-rate floor
-// (mini 9→10, minor 6→7, major 2→3, jackpot 1→2); "none" absorbs the rest.
-// Shark stays at 8 — it's a hazard.
+// Base bonus chances. Mini (Lucky Current) and shark hold at 10 / 8; minor /
+// major / jackpot each get another +1 (minor 7→8, major 3→4, jackpot 2→3).
 const SLOT_OUTCOMES = [
-  { tier: "none",    weight: 70, pick: () => slotNonMatch() },
+  { tier: "none",    weight: 67, pick: () => slotNonMatch() },
   { tier: "shark",   weight: 8,  pick: () => ["🦈", "🦈", "🦈"] },
   { tier: "mini",    weight: 10, pick: () => ["🌊", "🌊", "🌊"] },
-  { tier: "minor",   weight: 7,  pick: () => ["🧜", "🧜", "🧜"] },
-  { tier: "major",   weight: 3,  pick: () => ["🗺", "🗺", "🗺"] },
-  { tier: "jackpot", weight: 2,  pick: () => ["🌟", "🌟", "🌟"] },
+  { tier: "minor",   weight: 8,  pick: () => ["🧜", "🧜", "🧜"] },
+  { tier: "major",   weight: 4,  pick: () => ["🗺", "🗺", "🗺"] },
+  { tier: "jackpot", weight: 3,  pick: () => ["🌟", "🌟", "🌟"] },
 ];
 const SLOT_BONUSES = {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",       duration: 10000, kind: "hazard", apply: (now, d) => { state.sharkSlowUntil          = now + d; } },
