@@ -281,14 +281,13 @@ const UPGRADE_DEFS = [
     // a new player. Mult stays at 1.04 so late-game still doesn't explode
     // (L100 ≈ 1.7k kg) — infinite progression, just kinder up front.
     base: 10, add: 3, mult: 1.05,
-    // Cheap and flat-ramp on purpose — Cargo Hold's job is to fit one more
-    // dive's worth of loot, not gate progression. Was 30/×1.6 originally.
-    // Capped at L50 ≈ 743 kg — beyond that even a Treasure-Map / Lucky-
-    // Current / boosted dive can't realistically fill the bar, so further
-    // upgrades just waste cash. UI shows "MAX" once the cap is reached.
+    // Cheap and flat-ramp on purpose. Cap sized to the worst-case endgame
+    // dive: ~1s capped descent + 300 picks/sec boosted at the heaviest
+    // legend weights ≈ 3,000 kg. L80 ≈ 3,409 kg gives a small buffer for
+    // the Lucky-Current 2× cargo bonus. UI shows "MAX" past the cap.
     baseCost: 8, costMult: 1.4,
     suffix: " kg",
-    maxLevel: 50,
+    maxLevel: 80,
   },
   {
     id: "sonar",

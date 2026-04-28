@@ -152,11 +152,11 @@ const UPGRADE_DEFS = [
     // the bar isn't constantly choking a new player. Mult stays at 1.04 so
     // late-game still doesn't explode.
     base: 10, add: 3, mult: 1.05,
-    // Cheap and flat-ramp on purpose — Cargo Hold's job is to fit one more
-    // dive's worth of loot, not gate progression. Was 30/×1.6 originally.
+    // Cheap and flat-ramp on purpose. Cap sized to worst-case endgame dive
+    // (~3,000 kg per max-sonar boosted dive). L80 ≈ 3.4k kg.
     baseCost: 8, costMult: 1.4,
     suffix: " kg",
-    maxLevel: 50,
+    maxLevel: 80,
   },
   {
     id: "sonar",
