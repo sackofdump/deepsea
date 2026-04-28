@@ -337,7 +337,7 @@ const GEAR_DEFS = [
     id: "compressor",
     name: "Pearl Compressor",
     icon: "🔮",
-    desc: "Each promotion banks more pearls",
+    desc: "Bonus pearls earned every time you promote",
     perLevel: 0.10,        // +10% pending pearls per level (max +100% at L10)
     suffix: "% pearls",
     maxLevel: 10,
@@ -438,6 +438,11 @@ const defaultState = () => ({
   // until this timestamp. Persisted so a page reload mid-frenzy keeps the
   // burst going to its natural end.
   chestFrenzyUntil: 0,
+  // Number of chests still owed a "guaranteed 2 legendary picks" payload.
+  // Incremented when a chest is collected during a frenzy; decremented
+  // when one is opened. Lets the bonus follow the chest into inventory
+  // even though state.inventory itself only stores tier strings.
+  frenzyChestsPending: 0,
   encounterValueUntil: 0,
   // Magnitude of the active value bonus (default 2× for Mermaid's Kiss; the
   // event's Butterfly Kiss bumps this to 3×). Stored alongside the timestamp
@@ -520,6 +525,7 @@ if (state.divesSinceLegendary === undefined) state.divesSinceLegendary = 0;
 if (state.encounterCargoUntil === undefined) state.encounterCargoUntil = 0;
 if (state.encounterCargoAmt   === undefined) state.encounterCargoAmt   = 2;
 if (state.chestFrenzyUntil    === undefined) state.chestFrenzyUntil    = 0;
+if (state.frenzyChestsPending === undefined) state.frenzyChestsPending = 0;
 if (state.encounterValueUntil === undefined) state.encounterValueUntil = 0;
 if (state.encounterValueAmt   === undefined) state.encounterValueAmt   = 2;
 if (state.encounterXpUntil    === undefined) state.encounterXpUntil    = 0;
@@ -767,6 +773,7 @@ function doPrestige() {
   state.encounterCargoUntil = 0;
   state.encounterCargoAmt = 2;
   state.chestFrenzyUntil = 0;
+  state.frenzyChestsPending = 0;
   state.encounterValueUntil = 0;
   state.encounterValueAmt = 2;
   state.encounterXpUntil = 0;
@@ -1969,19 +1976,29 @@ const CHEST_ORDER = ["legendary", "epic", "rare", "common"];
 function spawnTreasureChest() {
   const ocean = $("ocean");
   if (!ocean) return;
-  // Spawn weights — common most often, legendary rare. Skewed slightly toward
-  // higher tiers compared to the old 3-tier mix because spawns also fire
-  // ~3× more often now (see scheduleTreasure).
+  // Frenzy-spawned chests are skewed away from commons toward rares/epics
+  // (and slightly more legendaries) to make Chest Frenzy feel meaningful
+  // beyond just "a lot of chests." Detected via the still-active timestamp.
+  const isFrenzy = (state.chestFrenzyUntil || 0) > Date.now();
   const r = Math.random();
   let tier;
-  if (r < 0.04)       tier = "legendary"; // 4%
-  else if (r < 0.14)  tier = "epic";      // 10%
-  else if (r < 0.40)  tier = "rare";      // 26%
-  else                tier = "common";    // 60%
+  if (isFrenzy) {
+    // 8% legendary / 22% epic / 40% rare / 30% common
+    if (r < 0.08)       tier = "legendary";
+    else if (r < 0.30)  tier = "epic";
+    else if (r < 0.70)  tier = "rare";
+    else                tier = "common";
+  } else {
+    // Normal world spawns — common most often, legendary rare.
+    if (r < 0.04)       tier = "legendary"; // 4%
+    else if (r < 0.14)  tier = "epic";      // 10%
+    else if (r < 0.40)  tier = "rare";      // 26%
+    else                tier = "common";    // 60%
+  }
   const def = CHEST_TIERS[tier];
 
   const el = document.createElement("div");
-  el.className = `treasure-chest tier-${tier}`;
+  el.className = `treasure-chest tier-${tier}` + (isFrenzy ? " frenzy" : "");
   el.textContent = def.icon;
   el.style.left = `${20 + Math.random() * 60}%`;
   el.style.top  = `${15 + Math.random() * 45}%`;
@@ -1995,6 +2012,9 @@ function spawnTreasureChest() {
     clearTimeout(removeTimer);
     state.inventory.push(tier);
     state.chestsCollected = (state.chestsCollected || 0) + 1;
+    // Frenzy chests tag the inventory with a "guaranteed 2 legendary picks"
+    // promise that's redeemed on the next openChest() call (any tier).
+    if (isFrenzy) state.frenzyChestsPending = (state.frenzyChestsPending || 0) + 1;
     log(`${def.icon} ${def.name} (${def.label}) added to inventory!`, "good");
     el.classList.add("fading");
     setTimeout(() => el.remove(), 500);
@@ -2027,17 +2047,23 @@ function scheduleTreasure() {
   }, delay);
 }
 
-function rollChestItem(def) {
+function rollChestItem(def, forceRarity) {
   const biome = currentBiome();
   const table = LOOT[biome.name] || [];
-  // Pick rarity first using tier-biased weights.
-  const weights = def.rarityWeights;
-  const totalW = Object.values(weights).reduce((a, b) => a + b, 0);
-  let r = Math.random() * totalW;
-  let chosen = Object.keys(weights)[0];
-  for (const [rar, w] of Object.entries(weights)) {
-    r -= w;
-    if (r <= 0) { chosen = rar; break; }
+  // Pick rarity first using tier-biased weights — unless caller forced one
+  // (Chest Frenzy redemptions force "legend" for the first 2 picks).
+  let chosen;
+  if (forceRarity) {
+    chosen = forceRarity;
+  } else {
+    const weights = def.rarityWeights;
+    const totalW = Object.values(weights).reduce((a, b) => a + b, 0);
+    let r = Math.random() * totalW;
+    chosen = Object.keys(weights)[0];
+    for (const [rar, w] of Object.entries(weights)) {
+      r -= w;
+      if (r <= 0) { chosen = rar; break; }
+    }
   }
   // Find items of that rarity; fall back to other tier rarities, then anything.
   let pool = table.filter(it => it.rarity === chosen);
@@ -2084,10 +2110,16 @@ function openChest(tier) {
   // a basic Crate.
   const CHEST_XP_MULT = { common: 3, rare: 5, epic: 8, legendary: 14 };
   const xpMult = CHEST_XP_MULT[tier] || 3;
+  // Redeem one frenzy-chest promise on this open: the first 2 rolls are
+  // forced to legend rarity, regardless of which tier chest the player
+  // happened to click. Capped at def.items so a 2-item common still works.
+  const isFrenzyRedeem = (state.frenzyChestsPending || 0) > 0;
+  const guaranteedLegend = isFrenzyRedeem ? Math.min(2, def.items) : 0;
+  if (isFrenzyRedeem) state.frenzyChestsPending -= 1;
   const rolled = [];
   let totalValue = 0;
   for (let i = 0; i < def.items; i++) {
-    const item = rollChestItem(def);
+    const item = rollChestItem(def, i < guaranteedLegend ? "legend" : null);
     if (!item) continue;
     const value = Math.ceil(item.value * baseMult);
     rolled.push({ item, value });
@@ -2513,6 +2545,15 @@ function renderActiveEffect() {
       } else {
         const c = state.encounterCargoAmt || 2;
         shortDesc = `${c}× pickups`;
+      }
+    } else if (r.tier === "shark") {
+      // If Reinforced Hull is installed, the shark duration is shorter than
+      // the SLOT_BONUSES.shark base. Telegraph the savings so the player
+      // sees their gear paying off in real time.
+      const hullLvl = gearLevel("hull");
+      if (hullLvl > 0) {
+        const reductionPct = Math.round(hullLvl * 8); // perLevel: 0.08
+        shortDesc = `No loot · −${reductionPct}% via Hull L${hullLvl}`;
       }
     }
     const name = (bonus && bonus.name) || r.tier;
