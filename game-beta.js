@@ -283,11 +283,12 @@ const UPGRADE_DEFS = [
     base: 10, add: 3, mult: 1.05,
     // Cheap and flat-ramp on purpose — Cargo Hold's job is to fit one more
     // dive's worth of loot, not gate progression. Was 30/×1.6 originally.
-    // Capacity curve sized so end-game (deep-prestige, max-sonar Treasure
-    // Map dives) can actually fill the bar: L50 ≈ 743 kg, L100 ≈ 9.1k kg,
-    // L150 ≈ 105k kg.
+    // Capped at L50 ≈ 743 kg — beyond that even a Treasure-Map / Lucky-
+    // Current / boosted dive can't realistically fill the bar, so further
+    // upgrades just waste cash. UI shows "MAX" once the cap is reached.
     baseCost: 8, costMult: 1.4,
     suffix: " kg",
+    maxLevel: 50,
   },
   {
     id: "sonar",
