@@ -2232,7 +2232,7 @@ const SLOT_OUTCOMES = [
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
   mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥2 legendaries!", chestFrenzy: true, duration: 10000 },
-  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "3× value & 5× XP for 15s.", valueMult: 3, xpMult: 5, duration: 15000 },
+  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "5× value & 10× XP for 15s.", valueMult: 5, xpMult: 10, duration: 15000 },
   major:   { icon: "🗺", name: "Deep Dive Bonus", desc: "Legendary picks for 15s!", duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
 };
