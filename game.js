@@ -2673,12 +2673,16 @@ function fmtDuration(ms) {
   return `${sec}s`;
 }
 
+// Event pages use the pollen 🌼 emoji; the main game uses pearls 🔮.
+// Same in-DB metric, just labelled per page.
+const LB_PEARL_EMOJI = EVENT ? "🌼" : "🔮";
+
 const LB_METRICS = [
   { id: "total_earned",   label: "Cash",     fmt: (n) => "$" + fmt(Number(n) || 0) },
   { id: "level",          label: "Level",    fmt: (n) => "Lv " + n },
   { id: "prestige_count", label: "Promotes", fmt: (n) => String(n) },
   { id: "jackpots",       label: "Jackpots", fmt: (n) => String(n) },
-  { id: "pearls",         label: "Pearls",   fmt: (n) => fmt(Number(n) || 0) + " 🔮" },
+  { id: "pearls",         label: "Pearls",   fmt: (n) => fmt(Number(n) || 0) + " " + LB_PEARL_EMOJI },
   { id: "total_dives",    label: "Dives",    fmt: (n) => fmt(Number(n) || 0) },
   { id: "time_played_ms", label: "Time",     fmt: (n) => fmtDuration(Number(n) || 0) },
 ];
@@ -2700,12 +2704,19 @@ function ensurePlayerId() {
   return state.playerId;
 }
 
-// Postgres bigint maxes at 9.22e18; cap below that to leave headroom and to
-// stay safely inside JS Number's integer-display range (JSON.stringify still
-// emits a plain integer string, no scientific notation, which PostgREST
-// requires for bigint columns). Number.MAX_SAFE_INTEGER (~9e15) was the old
-// cap and was clipping any player past 9.01Qa pearls / total_earned.
-const LB_BIGINT_CAP = 9e18;
+// Pearls / cash / time-played columns are now `numeric` (arbitrary
+// precision) instead of `bigint`, so the old 9e18 cap is gone. Above
+// Number.MAX_SAFE_INTEGER (~9e15) JS loses unit-level integer precision
+// and JSON.stringify will emit scientific notation past ~1e21, which
+// PostgREST rejects for numeric columns. Send those values as plain
+// integer strings via BigInt to preserve as much precision as the JS
+// Number had, and avoid the sci-notation issue entirely.
+function lbBigNumber(n) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  if (!isFinite(v)) return 0;
+  if (v <= Number.MAX_SAFE_INTEGER) return v;
+  try { return BigInt(v).toString(); } catch { return v.toFixed(0); }
+}
 
 function leaderboardPayload() {
   // The scores table now always carries an event_key (default '' for the
@@ -2716,14 +2727,14 @@ function leaderboardPayload() {
     player_id: ensurePlayerId(),
     event_key: EVENT_KEY || "",
     display_name: ((state.displayName || "").trim().slice(0, 32)) || "Anon",
-    total_earned: Math.min(LB_BIGINT_CAP, Math.floor(state.totalEarned || 0)),
+    total_earned: lbBigNumber(state.totalEarned),
     level: state.level || 1,
     prestige_count: state.prestigeCount || 0,
-    pearls: Math.min(LB_BIGINT_CAP, Math.floor(state.pearls || 0)),
+    pearls: lbBigNumber(state.pearls),
     jackpots: (state.slotHits && state.slotHits.jackpot) || 0,
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,
-    time_played_ms: Math.min(LB_BIGINT_CAP, Math.floor(state.timePlayedMs || 0)),
+    time_played_ms: lbBigNumber(state.timePlayedMs),
   };
 }
 
