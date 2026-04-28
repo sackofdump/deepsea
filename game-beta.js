@@ -2557,7 +2557,7 @@ function renderActiveEffect() {
     let shortDesc = ACTIVE_EFFECT_SHORT[r.tier] || "";
     // Mini and Minor tiers carry their multipliers in state so the banner
     // reflects the actual active bonus (Butterfly Kiss vs. Mermaid's Kiss,
-    // Spring Breeze vs. Lucky Current).
+    // Chest Frenzy vs. Lucky Current).
     if (r.tier === "minor") {
       const v = state.encounterValueAmt || 2;
       const xpActive = (state.encounterXpUntil || 0) > now && (state.encounterXpAmt || 1) > 1;
@@ -2571,23 +2571,49 @@ function renderActiveEffect() {
         const c = state.encounterCargoAmt || 2;
         shortDesc = `${c}× pickups`;
       }
-    } else if (r.tier === "shark") {
-      // If Reinforced Hull is installed, the shark duration is shorter than
-      // the SLOT_BONUSES.shark base. Telegraph the savings so the player
-      // sees their gear paying off in real time.
+    }
+
+    // Gear-extra badge: pops out the right of the timer with the actual
+    // gear contribution to this active bonus (in seconds, the unit
+    // players read off the timer). Only shown when the relevant gear
+    // is installed AND its effect actually applies to this tier.
+    let extraText = "";
+    let extraCls = "";
+    const baseSec = ((bonus && bonus.duration) || 15000) / 1000;
+    if (r.tier === "shark") {
       const hullLvl = gearLevel("hull");
       if (hullLvl > 0) {
-        const reductionPct = Math.round(hullLvl * 8); // perLevel: 0.08
-        shortDesc = `No loot · −${reductionPct}% via Hull L${hullLvl}`;
+        const actualMult = Math.max(0.2, 1 - 0.08 * hullLvl);
+        const reducedSec = Math.max(1, Math.round(baseSec * (1 - actualMult)));
+        extraText = `−${reducedSec}s · Hull L${hullLvl}`;
+        extraCls  = "ae-extra-hull";
+      }
+    } else if (r.tier === "minor" || r.tier === "major" ||
+               (r.tier === "mini" && frenzyUntil <= now)) {
+      // Stabilizer extends positive-bonus duration; chest frenzy doesn't
+      // get extended (its duration is taken straight from the bonus
+      // config), so we skip the badge in that one case.
+      const stabLvl = gearLevel("stabilizer");
+      if (stabLvl > 0) {
+        const addedSec = Math.max(1, Math.round(baseSec * 0.10 * stabLvl));
+        extraText = `+${addedSec}s · Stab L${stabLvl}`;
+        extraCls  = "ae-extra-stab";
       }
     }
+
     const name = (bonus && bonus.name) || r.tier;
     const icon = (bonus && bonus.icon) || "✨";
     const fullDesc = (bonus && bonus.desc) || "";
     const row = document.createElement("div");
     row.className = `active-effect ${r.cls}`;
     row.title = `${name}\n\n${fullDesc}`;
-    row.innerHTML = `<span class="ae-label">${icon} ${escapeHtml(name.toUpperCase())} — ${escapeHtml(shortDesc)}</span><span class="ae-timer">${remaining}s</span>`;
+    const extraHtml = extraText
+      ? `<span class="ae-extra ${extraCls}">${escapeHtml(extraText)}</span>`
+      : "";
+    row.innerHTML =
+      `<span class="ae-label">${icon} ${escapeHtml(name.toUpperCase())} — ${escapeHtml(shortDesc)}</span>` +
+      `<span class="ae-timer">${remaining}s</span>` +
+      extraHtml;
     el.appendChild(row);
   }
 }

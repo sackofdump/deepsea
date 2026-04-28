@@ -636,6 +636,47 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
     inset 0 0 6px rgba(255,255,255,0.10);
   text-shadow: 0 0 6px currentColor, 0 0 2px rgba(0,0,0,0.9);
 }
+/* Gear contribution badge — pops out further right of the timer chip so
+   the player can see how their installed gear is reshaping the active
+   bonus in real time. Hull (red-tinted) on shark, Stabilizer (green-
+   tinted) on positive bonuses. */
+.active-effect .ae-extra {
+  position: absolute;
+  /* The timer chip lives at right: -10px and is ~52px wide. Park the
+     extra badge a bit further out so they don't overlap, with a
+     comfortable gap. */
+  left: 100%;
+  margin-left: 56px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, monospace;
+  background: linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
+  border: 1px solid currentColor;
+  text-shadow: 0 0 4px currentColor, 0 1px 2px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+.active-effect .ae-extra.ae-extra-hull { color: #ff8a8a; }
+.active-effect .ae-extra.ae-extra-stab { color: #6effa3; }
+/* On phone widths the slot stack is hugged into the corner with little
+   room to the right, so push the extra badge below the row instead of
+   running it off-screen. */
+@media (max-width: 760px) {
+  .active-effect { padding-bottom: 22px; }
+  .active-effect .ae-extra {
+    left: auto;
+    right: 4px;
+    bottom: 2px;
+    top: auto;
+    margin-left: 0;
+    transform: none;
+  }
+}
 .active-effect.eff-map     {
   color: var(--gold);
   background:
