@@ -152,10 +152,9 @@ const UPGRADE_DEFS = [
     // the bar isn't constantly choking a new player. Mult stays at 1.04 so
     // late-game still doesn't explode.
     base: 10, add: 3, mult: 1.04,
-    // Half the original baseCost and a flatter cost ramp (was 30/×1.6) so
-    // early Cargo levels are cheap and the player can stack a handful of
-    // them on the first run.
-    baseCost: 15, costMult: 1.5,
+    // Cheap and flat-ramp on purpose — Cargo Hold's job is to fit one more
+    // dive's worth of loot, not gate progression. Was 30/×1.6 originally.
+    baseCost: 12, costMult: 1.45,
     suffix: " kg",
     maxLevel: 50,
   },
