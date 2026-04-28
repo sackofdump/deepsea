@@ -2618,7 +2618,7 @@ function renderActiveEffect() {
   el.innerHTML = "";
   for (const r of rows) {
     const bonus = SLOT_BONUSES[r.tier];
-    const remaining = Math.max(1, Math.ceil((r.until - now) / 1000));
+    const remaining = Math.max(0, Math.ceil((r.until - now) / 1000));
     let shortDesc = ACTIVE_EFFECT_SHORT[r.tier] || "";
     // Mini and Minor tiers carry their multipliers in state so the banner
     // reflects the actual active bonus (Butterfly Kiss vs. Mermaid's Kiss,
@@ -2643,9 +2643,17 @@ function renderActiveEffect() {
     // timer). Only shown when the relevant gear is installed AND its
     // effect actually applies to this tier. Split into name + delta
     // spans so CSS can lay them out as a two-part chip.
+    //
+    // The split-timer behavior: the main `ae-timer` always shows the BASE
+    // portion of the bonus counting down. The gear-extra badge's delta
+    // becomes a live counter for the gear extension, ticking AFTER the
+    // base timer hits zero (since stabilizer time is appended at the end
+    // of the bonus, not stacked on top). Hull (shark) reduces total
+    // duration instead of extending it, so its delta stays static.
     let extraName = "";
     let extraDelta = "";
     let extraCls = "";
+    let mainTimerSec = remaining;
     const baseSec = ((bonus && bonus.duration) || 15000) / 1000;
     if (r.tier === "shark") {
       const hullLvl = gearLevel("hull");
@@ -2665,8 +2673,12 @@ function renderActiveEffect() {
       if (stabLvl > 0) {
         const addedSec = Math.max(1, Math.round(baseSec * 0.10 * stabLvl));
         extraName = `Stabilizer L${stabLvl}`;
-        extraDelta = `+${addedSec}s`;
         extraCls = "ae-extra-stab";
+        // Split: gear runs LAST, so it counts down only after the base
+        // chunk has elapsed. Until then, the gear badge sits at +addedSec.
+        const gearRemaining = Math.min(addedSec, remaining);
+        mainTimerSec = Math.max(0, remaining - addedSec);
+        extraDelta = `+${gearRemaining}s`;
       }
     }
 
@@ -2686,7 +2698,7 @@ function renderActiveEffect() {
     row.innerHTML =
       `<div class="ae-main">` +
         `<span class="ae-label">${icon} ${escapeHtml(name.toUpperCase())} — ${escapeHtml(shortDesc)}</span>` +
-        `<span class="ae-timer">${remaining}s</span>` +
+        `<span class="ae-timer">${mainTimerSec}s</span>` +
       `</div>` +
       extraHtml;
     el.appendChild(row);
