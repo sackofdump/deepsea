@@ -339,8 +339,10 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // +10% bonus duration per level (max +100% at L10)
     suffix: "% longer",
     maxLevel: 10,
-    // Basic tier (×3.3/lvl) — mirrors Hull cost.
-    costs: [50, 165, 550, 1800, 5900, 19000, 64000, 210000, 700000, 2300000],
+    // Basic tier — 2× of Hull's curve. Hull stays the cheap on-ramp; every
+    // other gear gets a bigger pearl sink so deep-prestige players still
+    // have something to spend on.
+    costs: [100, 330, 1100, 3600, 11800, 38000, 128000, 420000, 1400000, 4600000],
   },
   {
     id: "compressor",
@@ -350,9 +352,8 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // +10% pending pearls per level (max +100% at L10)
     suffix: "% pearls",
     maxLevel: 10,
-    // Meta tier — 2× the original curve so it stays a meaningful pearl sink
-    // across deep prestige (was hitting L10 by lvl ~100).
-    costs: [400, 1480, 5400, 20000, 74000, 280000, 1020000, 3800000, 13800000, 50000000],
+    // Meta tier — 4× the original curve (2× the previous bump).
+    costs: [800, 2960, 10800, 40000, 148000, 560000, 2040000, 7600000, 27600000, 100000000],
   },
   {
     id: "luck",
@@ -362,9 +363,9 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // wired through slotLuckWeight (per-tier scaling)
     suffix: "% slot luck",
     maxLevel: 10,
-    // Slot tier — 3× the original curve. Slot luck swings payouts hard, so
-    // it deserves a real long-term price tag.
-    costs: [1500, 6000, 24000, 96000, 384000, 1536000, 6000000, 24000000, 96000000, 390000000],
+    // Slot tier — 6× the original curve (2× the previous bump). Slot luck
+    // swings payouts hard, so it deserves a real long-term price tag.
+    costs: [3000, 12000, 48000, 192000, 768000, 3072000, 12000000, 48000000, 192000000, 780000000],
   },
   {
     id: "insight",
@@ -374,9 +375,10 @@ const GEAR_DEFS = [
     perLevel: 0.25,        // +25% XP per level (max +250% at L10)
     suffix: "% bonus XP",
     maxLevel: 10,
-    // Apex tier — 5× the original curve. Direct XP multiplier compounds
-    // hardest, so this is the long-term gate for "everything maxed."
-    costs: [10000, 45000, 205000, 925000, 4150000, 18500000, 85000000, 375000000, 1700000000, 7500000000],
+    // Apex tier — 10× the original curve (2× the previous bump). Direct XP
+    // multiplier compounds hardest, so this is the long-term gate for
+    // "everything maxed."
+    costs: [20000, 90000, 410000, 1850000, 8300000, 37000000, 170000000, 750000000, 3400000000, 15000000000],
   },
 ];
 function gearDef(id) { return GEAR_DEFS.find(g => g.id === id); }
