@@ -339,10 +339,10 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // +10% bonus duration per level (max +100% at L10)
     suffix: "% longer",
     maxLevel: 10,
-    // Basic tier — 2× of Hull's curve. Hull stays the cheap on-ramp; every
-    // other gear gets a bigger pearl sink so deep-prestige players still
-    // have something to spend on.
-    costs: [100, 330, 1100, 3600, 11800, 38000, 128000, 420000, 1400000, 4600000],
+    // Basic tier — 6× of Hull's curve (was 2×, then ×3 again). Hull stays
+    // the cheap on-ramp; every other gear gets a real long-term sink so
+    // deep-prestige players still have something to spend on.
+    costs: [300, 990, 3300, 10800, 35400, 114000, 384000, 1260000, 4200000, 13800000],
   },
   {
     id: "compressor",
@@ -352,8 +352,8 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // +10% pending pearls per level (max +100% at L10)
     suffix: "% pearls",
     maxLevel: 10,
-    // Meta tier — 4× the original curve (2× the previous bump).
-    costs: [800, 2960, 10800, 40000, 148000, 560000, 2040000, 7600000, 27600000, 100000000],
+    // Meta tier — 12× the original curve.
+    costs: [2400, 8880, 32400, 120000, 444000, 1680000, 6120000, 22800000, 82800000, 300000000],
   },
   {
     id: "luck",
@@ -363,9 +363,9 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // wired through slotLuckWeight (per-tier scaling)
     suffix: "% slot luck",
     maxLevel: 10,
-    // Slot tier — 6× the original curve (2× the previous bump). Slot luck
-    // swings payouts hard, so it deserves a real long-term price tag.
-    costs: [3000, 12000, 48000, 192000, 768000, 3072000, 12000000, 48000000, 192000000, 780000000],
+    // Slot tier — 18× the original curve. Slot luck swings payouts hard,
+    // so it deserves a real long-term price tag.
+    costs: [9000, 36000, 144000, 576000, 2304000, 9216000, 36000000, 144000000, 576000000, 2340000000],
   },
   {
     id: "insight",
@@ -375,10 +375,9 @@ const GEAR_DEFS = [
     perLevel: 0.25,        // +25% XP per level (max +250% at L10)
     suffix: "% bonus XP",
     maxLevel: 10,
-    // Apex tier — 10× the original curve (2× the previous bump). Direct XP
-    // multiplier compounds hardest, so this is the long-term gate for
-    // "everything maxed."
-    costs: [20000, 90000, 410000, 1850000, 8300000, 37000000, 170000000, 750000000, 3400000000, 15000000000],
+    // Apex tier — 30× the original curve. Direct XP multiplier compounds
+    // hardest, so this is the long-term gate for "everything maxed."
+    costs: [60000, 270000, 1230000, 5550000, 24900000, 111000000, 510000000, 2250000000, 10200000000, 45000000000],
   },
 ];
 function gearDef(id) { return GEAR_DEFS.find(g => g.id === id); }
