@@ -1039,10 +1039,17 @@ function tick(dtSec) {
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
     const treasure = legendaryEncounterActive();
+    // Boost shortens the descent (BOOST_SPEED_MULT) AND raises picks/sec
+    // (BOOST_LOOT_MULT). For total loot to come out equal with boost on
+    // vs off, the per-tick iteration cap and the interval floor have to
+    // scale by the same boost multiplier.
+    const lootScale = boosting ? BOOST_LOOT_MULT : 1;
+    const iterCap = 50 * lootScale;
+    const intervalFloor = 0.01 / lootScale;
     let iterations = 0;
     lootCooldown -= dtSec;
-    while (lootCooldown <= 0 && iterations < 50) {
-      const interval = treasure ? 0.20 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
+    while (lootCooldown <= 0 && iterations < iterCap) {
+      const interval = treasure ? 0.20 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;

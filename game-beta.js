@@ -1265,10 +1265,19 @@ function tick(dtSec) {
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
     const treasure = legendaryEncounterActive();
+    // Boost shortens the descent (BOOST_SPEED_MULT) AND raises picks/sec
+    // (BOOST_LOOT_MULT). For total loot to come out equal with boost on
+    // vs off, the per-tick iteration cap and the interval floor have to
+    // scale by the same boost multiplier — otherwise high-sonar dives
+    // hit the floor without boost AND the cap with boost, and end up
+    // with less loot per boosted dive than per normal dive.
+    const lootScale = boosting ? BOOST_LOOT_MULT : 1;
+    const iterCap = 50 * lootScale;
+    const intervalFloor = 0.01 / lootScale;
     let iterations = 0;
     lootCooldown -= dtSec;
-    while (lootCooldown <= 0 && iterations < 50) {
-      const interval = treasure ? 0.20 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
+    while (lootCooldown <= 0 && iterations < iterCap) {
+      const interval = treasure ? 0.20 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;
@@ -2662,7 +2671,7 @@ function renderActiveEffect() {
       if (hullLvl > 0) {
         const actualMult = Math.max(0.2, 1 - 0.08 * hullLvl);
         const reducedSec = Math.max(1, Math.round(baseSec * (1 - actualMult)));
-        extraName = `Hull L${hullLvl}`;
+        extraName = `Hull Lvl. ${hullLvl}`;
         extraDelta = `−${reducedSec}s`;
         extraCls = "ae-extra-hull";
       }
@@ -2674,7 +2683,7 @@ function renderActiveEffect() {
       const stabLvl = gearLevel("stabilizer");
       if (stabLvl > 0) {
         const addedSec = Math.max(1, Math.round(baseSec * 0.10 * stabLvl));
-        extraName = `Stabilizer L${stabLvl}`;
+        extraName = `Stabilizer Lvl. ${stabLvl}`;
         extraCls = "ae-extra-stab";
         // Split: gear runs LAST, so it counts down only after the base
         // chunk has elapsed. Until then, the gear badge sits at +addedSec.
