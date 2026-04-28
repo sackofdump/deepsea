@@ -2359,11 +2359,14 @@ function renderActiveEffect() {
   if ((state.encounterLegendaryUntil || 0) > now) rows.push({ until: state.encounterLegendaryUntil, tier: "major", cls: "eff-map" });
   if ((state.encounterValueUntil     || 0) > now) rows.push({ until: state.encounterValueUntil,     tier: "minor", cls: "eff-kiss" });
   // Mini tier covers either Lucky Current (cargo bonus) or Chest Frenzy
-  // (rapid chest spawns). Use whichever's still active so a single row shows.
+  // (rapid chest spawns). When both are active simultaneously (e.g. mid-
+  // jackpot, or a fresh cargo spin landing while frenzy is still running),
+  // render BOTH rows so the player can read each timer instead of just
+  // whichever ends last.
   const cargoUntil  = (state.encounterCargoUntil || 0);
   const frenzyUntil = (state.chestFrenzyUntil    || 0);
-  const miniUntil   = Math.max(cargoUntil, frenzyUntil);
-  if (miniUntil > now) rows.push({ until: miniUntil, tier: "mini", cls: "eff-current" });
+  if (frenzyUntil > now) rows.push({ until: frenzyUntil, tier: "mini", cls: "eff-current", subKind: "frenzy" });
+  if (cargoUntil  > now) rows.push({ until: cargoUntil,  tier: "mini", cls: "eff-current", subKind: "cargo"  });
 
   // The container itself has no styling (CSS uses :empty / :not(:empty) to
   // toggle margin + flex layout). Each active bonus becomes a child row.
@@ -2382,7 +2385,7 @@ function renderActiveEffect() {
         ? `${v}× value & ${state.encounterXpAmt}× XP`
         : `${v}× value`;
     } else if (r.tier === "mini") {
-      if (frenzyUntil > now) {
+      if (r.subKind === "frenzy") {
         shortDesc = "Chest frenzy";
       } else {
         const c = state.encounterCargoAmt || 2;

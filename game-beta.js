@@ -2572,11 +2572,13 @@ function renderActiveEffect() {
   if ((state.encounterLegendaryUntil || 0) > now) rows.push({ until: state.encounterLegendaryUntil, tier: "major", cls: "eff-map" });
   if ((state.encounterValueUntil     || 0) > now) rows.push({ until: state.encounterValueUntil,     tier: "minor", cls: "eff-kiss" });
   // Mini tier covers either Lucky Current (cargo bonus) or Chest Frenzy.
-  // Use whichever's still active so a single mini row shows in the banner.
+  // When both are active simultaneously (e.g. mid-jackpot, or a fresh
+  // cargo spin landing while frenzy is still running), render BOTH rows
+  // so the player can read each timer instead of just the longer one.
   const cargoUntil  = (state.encounterCargoUntil || 0);
   const frenzyUntil = (state.chestFrenzyUntil    || 0);
-  const miniUntil   = Math.max(cargoUntil, frenzyUntil);
-  if (miniUntil > now) rows.push({ until: miniUntil, tier: "mini", cls: "eff-current" });
+  if (frenzyUntil > now) rows.push({ until: frenzyUntil, tier: "mini", cls: "eff-current", subKind: "frenzy" });
+  if (cargoUntil  > now) rows.push({ until: cargoUntil,  tier: "mini", cls: "eff-current", subKind: "cargo"  });
 
   // The container itself has no styling (CSS uses :empty / :not(:empty) to
   // toggle margin + flex layout). Each active bonus becomes a child row.
@@ -2595,7 +2597,7 @@ function renderActiveEffect() {
         ? `${v}× value & ${state.encounterXpAmt}× XP`
         : `${v}× value`;
     } else if (r.tier === "mini") {
-      if (frenzyUntil > now) {
+      if (r.subKind === "frenzy") {
         shortDesc = "Chest frenzy";
       } else {
         const c = state.encounterCargoAmt || 2;
@@ -2622,10 +2624,10 @@ function renderActiveEffect() {
         extraCls = "ae-extra-hull";
       }
     } else if (r.tier === "minor" || r.tier === "major" ||
-               (r.tier === "mini" && frenzyUntil <= now)) {
+               (r.tier === "mini" && r.subKind === "cargo")) {
       // Stabilizer extends positive-bonus duration; chest frenzy doesn't
       // get extended (its duration is taken straight from the bonus
-      // config), so we skip the badge in that one case.
+      // config), so we skip the badge on the frenzy sub-row.
       const stabLvl = gearLevel("stabilizer");
       if (stabLvl > 0) {
         const addedSec = Math.max(1, Math.round(baseSec * 0.10 * stabLvl));
