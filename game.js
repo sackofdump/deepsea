@@ -276,14 +276,13 @@ const UPGRADE_DEFS = [
     name: "Cargo Hold",
     desc: "Cargo capacity",
     stat: "cargoMax",
-    // Flatter curve + lower cap so cargo actually fills on realistic dives
-    // (the old 1.08/L80 curve hit ~25k kg, leaving the bar barely 1% full
-    // even on treasure-map linger dives). L50 ≈ 333 kg keeps a comfortable
-    // buffer over what a single dive can pick up.
+    // Flatter curve than the original 1.08/+4 — that exploded past 100k kg
+    // by L100 and left the bar at ~1% fill. 1.04/+2 keeps growth tame
+    // (L100 ≈ 1440 kg, L200 ≈ 21k kg) without an explicit cap, so it stays
+    // an infinite-progression upgrade.
     base: 4, add: 2, mult: 1.04,
     baseCost: 30, costMult: 1.6,
     suffix: " kg",
-    maxLevel: 50,
   },
   {
     id: "sonar",
