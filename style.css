@@ -877,7 +877,12 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   position: absolute;
   left: 50%;
   top: 4%;
-  transform: translate(-50%, -50%);
+  /* scale(1.4) bumps the whole sub — body, fin, prop, window, stripe and
+     gear overlays all scale together because they live inside #sub. The
+     bounding box stays 64×36 so nothing else's layout shifts; only the
+     visual is bigger. */
+  transform: translate(-50%, -50%) scale(1.4);
+  transform-origin: 50% 50%;
   width: 64px;
   height: 36px;
   transition: top 100ms linear;
