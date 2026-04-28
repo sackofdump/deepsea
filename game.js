@@ -347,7 +347,20 @@ const defaultState = () => ({
   divesSinceLegendary: 0,
   // Encounter effects (15s timers; expire naturally)
   encounterCargoUntil: 0,
+  // Per-pickup multiplier while Lucky Current is active. Default 2×; event
+  // bonuses with `cargoMult` override.
+  encounterCargoAmt: 2,
+  // Spring Bloom Chest Frenzy: bursts chests rapidly until this expires.
+  // Persisted so a reload mid-frenzy resumes the spawn chain.
+  chestFrenzyUntil: 0,
   encounterValueUntil: 0,
+  // Magnitude of the active value bonus (default 2× for Mermaid's Kiss; the
+  // event's Butterfly Kiss bumps this to 3×).
+  encounterValueAmt: 2,
+  // Slot-bonus XP multiplier (Butterfly Kiss carries one; Mermaid's Kiss
+  // doesn't). Same expiration semantics as the value bonus.
+  encounterXpUntil: 0,
+  encounterXpAmt: 1,
   encounterLegendaryUntil: 0,
   sharkSlowUntil: 0,
   // Lucky Current is now dive-scoped: thisDive applies during the current dive,
@@ -400,7 +413,12 @@ if (!state.pearlsV2) {
 if (state.pearls === undefined) state.pearls = 0;
 if (state.divesSinceLegendary === undefined) state.divesSinceLegendary = 0;
 if (state.encounterCargoUntil === undefined) state.encounterCargoUntil = 0;
+if (state.encounterCargoAmt   === undefined) state.encounterCargoAmt   = 2;
+if (state.chestFrenzyUntil    === undefined) state.chestFrenzyUntil    = 0;
 if (state.encounterValueUntil === undefined) state.encounterValueUntil = 0;
+if (state.encounterValueAmt   === undefined) state.encounterValueAmt   = 2;
+if (state.encounterXpUntil    === undefined) state.encounterXpUntil    = 0;
+if (state.encounterXpAmt      === undefined) state.encounterXpAmt      = 1;
 if (state.encounterLegendaryUntil === undefined) state.encounterLegendaryUntil = 0;
 if (state.cargoBoostThisDive === undefined) state.cargoBoostThisDive = false;
 if (state.cargoBoostNextDive === undefined) state.cargoBoostNextDive = false;
@@ -575,8 +593,9 @@ function biomeIndex(level) {
 }
 
 // ----- Encounters -----------------------------------------------
-function valueEncounterMult()      { return Date.now() < (state.encounterValueUntil     || 0) ? 2 : 1; }
-function cargoEncounterMult()      { return Date.now() < (state.encounterCargoUntil     || 0) ? 2 : 1; }
+function valueEncounterMult()      { return Date.now() < (state.encounterValueUntil     || 0) ? (state.encounterValueAmt || 2) : 1; }
+function cargoEncounterMult()      { return Date.now() < (state.encounterCargoUntil     || 0) ? (state.encounterCargoAmt || 2) : 1; }
+function xpEncounterMult()         { return Date.now() < (state.encounterXpUntil        || 0) ? (state.encounterXpAmt    || 1) : 1; }
 function legendaryEncounterActive(){ return Date.now() < (state.encounterLegendaryUntil || 0); }
 
 // Every encounter (good or bad) now comes from the Salvage Slot — no more
@@ -640,7 +659,12 @@ function doPrestige() {
   state.rarityCounts = { common: 0, uncommon: 0, rare: 0, epic: 0, legend: 0 };
   state.divesSinceLegendary = 0;
   state.encounterCargoUntil = 0;
+  state.encounterCargoAmt = 2;
+  state.chestFrenzyUntil = 0;
   state.encounterValueUntil = 0;
+  state.encounterValueAmt = 2;
+  state.encounterXpUntil = 0;
+  state.encounterXpAmt = 1;
   state.encounterLegendaryUntil = 0;
   state.cargoBoostThisDive = false;
   state.cargoBoostNextDive = false;
@@ -1062,7 +1086,7 @@ function creditItem(item, s) {
   // crushes a normal dive's value.
   const treasureMult = legendaryEncounterActive() ? 200 : 1;
   const v = Math.ceil(item.value * valueMult * treasureMult);
-  state.xp += v;
+  state.xp += v * xpEncounterMult();
   checkLevelUp();
   return v;
 }
@@ -1080,10 +1104,12 @@ function tryCollect(s) {
   // Don't overflow: skip if too heavy and cargo isn't empty.
   if (sub.cargoKg + weight > s.cargoMax && sub.cargoKg > 0) return;
   addPickup(item, biome, s);
-  // Cargo bonus (Lucky Current / Spring Breeze): every pickup is duplicated
-  // while the buff is active — pick up 1 sprout, get 2. Skip the duplicate
-  // if cargo would overflow.
-  if (cargoEncounterMult() > 1 && sub.cargoKg + weight <= s.cargoMax) {
+  // Cargo bonus (Lucky Current 2×): each base pickup is multiplied while
+  // the buff is active. Add (mult - 1) extra copies, but stop early if
+  // cargo would overflow.
+  const mult = cargoEncounterMult();
+  for (let extra = 1; extra < mult; extra++) {
+    if (sub.cargoKg + weight > s.cargoMax) break;
     addPickup(item, biome, s);
   }
 }
@@ -1811,6 +1837,20 @@ function scheduleTreasure() {
   }, delay);
 }
 
+// Spring Bloom Chest Frenzy: rapid-fire chest spawns until
+// state.chestFrenzyUntil expires. Stored timestamp survives reloads;
+// boot reschedules the chain if a frenzy was in progress.
+const CHEST_FRENZY_INTERVAL_MS = 800;
+let _chestFrenzyTimer = null;
+function runChestFrenzy() {
+  if (_chestFrenzyTimer) { clearTimeout(_chestFrenzyTimer); _chestFrenzyTimer = null; }
+  if (eventEnded()) return;
+  const remaining = (state.chestFrenzyUntil || 0) - Date.now();
+  if (remaining <= 0) return;
+  spawnTreasureChest();
+  _chestFrenzyTimer = setTimeout(runChestFrenzy, CHEST_FRENZY_INTERVAL_MS);
+}
+
 function rollChestItem(def) {
   const biome = currentBiome();
   const table = LOOT[biome.name] || [];
@@ -1873,7 +1913,7 @@ function openChest(tier) {
     totalValue += value;
     state.cash += value;
     state.totalEarned += value;
-    state.xp += value;
+    state.xp += value * xpEncounterMult();
     state.totalItems += 1;
     state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
     state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
@@ -1959,15 +1999,51 @@ const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
 };
 
 // Tier → state mutation. Lives here (not in SLOT_BONUSES data) so event configs
-// loaded from a different script tag don't have to close over `state`.
-function applySlotBonus(tier, now, duration) {
+// loaded from a different script tag don't have to close over `state`. Bonus
+// configs may carry per-tier overrides (`cargoMult`, `valueMult`, `xpMult`,
+// `chestFrenzy`) so themed events can tune behavior without forking this file.
+function applySlotBonus(tier, now, duration, bonus) {
   if (tier === "shark")   { state.sharkSlowUntil          = now + duration; return; }
-  if (tier === "mini")    { state.encounterCargoUntil     = now + duration; return; }
-  if (tier === "minor")   { state.encounterValueUntil     = now + duration; return; }
+  if (tier === "mini")    {
+    if (bonus && bonus.chestFrenzy) {
+      // Spring Bloom variant: spawn a burst of chests instead of doubling
+      // pickups. Use the bonus's own duration so it stays tight.
+      state.chestFrenzyUntil = now + (bonus.duration || duration);
+      runChestFrenzy();
+    } else {
+      state.encounterCargoUntil = now + duration;
+      state.encounterCargoAmt   = (bonus && bonus.cargoMult) || 2;
+    }
+    return;
+  }
+  if (tier === "minor")   {
+    state.encounterValueUntil = now + duration;
+    state.encounterValueAmt   = (bonus && bonus.valueMult) || 2;
+    if (bonus && bonus.xpMult && bonus.xpMult > 1) {
+      state.encounterXpUntil = now + duration;
+      state.encounterXpAmt   = bonus.xpMult;
+    }
+    return;
+  }
   if (tier === "major")   { state.encounterLegendaryUntil = now + duration; return; }
   if (tier === "jackpot") {
-    state.encounterCargoUntil     = now + duration;
     state.encounterValueUntil     = now + duration;
+    // Jackpot stacks all positive bonuses, so it inherits whatever
+    // multipliers / behaviors mini and minor tiers carry.
+    const miniBonus  = SLOT_BONUSES.mini;
+    const minorBonus = SLOT_BONUSES.minor;
+    if (miniBonus && miniBonus.chestFrenzy) {
+      state.chestFrenzyUntil = now + (miniBonus.duration || duration);
+      runChestFrenzy();
+    } else {
+      state.encounterCargoUntil = now + duration;
+      state.encounterCargoAmt   = (miniBonus && miniBonus.cargoMult) || 2;
+    }
+    state.encounterValueAmt = (minorBonus && minorBonus.valueMult) || 2;
+    if (minorBonus && minorBonus.xpMult && minorBonus.xpMult > 1) {
+      state.encounterXpUntil = now + duration;
+      state.encounterXpAmt   = minorBonus.xpMult;
+    }
     // Legendary picks always cap at the standalone major duration even on
     // jackpot so the highest-rarity floor doesn't run for the full 30s.
     state.encounterLegendaryUntil = now + ((SLOT_BONUSES.major && SLOT_BONUSES.major.duration) || duration);
@@ -2040,7 +2116,7 @@ function finishSpin(outcome, symbols) {
   const bonus = SLOT_BONUSES[outcome.tier];
   if (bonus) {
     const now = Date.now();
-    applySlotBonus(outcome.tier, now, bonus.duration);
+    applySlotBonus(outcome.tier, now, bonus.duration, bonus);
     const isHazard = bonus.kind === "hazard";
     // Don't count hazards toward the "slot wins" achievements counter.
     if (!isHazard) state.bonusCollected = (state.bonusCollected || 0) + 1;
@@ -2216,7 +2292,12 @@ function renderActiveEffect() {
   if ((state.sharkSlowUntil          || 0) > now) rows.push({ until: state.sharkSlowUntil,          tier: "shark", cls: "eff-shark" });
   if ((state.encounterLegendaryUntil || 0) > now) rows.push({ until: state.encounterLegendaryUntil, tier: "major", cls: "eff-map" });
   if ((state.encounterValueUntil     || 0) > now) rows.push({ until: state.encounterValueUntil,     tier: "minor", cls: "eff-kiss" });
-  if ((state.encounterCargoUntil     || 0) > now) rows.push({ until: state.encounterCargoUntil,     tier: "mini",  cls: "eff-current" });
+  // Mini tier covers either Lucky Current (cargo bonus) or Chest Frenzy
+  // (rapid chest spawns). Use whichever's still active so a single row shows.
+  const cargoUntil  = (state.encounterCargoUntil || 0);
+  const frenzyUntil = (state.chestFrenzyUntil    || 0);
+  const miniUntil   = Math.max(cargoUntil, frenzyUntil);
+  if (miniUntil > now) rows.push({ until: miniUntil, tier: "mini", cls: "eff-current" });
 
   // The container itself has no styling (CSS uses :empty / :not(:empty) to
   // toggle margin + flex layout). Each active bonus becomes a child row.
@@ -2224,7 +2305,24 @@ function renderActiveEffect() {
   for (const r of rows) {
     const bonus = SLOT_BONUSES[r.tier];
     const remaining = Math.max(1, Math.ceil((r.until - now) / 1000));
-    const shortDesc = ACTIVE_EFFECT_SHORT[r.tier] || "";
+    let shortDesc = ACTIVE_EFFECT_SHORT[r.tier] || "";
+    // Mini and Minor tiers carry their multipliers in state so the banner
+    // reflects the actual active bonus (Butterfly Kiss vs. Mermaid's Kiss,
+    // Chest Frenzy vs. Lucky Current).
+    if (r.tier === "minor") {
+      const v = state.encounterValueAmt || 2;
+      const xpActive = (state.encounterXpUntil || 0) > now && (state.encounterXpAmt || 1) > 1;
+      shortDesc = xpActive
+        ? `${v}× value & ${state.encounterXpAmt}× XP`
+        : `${v}× value`;
+    } else if (r.tier === "mini") {
+      if (frenzyUntil > now) {
+        shortDesc = "Chest frenzy";
+      } else {
+        const c = state.encounterCargoAmt || 2;
+        shortDesc = `${c}× pickups`;
+      }
+    }
     const name = (bonus && bonus.name) || r.tier;
     const icon = (bonus && bonus.icon) || "✨";
     const fullDesc = (bonus && bonus.desc) || "";
@@ -3536,4 +3634,6 @@ setInterval(() => leaderboardSync(false), 60000);
 setInterval(renderLeaderboard, 90000);
 scheduleSlot();
 scheduleTreasure();
+// If the player closed the tab mid-frenzy, resume the burst on load.
+if ((state.chestFrenzyUntil || 0) > Date.now()) runChestFrenzy();
 window.addEventListener("beforeunload", () => { if (!resetting) save(true); });

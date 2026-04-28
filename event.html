@@ -136,7 +136,7 @@
       <div id="slotMachine" class="slot-machine" data-state="idle">
         <div class="slot-title">🌷 CHANCE AT BLOOM</div>
         <div class="slot-reels">
-          <div class="slot-reel" id="slotReel0"><div class="slot-strip">🌿</div></div>
+          <div class="slot-reel" id="slotReel0"><div class="slot-strip">🪺</div></div>
           <div class="slot-reel" id="slotReel1"><div class="slot-strip">🦋</div></div>
           <div class="slot-reel" id="slotReel2"><div class="slot-strip">🌈</div></div>
         </div>
@@ -177,11 +177,11 @@
       </section>
       <section>
         <h3>🧺 In Basket &amp; encounters</h3>
-        <p>Items collected this trip show in your basket. Every encounter — bonuses (<strong>Spring Breeze</strong>, <strong>Butterfly Kiss</strong>, <strong>Rainbow Pact</strong>) and the <strong>Spring Storm</strong> hazard — comes from the Bloom Slot.</p>
+        <p>Items collected this trip show in your basket. Every encounter — bonuses (<strong>Chest Frenzy</strong>, <strong>Butterfly Kiss</strong>, <strong>Rainbow Pact</strong>) and the <strong>Spring Storm</strong> hazard — comes from the Bloom Slot.</p>
       </section>
       <section>
         <h3>🌷 Bloom Slot</h3>
-        <p>The slot in the corner auto-pulls every 15s. Triple matches: 🌿 Spring Breeze (every pickup doubled, 15s), 🦋 Butterfly Kiss (2× value, 15s), 🌈 Rainbow Pact (legendary picks at 10× value, 15s), 🌷 Bloom Burst (all three, 30s). 🌧 triple = Spring Storm (no loot for 10s).</p>
+        <p>The slot in the corner auto-pulls every 15s. Triple matches: 🪺 Chest Frenzy (rapid chest spawns, 10s), 🦋 Butterfly Kiss (3× value &amp; 3× XP, 15s), 🌈 Rainbow Pact (legendary picks at 10× value, 15s), 🌷 Bloom Burst (all three). 🌧 triple = Spring Storm (no loot for 10s).</p>
       </section>
       <section>
         <h3>📦 Treasure chests</h3>
@@ -255,10 +255,10 @@
         <h3>Bloom Slot bonuses</h3>
         <p>The slot in the corner pulls every 15 seconds. Triple matches trigger:</p>
         <ul class="event-welcome-bonuses">
-          <li><span class="bonus-icon">🌿</span><span class="bonus-text"><strong>Spring Breeze</strong> — every pickup gives 2 items for 15s. Pick up 1 sprout, get 2.</span></li>
-          <li><span class="bonus-icon">🦋</span><span class="bonus-text"><strong>Butterfly Kiss</strong> — 2× value on every pickup for 15s. Stacks with Appraiser and Pollen.</span></li>
+          <li><span class="bonus-icon">🪺</span><span class="bonus-text"><strong>Chest Frenzy</strong> — a burst of treasure chests spawn rapidly for 10s. Tap to grab them all.</span></li>
+          <li><span class="bonus-icon">🦋</span><span class="bonus-text"><strong>Butterfly Kiss</strong> — 3× value <em>and</em> 3× XP on every pickup for 15s. Stacks with Appraiser and Pollen.</span></li>
           <li><span class="bonus-icon">🌈</span><span class="bonus-text"><strong>Rainbow Pact</strong> — every pickup forces the highest-rarity tier in the current biome for 15s. Forced legendaries also get a 25× value multiplier on top.</span></li>
-          <li><span class="bonus-icon">🌷</span><span class="bonus-text"><strong>Bloom Burst (jackpot)</strong> — Spring Breeze and Butterfly Kiss for 30s, Rainbow Pact for 15s. The big one.</span></li>
+          <li><span class="bonus-icon">🌷</span><span class="bonus-text"><strong>Bloom Burst (jackpot)</strong> — Chest Frenzy <em>and</em> Butterfly Kiss <em>and</em> Rainbow Pact, all at once. The big one.</span></li>
           <li class="hazard"><span class="bonus-icon">🌧</span><span class="bonus-text"><strong>Spring Storm (hazard)</strong> — no loot at all for 10s. Slot bonuses drain this 10× faster, so keep spinning.</span></li>
         </ul>
       </section>
@@ -532,7 +532,7 @@ window.EVENT_CONFIG = {
   },
 
   // Symbol order: [hazard, mini, minor, major, jackpot]
-  slotSymbols: ["🌧", "🌿", "🦋", "🌈", "🌷"],
+  slotSymbols: ["🌧", "🪺", "🦋", "🌈", "🌷"],
 
   chestTiers: {
     common: {
@@ -563,8 +563,8 @@ window.EVENT_CONFIG = {
 
   slotBonuses: {
     shark:   { icon: "🌧", name: "Spring Storm",   desc: "No loot for 10s!",         duration: 10000, kind: "hazard" },
-    mini:    { icon: "🌿", name: "Spring Breeze",  desc: "Doubles every pickup for 15s.", duration: 15000 },
-    minor:   { icon: "🦋", name: "Butterfly Kiss", desc: "2× value for 15s.",         duration: 15000 },
+    mini:    { icon: "🪺", name: "Chest Frenzy",   desc: "A burst of treasure chests pop up for 10s!", chestFrenzy: true, duration: 10000 },
+    minor:   { icon: "🦋", name: "Butterfly Kiss", desc: "3× value & 3× XP for 15s.", valueMult: 3, xpMult: 3, duration: 15000 },
     major:   { icon: "🌈", name: "Rainbow Pact",   desc: "Legendary picks for 15s!",  duration: 15000 },
     jackpot: { icon: "🌷", name: "BLOOM BURST",    desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
   },
@@ -639,6 +639,6 @@ window.EVENT_CONFIG = {
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="game.js?v=37"></script>
+<script src="game.js?v=38"></script>
 </body>
 </html>
