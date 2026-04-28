@@ -154,7 +154,7 @@ const UPGRADE_DEFS = [
     base: 10, add: 3, mult: 1.04,
     // Cheap and flat-ramp on purpose — Cargo Hold's job is to fit one more
     // dive's worth of loot, not gate progression. Was 30/×1.6 originally.
-    baseCost: 12, costMult: 1.45,
+    baseCost: 8, costMult: 1.4,
     suffix: " kg",
     maxLevel: 50,
   },
