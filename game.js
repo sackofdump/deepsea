@@ -280,9 +280,12 @@ const UPGRADE_DEFS = [
     // and slightly faster early growth so the bar isn't constantly choking
     // a new player. Mult stays at 1.04 so late-game still doesn't explode
     // (L100 ≈ 1.7k kg) — infinite progression, just kinder up front.
-    base: 10, add: 3, mult: 1.04,
+    base: 10, add: 3, mult: 1.05,
     // Cheap and flat-ramp on purpose — Cargo Hold's job is to fit one more
     // dive's worth of loot, not gate progression. Was 30/×1.6 originally.
+    // Capacity curve sized so end-game (deep-prestige, max-sonar Treasure
+    // Map dives) can actually fill the bar: L50 ≈ 743 kg, L100 ≈ 9.1k kg,
+    // L150 ≈ 105k kg.
     baseCost: 8, costMult: 1.4,
     suffix: " kg",
   },
@@ -1033,8 +1036,8 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.20s interval so picks come quickly while at depth
-    // (~30 legendaries per encounter — 1.5× the original 0.30s pace).
+    // we force a fast 0.15s interval so picks come quickly while at depth
+    // (~40 legendaries per encounter — 2× the original 0.30s pace).
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
@@ -1049,7 +1052,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < iterCap) {
-      const interval = treasure ? 0.20 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.15 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;

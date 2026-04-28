@@ -151,7 +151,7 @@ const UPGRADE_DEFS = [
     // Bigger starting capacity (10 kg) + slightly faster early growth so
     // the bar isn't constantly choking a new player. Mult stays at 1.04 so
     // late-game still doesn't explode.
-    base: 10, add: 3, mult: 1.04,
+    base: 10, add: 3, mult: 1.05,
     // Cheap and flat-ramp on purpose — Cargo Hold's job is to fit one more
     // dive's worth of loot, not gate progression. Was 30/×1.6 originally.
     baseCost: 8, costMult: 1.4,
@@ -700,12 +700,12 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax * cargoEncounterMult();
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.20s interval so picks come quickly while at depth
-    // (~30 legendaries per encounter — 1.5× the original 0.30s pace).
+    // we force a fast 0.15s interval so picks come quickly while at depth
+    // (~40 legendaries per encounter — 2× the original 0.30s pace).
     const treasure = legendaryEncounterActive();
     lootCooldown -= dtSec;
     while (lootCooldown <= 0) {
-      lootCooldown += treasure ? 0.20 : (LOOT_INTERVAL_BASE / sonar);
+      lootCooldown += treasure ? 0.15 : (LOOT_INTERVAL_BASE / sonar);
       tryCollect(s);
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
