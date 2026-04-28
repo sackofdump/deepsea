@@ -325,6 +325,10 @@ const defaultState = () => ({
   totalDives: 0,
   totalItems: 0,
   boostsUsed: 0,
+  // Real time spent with the page open and ticking (ms). Distinct from
+  // wall-clock-since-first-launch — this only accumulates while the game
+  // is actually running, including offline catch-up.
+  timePlayedMs: 0,
   rarityCounts: { common: 0, uncommon: 0, rare: 0, epic: 0, legend: 0 },
   lifetimeItems: {},   // { itemName: count }
   achievements: {},    // { achId: unlockTimestamp }
@@ -373,6 +377,7 @@ if (state.level === undefined) state.level = 1;
 // as XP so their existing level is preserved.
 if (state.xp === undefined) state.xp = state.totalEarned || 0;
 if (state.totalDives === undefined) state.totalDives = 0;
+if (state.timePlayedMs === undefined) state.timePlayedMs = 0;
 if (state.totalItems === undefined) state.totalItems = 0;
 if (state.boostsUsed === undefined) state.boostsUsed = 0;
 if (!state.rarityCounts) state.rarityCounts = { common: 0, uncommon: 0, rare: 0, epic: 0, legend: 0 };
@@ -858,22 +863,15 @@ function jumpToAchievement(id) {
 }
 
 // XP needed to advance from `level` to `level+1`, rounded to a friendly number.
-// Curve: 1.55× per level through Lv 100 (the original steep climb), then a
-// gentler 1.05× per level past 100 so the extended biomes (Lv 100–500) are
-// actually reachable. Loot value scales ~1.018×/level in the extended biomes,
-// so 1.05× keeps each late-game level a real grind without being impossible.
-const LEVEL_CURVE_KNEE = 100;
-const LEVEL_LATE_MULT  = 1.05;
+// Single 1.55× multiplier across the whole curve — the eased-late-game knee
+// I tried previously made the extended biomes blast past in minutes. Keeping
+// the original geometric curve preserves the slow-late-game feel; the
+// extended biomes' loot scaling has been pumped up to compensate so 200+ is
+// still reachable, just hard.
 const _xpNeededCache = [];
 function levelXpNeeded(level) {
   if (_xpNeededCache[level] !== undefined) return _xpNeededCache[level];
-  let raw;
-  if (level <= LEVEL_CURVE_KNEE) {
-    raw = LEVEL_BASE_COST * Math.pow(LEVEL_COST_MULT, level - 1);
-  } else {
-    const baseAtKnee = LEVEL_BASE_COST * Math.pow(LEVEL_COST_MULT, LEVEL_CURVE_KNEE - 1);
-    raw = baseAtKnee * Math.pow(LEVEL_LATE_MULT, level - LEVEL_CURVE_KNEE);
-  }
+  const raw = LEVEL_BASE_COST * Math.pow(LEVEL_COST_MULT, level - 1);
   // Round up to the nearest "nice" value so the bar's "needed" number is round.
   const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5];
   const exp = Math.floor(Math.log10(raw));
@@ -948,6 +946,10 @@ let _achievementsDirty = false;
 
 function tick(dtSec) {
   if (eventEnded()) return;
+  // Accumulate time-played. Includes offline catch-up ticks (where dtSec is
+  // 1s) and live ticks (where dtSec ≈ TICK_MS / 1000), so the metric
+  // reflects total simulated game time, not wall-clock time.
+  state.timePlayedMs = (state.timePlayedMs || 0) + Math.round(dtSec * 1000);
   const s = stats();
   const sub = state.sub;
   const boosting = state.adminBoostAlwaysOn || Date.now() < state.boost.activeUntil;
@@ -1612,9 +1614,13 @@ const CREATURES_PER_BIOME = (EVENT && EVENT.creatures) || {
 
 // ----- Extended biomes (Lv 200-500) -------------------------------
 // 30 procedurally-shaped biomes added past End of Time. Per-biome growth
-// eases from ×4 to ×1.18 so values stay within JS Number precision —
-// deepest legendary at biome 50 ends up around 6×10^15, comfortably under
-// 2^53. Within-biome shape (1 / 3.2 / 9.6 / 28 / 88) matches the originals.
+// is ×2.5 so the loot keeps pace with the original 1.55× XP curve — the
+// previous ×1.18 left late biomes giving "starter" XP relative to the
+// per-level cost, which made progression stall at Lv 200. Numbers do go
+// past JS's safe-integer range (~9×10^15) deep into the curve, but the
+// in-game UI uses fmt() which handles arbitrary magnitudes, and the
+// leaderboard caps at 9e18 anyway. Within-biome shape (1 / 3.2 / 9.6 /
+// 28 / 88) matches the originals.
 (function extendBiomes() {
   const TIERS = [
     { rarity: "common",   chance: 45, mult: 1,    weight: 0.5 },
@@ -1668,8 +1674,8 @@ const CREATURES_PER_BIOME = (EVENT && EVENT.creatures) || {
     ["Fixed Point",        "#0a0a1a", "#c8b890", ["💫","🌀"], ["Stable Stone","Fixed Pearl","Steady Coral","Anchor Crown","The Fix"], "•"],
     ["The Last Bracket",   "#000000", "#ffffff", ["🌀","✨"], ["Closing Stone","Final Pearl","Bracket Coral","Last Crown","]"], "]"],
   ];
-  const START_BASE = 600e9;       // biome 21 common (eases up from biome 20's 500B)
-  const GROWTH = 1.18;            // per-biome multiplier
+  const START_BASE = 2e12;        // biome 21 common (≈4× biome 20's 500B, matching original biome stride)
+  const GROWTH = 2.5;             // per-biome multiplier (close to original biomes' ~3-4× pacing)
   let base = START_BASE;
   for (const [name, color, accent, creatures, names, legendIcon] of ROWS) {
     BIOMES.push({ name, color, accent });
@@ -2652,6 +2658,21 @@ function spawnBubble() {
 }
 
 // ----- Leaderboard (Supabase, raw fetch) -----------------------
+// Pretty-print a millisecond duration as the largest two units that fit:
+// "3d 4h", "5h 12m", "8m 30s", "42s". Used by the time-played leaderboard
+// and anywhere else we want a compact human-readable elapsed time.
+function fmtDuration(ms) {
+  const n = Math.max(0, Math.floor(Number(ms) || 0));
+  const sec  = Math.floor(n / 1000);
+  const min  = Math.floor(sec / 60);
+  const hr   = Math.floor(min / 60);
+  const day  = Math.floor(hr / 24);
+  if (day > 0) return `${day}d ${hr % 24}h`;
+  if (hr  > 0) return `${hr}h ${min % 60}m`;
+  if (min > 0) return `${min}m ${sec % 60}s`;
+  return `${sec}s`;
+}
+
 const LB_METRICS = [
   { id: "total_earned",   label: "Cash",     fmt: (n) => "$" + fmt(Number(n) || 0) },
   { id: "level",          label: "Level",    fmt: (n) => "Lv " + n },
@@ -2659,6 +2680,7 @@ const LB_METRICS = [
   { id: "jackpots",       label: "Jackpots", fmt: (n) => String(n) },
   { id: "pearls",         label: "Pearls",   fmt: (n) => fmt(Number(n) || 0) + " 🔮" },
   { id: "total_dives",    label: "Dives",    fmt: (n) => fmt(Number(n) || 0) },
+  { id: "time_played_ms", label: "Time",     fmt: (n) => fmtDuration(Number(n) || 0) },
 ];
 // Pick the first .active tab as the initial metric so each page can choose
 // its own default (Spring Bloom defaults to pollen; main game to cash).
@@ -2701,6 +2723,7 @@ function leaderboardPayload() {
     jackpots: (state.slotHits && state.slotHits.jackpot) || 0,
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,
+    time_played_ms: Math.min(LB_BIGINT_CAP, Math.floor(state.timePlayedMs || 0)),
   };
 }
 

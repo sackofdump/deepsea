@@ -16,8 +16,13 @@ create table if not exists public.scores (
   jackpots       int         not null default 0,
   chests         int         not null default 0,
   total_dives    int         not null default 0,
+  time_played_ms bigint      not null default 0,
   updated_at     timestamptz not null default now()
 );
+
+-- Migration for existing deployments: add time_played_ms if missing.
+alter table public.scores
+  add column if not exists time_played_ms bigint not null default 0;
 
 create index if not exists scores_total_earned_idx on public.scores (total_earned desc);
 create index if not exists scores_level_idx        on public.scores (level desc);
@@ -25,6 +30,7 @@ create index if not exists scores_prestige_idx     on public.scores (prestige_co
 create index if not exists scores_jackpots_idx     on public.scores (jackpots desc);
 create index if not exists scores_pearls_idx       on public.scores (pearls desc);
 create index if not exists scores_dives_idx        on public.scores (total_dives desc);
+create index if not exists scores_time_played_idx  on public.scores (time_played_ms desc);
 
 alter table public.scores enable row level security;
 
@@ -155,6 +161,7 @@ create index if not exists scores_event_prestige_idx     on public.scores (event
 create index if not exists scores_event_jackpots_idx     on public.scores (event_key, jackpots       desc);
 create index if not exists scores_event_pearls_idx       on public.scores (event_key, pearls         desc);
 create index if not exists scores_event_dives_idx        on public.scores (event_key, total_dives    desc);
+create index if not exists scores_event_time_played_idx  on public.scores (event_key, time_played_ms desc);
 
 -- Drop the original single-column indexes once the composites are in place.
 drop index if exists public.scores_total_earned_idx;
