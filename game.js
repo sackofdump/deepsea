@@ -1797,23 +1797,28 @@ if (state.inventory && state.inventory.length) {
 
 const CHEST_ORDER = ["legendary", "epic", "rare", "common"];
 
-function spawnTreasureChest() {
+function spawnTreasureChest(forcedTier) {
   const ocean = $("ocean");
   if (!ocean) return;
   // Frenzy-spawned chests are skewed away from commons toward rares/epics
   // (and slightly more legendaries) to make Chest Frenzy feel meaningful
   // beyond just "a lot of chests." Detected via the still-active timestamp.
+  // runChestFrenzy() may also pass forcedTier="legendary" for the
+  // guaranteed-minimum slots so every frenzy delivers ≥2 legendaries.
   const isFrenzy = (state.chestFrenzyUntil || 0) > Date.now();
-  const r = Math.random();
   let tier;
-  if (isFrenzy) {
+  if (forcedTier) {
+    tier = forcedTier;
+  } else if (isFrenzy) {
     // 8% legendary / 22% epic / 40% rare / 30% common
+    const r = Math.random();
     if (r < 0.08)       tier = "legendary";
     else if (r < 0.30)  tier = "epic";
     else if (r < 0.70)  tier = "rare";
     else                tier = "common";
   } else {
     // Normal world spawns — common most often, legendary rare.
+    const r = Math.random();
     if (r < 0.04)       tier = "legendary"; // 4%
     else if (r < 0.14)  tier = "epic";      // 10%
     else if (r < 0.40)  tier = "rare";      // 26%
@@ -1857,17 +1862,38 @@ function scheduleTreasure() {
   }, delay);
 }
 
-// Spring Bloom Chest Frenzy: rapid-fire chest spawns until
-// state.chestFrenzyUntil expires. Stored timestamp survives reloads;
-// boot reschedules the chain if a frenzy was in progress.
+// Chest Frenzy: rapid-fire chest spawns until state.chestFrenzyUntil
+// expires. Stored timestamp survives reloads; boot reschedules the chain
+// if a frenzy was in progress.
 const CHEST_FRENZY_INTERVAL_MS = 800;
+const CHEST_FRENZY_FORCED_LEGENDARIES = 2; // minimum legendary chests per frenzy
 let _chestFrenzyTimer = null;
+let _frenzyLegendarySlots = new Set();     // spawn indices forced to "legendary"
+let _frenzySpawnCount = 0;                  // index of the next spawn this frenzy
+
+// Called when a fresh frenzy fires. Picks N spawn indices to force-spawn
+// legendary chests so the player always gets a guaranteed minimum,
+// regardless of how the 8% random rolls land.
+function startChestFrenzy(durationMs) {
+  state.chestFrenzyUntil = Date.now() + durationMs;
+  _frenzySpawnCount = 0;
+  const expected = Math.max(1, Math.floor(durationMs / CHEST_FRENZY_INTERVAL_MS));
+  _frenzyLegendarySlots = new Set();
+  while (_frenzyLegendarySlots.size < CHEST_FRENZY_FORCED_LEGENDARIES &&
+         _frenzyLegendarySlots.size < expected) {
+    _frenzyLegendarySlots.add(Math.floor(Math.random() * expected));
+  }
+  runChestFrenzy();
+}
+
 function runChestFrenzy() {
   if (_chestFrenzyTimer) { clearTimeout(_chestFrenzyTimer); _chestFrenzyTimer = null; }
   if (eventEnded()) return;
   const remaining = (state.chestFrenzyUntil || 0) - Date.now();
   if (remaining <= 0) return;
-  spawnTreasureChest();
+  const forced = _frenzyLegendarySlots.has(_frenzySpawnCount) ? "legendary" : null;
+  spawnTreasureChest(forced);
+  _frenzySpawnCount += 1;
   _chestFrenzyTimer = setTimeout(runChestFrenzy, CHEST_FRENZY_INTERVAL_MS);
 }
 
@@ -2039,9 +2065,9 @@ function applySlotBonus(tier, now, duration, bonus) {
   if (tier === "mini")    {
     if (bonus && bonus.chestFrenzy) {
       // Spring Bloom variant: spawn a burst of chests instead of doubling
-      // pickups. Use the bonus's own duration so it stays tight.
-      state.chestFrenzyUntil = now + (bonus.duration || duration);
-      runChestFrenzy();
+      // pickups. Use the bonus's own duration so it stays tight, and let
+      // startChestFrenzy pre-pick the guaranteed legendary slots.
+      startChestFrenzy(bonus.duration || duration);
     } else {
       state.encounterCargoUntil = now + duration;
       state.encounterCargoAmt   = (bonus && bonus.cargoMult) || 2;
@@ -2065,8 +2091,7 @@ function applySlotBonus(tier, now, duration, bonus) {
     const miniBonus  = SLOT_BONUSES.mini;
     const minorBonus = SLOT_BONUSES.minor;
     if (miniBonus && miniBonus.chestFrenzy) {
-      state.chestFrenzyUntil = now + (miniBonus.duration || duration);
-      runChestFrenzy();
+      startChestFrenzy(miniBonus.duration || duration);
     } else {
       state.encounterCargoUntil = now + duration;
       state.encounterCargoAmt   = (miniBonus && miniBonus.cargoMult) || 2;
