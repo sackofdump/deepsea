@@ -2608,11 +2608,14 @@ function renderActiveEffect() {
     row.className = `active-effect ${r.cls}`;
     row.title = `${name}\n\n${fullDesc}`;
     const extraHtml = extraText
-      ? `<span class="ae-extra ${extraCls}">${escapeHtml(extraText)}</span>`
+      ? `<div class="ae-extra ${extraCls}">${escapeHtml(extraText)}</div>`
       : "";
+    if (extraText) row.classList.add("has-extra");
     row.innerHTML =
-      `<span class="ae-label">${icon} ${escapeHtml(name.toUpperCase())} — ${escapeHtml(shortDesc)}</span>` +
-      `<span class="ae-timer">${remaining}s</span>` +
+      `<div class="ae-main">` +
+        `<span class="ae-label">${icon} ${escapeHtml(name.toUpperCase())} — ${escapeHtml(shortDesc)}</span>` +
+        `<span class="ae-timer">${remaining}s</span>` +
+      `</div>` +
       extraHtml;
     el.appendChild(row);
   }

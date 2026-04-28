@@ -588,9 +588,10 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
 .active-effect {
   position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
-  padding: 6px 36px 6px 10px; /* extra right padding for the timer pop-out */
+  padding: 0;
   border-radius: 5px;
   font-size: 11px;
   font-weight: 700;
@@ -599,9 +600,20 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   animation: effectPulse 1.4s ease-in-out infinite alternate;
   border: 1px solid currentColor;
   box-sizing: border-box;
+  overflow: visible;
   /* Opaque dark base so the bar reads against any biome (pink Spring Bloom,
      bright Lava Vents, etc.) — per-tier rules layer a colored tint on top. */
   background: linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
+}
+/* Main row carries the label + the timer pop-out. Timer is positioned
+   relative to this inner row (not the whole .active-effect) so adding a
+   gear-extra box below doesn't shift the timer's vertical center. */
+.active-effect .ae-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 36px 6px 10px;
 }
 .active-effect .ae-label {
   flex: 1 1 auto;
@@ -636,47 +648,29 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
     inset 0 0 6px rgba(255,255,255,0.10);
   text-shadow: 0 0 6px currentColor, 0 0 2px rgba(0,0,0,0.9);
 }
-/* Gear contribution badge — pops out further right of the timer chip so
-   the player can see how their installed gear is reshaping the active
-   bonus in real time. Hull (red-tinted) on shark, Stabilizer (green-
-   tinted) on positive bonuses. */
+/* Gear-contribution box — stacks BELOW the main bonus row so the
+   player sees their gear's actual time delta in plain view. Slim
+   dark band, color-coded per gear (Hull = red on hazards,
+   Stabilizer = green on positives). Inherits the .active-effect
+   border + animation. */
 .active-effect .ae-extra {
-  position: absolute;
-  /* The timer chip lives at right: -10px and is ~52px wide. Park the
-     extra badge a bit further out so they don't overlap, with a
-     comfortable gap. */
-  left: 100%;
-  margin-left: 56px;
-  top: 50%;
-  transform: translateY(-50%);
-  white-space: nowrap;
-  padding: 3px 7px;
-  font-size: 10px;
+  display: block;
+  margin: 0;
+  padding: 4px 10px;
+  text-align: center;
+  font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: 0.6px;
-  border-radius: 3px;
+  letter-spacing: 0.8px;
   font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, monospace;
-  background: linear-gradient(180deg, rgba(8, 18, 28, 0.92), rgba(4, 10, 18, 0.92));
-  border: 1px solid currentColor;
-  text-shadow: 0 0 4px currentColor, 0 1px 2px rgba(0,0,0,0.8);
+  background: linear-gradient(180deg, rgba(2, 6, 12, 0.85), rgba(0, 2, 6, 0.95));
+  border-top: 1px solid currentColor;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  text-shadow: 0 0 5px currentColor, 0 1px 2px rgba(0,0,0,0.85);
   pointer-events: none;
 }
 .active-effect .ae-extra.ae-extra-hull { color: #ff8a8a; }
 .active-effect .ae-extra.ae-extra-stab { color: #6effa3; }
-/* On phone widths the slot stack is hugged into the corner with little
-   room to the right, so push the extra badge below the row instead of
-   running it off-screen. */
-@media (max-width: 760px) {
-  .active-effect { padding-bottom: 22px; }
-  .active-effect .ae-extra {
-    left: auto;
-    right: 4px;
-    bottom: 2px;
-    top: auto;
-    margin-left: 0;
-    transform: none;
-  }
-}
 .active-effect.eff-map     {
   color: var(--gold);
   background:
