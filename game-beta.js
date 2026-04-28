@@ -371,6 +371,14 @@ const GEAR_DEFS = [
 ];
 function gearDef(id) { return GEAR_DEFS.find(g => g.id === id); }
 function gearLevel(id) { return (state.gear && state.gear[id]) || 0; }
+// Total gear upgrades purchased — sum of every gear's current level. Gear
+// persists across promotions, so this is a lifetime count and a stable
+// leaderboard metric.
+function totalGearUpgrades() {
+  let total = 0;
+  for (const def of GEAR_DEFS) total += gearLevel(def.id);
+  return total;
+}
 function gearNextCost(id) {
   const def = gearDef(id);
   const lvl = gearLevel(id);
@@ -822,6 +830,7 @@ function buyGear(id) {
   // the sidebar's "+X% loot worth" updates immediately.
   _prestigeSig = "";
   refreshUI();
+  checkAchievements();
   save();
 }
 
@@ -1010,6 +1019,18 @@ const ACHIEVEMENTS = (EVENT && EVENT.achievements) || [
   { id: "codex_15",      name: "Naturalist",       desc: "Discover 15 unique items.",   icon: "📔", reward: 5000,      check: (s) => Object.keys(s.lifetimeItems || {}).length >= 15 },
   { id: "codex_30",      name: "Marine Biologist", desc: "Discover 30 unique items.",   icon: "📕", reward: 50000,     check: (s) => Object.keys(s.lifetimeItems || {}).length >= 30 },
   { id: "codex_all",     name: "Complete Codex",   desc: "Discover every unique item.", icon: "📖", reward: 1000000000, check: (s) => Object.keys(s.lifetimeItems || {}).length >= allLootItems().length },
+
+  // Gear (beta-only — pearl-bought permanent upgrades)
+  { id: "gear_first",        name: "Outfitted",       desc: "Install your first gear upgrade.",       icon: "🛠", reward: 5000,        check: (s) => totalGearUpgrades() >= 1 },
+  { id: "gear_10",           name: "Tinkerer",        desc: "Buy 10 total gear upgrades.",            icon: "🔧", reward: 100000,      check: (s) => totalGearUpgrades() >= 10 },
+  { id: "gear_25",           name: "Engineer",        desc: "Buy 25 total gear upgrades.",            icon: "⚙",  reward: 1000000,     check: (s) => totalGearUpgrades() >= 25 },
+  { id: "gear_50",           name: "Fully Loaded",    desc: "Max every gear slot (50 upgrades).",     icon: "🦾", reward: 50000000,    check: (s) => totalGearUpgrades() >= 50 },
+  { id: "gear_all_slots",    name: "Jack of All",     desc: "Install at least one of every gear.",    icon: "🧰", reward: 250000,      check: (s) => GEAR_DEFS.every(d => ((s.gear || {})[d.id] || 0) >= 1) },
+  { id: "gear_hull_max",     name: "Ironclad",        desc: "Max Reinforced Hull.",                   icon: "🛡", reward: 5000000,     check: (s) => ((s.gear || {}).hull       || 0) >= 10 },
+  { id: "gear_stab_max",     name: "Steady Burn",     desc: "Max Bonus Stabilizer.",                  icon: "✨", reward: 5000000,     check: (s) => ((s.gear || {}).stabilizer || 0) >= 10 },
+  { id: "gear_compressor_max", name: "Pearl Press",   desc: "Max Pearl Compressor.",                  icon: "🔮", reward: 5000000,     check: (s) => ((s.gear || {}).compressor || 0) >= 10 },
+  { id: "gear_luck_max",     name: "Charmed Life",    desc: "Max Lucky Salvage Charm.",               icon: "🍀", reward: 10000000,    check: (s) => ((s.gear || {}).luck       || 0) >= 10 },
+  { id: "gear_insight_max",  name: "All-Seeing",      desc: "Max Salvager's Insight.",                icon: "🧠", reward: 25000000,    check: (s) => ((s.gear || {}).insight    || 0) >= 10 },
 
   // Prestige
   { id: "prestige_1",    name: "Reborn",                  desc: "Promote for the first time.",                icon: "🌀", reward: 5000,        check: (s) => (s.prestigeCount || 0) >= 1 },
@@ -1219,7 +1240,8 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.3s interval so picks come quickly while at depth.
+    // we force a fast 0.15s interval so picks come quickly while at depth
+    // (~40 legendaries per encounter instead of ~20).
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
@@ -1227,7 +1249,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < 50) {
-      const interval = treasure ? 0.3 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.15 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;
@@ -2104,7 +2126,7 @@ function rollChestItem(def, forceRarity) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function spawnChestHaulRow(chestDef, item, value, idx) {
+function spawnChestHaulRow(chestDef, item, value, count, idx) {
   if (suppressFx) return;
   // Stagger so multiple items roll in left-side-of-ocean as a chest "haul",
   // separate from the dive's activity log.
@@ -2113,8 +2135,9 @@ function spawnChestHaulRow(chestDef, item, value, idx) {
     if (!root) return;
     const row = document.createElement("div");
     row.className = `chest-haul-row rarity-${item.rarity}`;
+    const countText = (count && count > 1) ? ` ×${count}` : "";
     row.innerHTML =
-      `<span class="ch-name">${chestDef.icon} ${item.icon} ${item.name}</span>` +
+      `<span class="ch-name">${chestDef.icon} ${item.icon} ${item.name}${countText}</span>` +
       `<span class="ch-val">+$${fmt(value)}</span>`;
     root.appendChild(row);
     setTimeout(() => row.remove(), 3700);
@@ -2144,6 +2167,8 @@ function openChest(tier) {
   if (isFrenzyRedeem) state.frenzyChestsPending -= 1;
   const rolled = [];
   let totalValue = 0;
+  // Stack repeated rolls into a single haul row per item, like the activity log.
+  const summary = {};
   for (let i = 0; i < def.items; i++) {
     const item = rollChestItem(def, i < guaranteedLegend ? "legend" : null);
     if (!item) continue;
@@ -2156,9 +2181,14 @@ function openChest(tier) {
     state.totalItems += 1;
     state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
     state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
-    spawnChestHaulRow(def, item, value, i);
+    if (!summary[item.name]) summary[item.name] = { item, count: 0, value: 0 };
+    summary[item.name].count += 1;
+    summary[item.name].value += value;
   }
   if (rolled.length === 0) return;
+  Object.values(summary)
+    .sort((a, b) => b.value - a.value)
+    .forEach((g, i) => spawnChestHaulRow(def, g.item, g.value, g.count, i));
   checkLevelUp();
   // Show the highest-rarity (or highest-value) item with the chest's total payout.
   const best = rolled.reduce((a, b) => (b.value > a.value ? b : a)).item;
@@ -2573,11 +2603,13 @@ function renderActiveEffect() {
       }
     }
 
-    // Gear-extra badge: pops out the right of the timer with the actual
-    // gear contribution to this active bonus (in seconds, the unit
-    // players read off the timer). Only shown when the relevant gear
-    // is installed AND its effect actually applies to this tier.
-    let extraText = "";
+    // Gear-extra badge: stacks below the bonus row with the actual gear
+    // contribution to this active bonus (in seconds — same unit as the
+    // timer). Only shown when the relevant gear is installed AND its
+    // effect actually applies to this tier. Split into name + delta
+    // spans so CSS can lay them out as a two-part chip.
+    let extraName = "";
+    let extraDelta = "";
     let extraCls = "";
     const baseSec = ((bonus && bonus.duration) || 15000) / 1000;
     if (r.tier === "shark") {
@@ -2585,8 +2617,9 @@ function renderActiveEffect() {
       if (hullLvl > 0) {
         const actualMult = Math.max(0.2, 1 - 0.08 * hullLvl);
         const reducedSec = Math.max(1, Math.round(baseSec * (1 - actualMult)));
-        extraText = `−${reducedSec}s · Hull L${hullLvl}`;
-        extraCls  = "ae-extra-hull";
+        extraName = `Hull L${hullLvl}`;
+        extraDelta = `−${reducedSec}s`;
+        extraCls = "ae-extra-hull";
       }
     } else if (r.tier === "minor" || r.tier === "major" ||
                (r.tier === "mini" && frenzyUntil <= now)) {
@@ -2596,8 +2629,9 @@ function renderActiveEffect() {
       const stabLvl = gearLevel("stabilizer");
       if (stabLvl > 0) {
         const addedSec = Math.max(1, Math.round(baseSec * 0.10 * stabLvl));
-        extraText = `+${addedSec}s · Stab L${stabLvl}`;
-        extraCls  = "ae-extra-stab";
+        extraName = `Stabilizer L${stabLvl}`;
+        extraDelta = `+${addedSec}s`;
+        extraCls = "ae-extra-stab";
       }
     }
 
@@ -2607,10 +2641,13 @@ function renderActiveEffect() {
     const row = document.createElement("div");
     row.className = `active-effect ${r.cls}`;
     row.title = `${name}\n\n${fullDesc}`;
-    const extraHtml = extraText
-      ? `<div class="ae-extra ${extraCls}">${escapeHtml(extraText)}</div>`
+    const extraHtml = extraName
+      ? `<div class="ae-extra ${extraCls}">` +
+          `<span class="ae-extra-name">${escapeHtml(extraName)}</span>` +
+          `<span class="ae-extra-delta">${escapeHtml(extraDelta)}</span>` +
+        `</div>`
       : "";
-    if (extraText) row.classList.add("has-extra");
+    if (extraName) row.classList.add("has-extra");
     row.innerHTML =
       `<div class="ae-main">` +
         `<span class="ae-label">${icon} ${escapeHtml(name.toUpperCase())} — ${escapeHtml(shortDesc)}</span>` +
@@ -3075,6 +3112,7 @@ const LB_METRICS = [
   { id: "prestige_count", label: "Promotes", fmt: (n) => String(n) },
   { id: "jackpots",       label: "Jackpots", fmt: (n) => String(n) },
   { id: "pearls",         label: "Pearls",   fmt: (n) => fmt(Number(n) || 0) + " 🔮" },
+  { id: "gear_upgrades",  label: "Gear",     fmt: (n) => fmt(Number(n) || 0) + " 🛠" },
   { id: "total_dives",    label: "Dives",    fmt: (n) => fmt(Number(n) || 0) },
 ];
 // Pick the first .active tab as the initial metric so each page can choose
@@ -3111,6 +3149,7 @@ function leaderboardPayload() {
     jackpots: (state.slotHits && state.slotHits.jackpot) || 0,
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,
+    gear_upgrades: totalGearUpgrades(),
   };
 }
 

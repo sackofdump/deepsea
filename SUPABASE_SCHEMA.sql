@@ -21,12 +21,15 @@ create table if not exists public.scores (
   chests         int           not null default 0,
   total_dives    int           not null default 0,
   time_played_ms numeric not null default 0,
+  gear_upgrades  int           not null default 0,
   updated_at     timestamptz   not null default now()
 );
 
 -- Migrations for existing deployments.
 alter table public.scores
   add column if not exists time_played_ms numeric not null default 0;
+alter table public.scores
+  add column if not exists gear_upgrades int not null default 0;
 alter table public.scores
   alter column total_earned   type numeric using total_earned::numeric;
 alter table public.scores
@@ -41,6 +44,7 @@ create index if not exists scores_jackpots_idx     on public.scores (jackpots de
 create index if not exists scores_pearls_idx       on public.scores (pearls desc);
 create index if not exists scores_dives_idx        on public.scores (total_dives desc);
 create index if not exists scores_time_played_idx  on public.scores (time_played_ms desc);
+create index if not exists scores_gear_upgrades_idx on public.scores (gear_upgrades desc);
 
 alter table public.scores enable row level security;
 
@@ -172,6 +176,7 @@ create index if not exists scores_event_jackpots_idx     on public.scores (event
 create index if not exists scores_event_pearls_idx       on public.scores (event_key, pearls         desc);
 create index if not exists scores_event_dives_idx        on public.scores (event_key, total_dives    desc);
 create index if not exists scores_event_time_played_idx  on public.scores (event_key, time_played_ms desc);
+create index if not exists scores_event_gear_upgrades_idx on public.scores (event_key, gear_upgrades  desc);
 
 -- Drop the original single-column indexes once the composites are in place.
 drop index if exists public.scores_total_earned_idx;

@@ -1021,7 +1021,8 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.3s interval so picks come quickly while at depth.
+    // we force a fast 0.15s interval so picks come quickly while at depth
+    // (~40 legendaries per encounter instead of ~20).
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
@@ -1029,7 +1030,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < 50) {
-      const interval = treasure ? 0.3 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.15 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;
@@ -1928,7 +1929,7 @@ function rollChestItem(def, forceRarity) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function spawnChestHaulRow(chestDef, item, value, idx) {
+function spawnChestHaulRow(chestDef, item, value, count, idx) {
   if (suppressFx) return;
   // Stagger so multiple items roll in left-side-of-ocean as a chest "haul",
   // separate from the dive's activity log.
@@ -1937,8 +1938,9 @@ function spawnChestHaulRow(chestDef, item, value, idx) {
     if (!root) return;
     const row = document.createElement("div");
     row.className = `chest-haul-row rarity-${item.rarity}`;
+    const countText = (count && count > 1) ? ` ×${count}` : "";
     row.innerHTML =
-      `<span class="ch-name">${chestDef.icon} ${item.icon} ${item.name}</span>` +
+      `<span class="ch-name">${chestDef.icon} ${item.icon} ${item.name}${countText}</span>` +
       `<span class="ch-val">+$${fmt(value)}</span>`;
     root.appendChild(row);
     setTimeout(() => row.remove(), 3700);
@@ -1963,6 +1965,8 @@ function openChest(tier) {
   if (isFrenzyRedeem) state.frenzyChestsPending -= 1;
   const rolled = [];
   let totalValue = 0;
+  // Stack repeated rolls into a single haul row per item, like the activity log.
+  const summary = {};
   for (let i = 0; i < def.items; i++) {
     const item = rollChestItem(def, i < guaranteedLegend ? "legend" : null);
     if (!item) continue;
@@ -1975,9 +1979,14 @@ function openChest(tier) {
     state.totalItems += 1;
     state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
     state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
-    spawnChestHaulRow(def, item, value, i);
+    if (!summary[item.name]) summary[item.name] = { item, count: 0, value: 0 };
+    summary[item.name].count += 1;
+    summary[item.name].value += value;
   }
   if (rolled.length === 0) return;
+  Object.values(summary)
+    .sort((a, b) => b.value - a.value)
+    .forEach((g, i) => spawnChestHaulRow(def, g.item, g.value, g.count, i));
   checkLevelUp();
   // Show the highest-rarity (or highest-value) item with the chest's total payout.
   const best = rolled.reduce((a, b) => (b.value > a.value ? b : a)).item;

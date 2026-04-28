@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v=2" />
+<link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
 <div id="app">
@@ -94,11 +94,11 @@
         <button id="lbSync" class="ghost">Sync</button>
       </div>
       <div class="lb-tabs">
-        <button class="lb-tab active" data-metric="total_earned">Cash</button>
+        <button class="lb-tab active" data-metric="pearls">Pearls</button>
+        <button class="lb-tab" data-metric="total_earned">Cash</button>
         <button class="lb-tab" data-metric="level">Level</button>
         <button class="lb-tab" data-metric="prestige_count">Promotes</button>
         <button class="lb-tab" data-metric="jackpots">Jackpots</button>
-        <button class="lb-tab" data-metric="pearls">Pearls</button>
         <button class="lb-tab" data-metric="total_dives">Dives</button>
         <button class="lb-tab" data-metric="time_played_ms">Time</button>
       </div>
@@ -239,6 +239,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="game.js?v=44"></script>
+<script src="game.js?v=46"></script>
 </body>
 </html>
