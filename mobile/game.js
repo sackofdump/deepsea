@@ -2050,14 +2050,25 @@ function ensurePlayerId() {
   return state.playerId;
 }
 
+// Big-number columns (pearls / cash / time-played) are `numeric` in Postgres,
+// so they can hold arbitrarily large values. Above Number.MAX_SAFE_INTEGER
+// JSON.stringify emits scientific notation past ~1e21, which PostgREST
+// rejects, so send those as integer strings via BigInt instead.
+function lbBigNumber(n) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  if (!isFinite(v)) return 0;
+  if (v <= Number.MAX_SAFE_INTEGER) return v;
+  try { return BigInt(v).toString(); } catch { return v.toFixed(0); }
+}
+
 function leaderboardPayload() {
   return {
     player_id: ensurePlayerId(),
     display_name: ((state.displayName || "").trim().slice(0, 32)) || "Anon",
-    total_earned: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.totalEarned || 0)),
+    total_earned: lbBigNumber(state.totalEarned),
     level: state.level || 1,
     prestige_count: state.prestigeCount || 0,
-    pearls: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.pearls || 0)),
+    pearls: lbBigNumber(state.pearls),
     jackpots: (state.slotHits && state.slotHits.jackpot) || 0,
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,

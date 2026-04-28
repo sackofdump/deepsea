@@ -3196,6 +3196,19 @@ function ensurePlayerId() {
   return state.playerId;
 }
 
+// Pearls / cash / time-played columns are `numeric` (arbitrary precision) in
+// Postgres. Above Number.MAX_SAFE_INTEGER (~9e15) JS loses unit-level integer
+// precision and JSON.stringify will emit scientific notation past ~1e21,
+// which PostgREST rejects for numeric columns. Send those values as plain
+// integer strings via BigInt to preserve as much precision as the JS Number
+// had, and avoid the sci-notation issue entirely.
+function lbBigNumber(n) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  if (!isFinite(v)) return 0;
+  if (v <= Number.MAX_SAFE_INTEGER) return v;
+  try { return BigInt(v).toString(); } catch { return v.toFixed(0); }
+}
+
 function leaderboardPayload() {
   // The scores table now always carries an event_key (default '' for the
   // main game) and a composite unique on (player_id, event_key). Always
@@ -3205,13 +3218,14 @@ function leaderboardPayload() {
     player_id: ensurePlayerId(),
     event_key: EVENT_KEY || "",
     display_name: ((state.displayName || "").trim().slice(0, 32)) || "Anon",
-    total_earned: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.totalEarned || 0)),
+    total_earned: lbBigNumber(state.totalEarned),
     level: state.level || 1,
     prestige_count: state.prestigeCount || 0,
-    pearls: Math.min(Number.MAX_SAFE_INTEGER, Math.floor(state.pearls || 0)),
+    pearls: lbBigNumber(state.pearls),
     jackpots: (state.slotHits && state.slotHits.jackpot) || 0,
     chests: state.chestsCollected || 0,
     total_dives: state.totalDives || 0,
+    time_played_ms: lbBigNumber(state.timePlayedMs),
     gear_upgrades: totalGearUpgrades(),
   };
 }
