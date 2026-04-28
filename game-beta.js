@@ -2160,7 +2160,7 @@ function biomeAvgValue(biomeName) {
 // specific buff; jackpot stacks all three with a longer duration.
 // Reel faces are the icons of the bonuses they grant. 🦈 is the lone hazard.
 // Symbol order (must stay aligned across themes): [hazard, mini, minor, major, jackpot].
-const SLOT_SYMBOLS = (EVENT && EVENT.slotSymbols) || ["🦈", "🌊", "🧜", "🗺", "🌟"];
+const SLOT_SYMBOLS = (EVENT && EVENT.slotSymbols) || ["🦈", "📦", "🧜", "🗺", "🌟"];
 const SLOT_OUTCOMES = [
   { tier: "none",    weight: 56, pick: () => slotNonMatch() },
   { tier: "shark",   weight: 8,  pick: () => [SLOT_SYMBOLS[0], SLOT_SYMBOLS[0], SLOT_SYMBOLS[0]] },
@@ -2171,8 +2171,8 @@ const SLOT_OUTCOMES = [
 ];
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
-  mini:    { icon: "🌊", name: "Lucky Current", desc: "Doubles every pickup for 15s.", duration: 15000 },
-  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "2× value for 15s.",       duration: 15000 },
+  mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥2 legendaries!", chestFrenzy: true, duration: 10000 },
+  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "3× value & 5× XP for 15s.", valueMult: 3, xpMult: 5, duration: 15000 },
   major:   { icon: "🗺", name: "Deep Dive Bonus", desc: "Legendary picks for 15s!", duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
 };
