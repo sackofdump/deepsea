@@ -276,9 +276,14 @@ const UPGRADE_DEFS = [
     name: "Cargo Hold",
     desc: "Cargo capacity",
     stat: "cargoMax",
-    base: 4, add: 4, mult: 1.08,
+    // Old curve (mult 1.08, add 4) blew past 100k kg by L100, so realistic
+    // dives barely filled 1% of the bar. Flatter curve + level cap keeps the
+    // upgrade meaningful without ballooning past what a dive can actually
+    // pick up. L50 ≈ 333 kg, well-aligned with treasure-map linger yields.
+    base: 4, add: 2, mult: 1.04,
     baseCost: 30, costMult: 1.6,
     suffix: " kg",
+    maxLevel: 50,
   },
   {
     id: "sonar",
@@ -341,9 +346,9 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // +10% pending pearls per level (max +100% at L10)
     suffix: "% pearls",
     maxLevel: 10,
-    // Meta tier (×3.7/lvl). Pearls compounds — once invested it pays itself
-    // back, so the cost ramps faster than the basics.
-    costs: [200, 740, 2700, 10000, 37000, 140000, 510000, 1900000, 6900000, 25000000],
+    // Meta tier — 2× the original curve so it stays a meaningful pearl sink
+    // across deep prestige (was hitting L10 by lvl ~100).
+    costs: [400, 1480, 5400, 20000, 74000, 280000, 1020000, 3800000, 13800000, 50000000],
   },
   {
     id: "luck",
@@ -353,8 +358,9 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // wired through slotLuckWeight (per-tier scaling)
     suffix: "% slot luck",
     maxLevel: 10,
-    // Slot tier (×4/lvl). Bigger jumps for the bigger payoff swings.
-    costs: [500, 2000, 8000, 32000, 128000, 512000, 2000000, 8000000, 32000000, 130000000],
+    // Slot tier — 3× the original curve. Slot luck swings payouts hard, so
+    // it deserves a real long-term price tag.
+    costs: [1500, 6000, 24000, 96000, 384000, 1536000, 6000000, 24000000, 96000000, 390000000],
   },
   {
     id: "insight",
@@ -364,9 +370,9 @@ const GEAR_DEFS = [
     perLevel: 0.25,        // +25% XP per level (max +250% at L10)
     suffix: "% bonus XP",
     maxLevel: 10,
-    // Apex tier (×4.5/lvl). Direct XP multiplier — the most powerful long-
-    // term scaling lever, gated behind the steepest curve.
-    costs: [2000, 9000, 41000, 185000, 830000, 3700000, 17000000, 75000000, 340000000, 1500000000],
+    // Apex tier — 5× the original curve. Direct XP multiplier compounds
+    // hardest, so this is the long-term gate for "everything maxed."
+    costs: [10000, 45000, 205000, 925000, 4150000, 18500000, 85000000, 375000000, 1700000000, 7500000000],
   },
 ];
 function gearDef(id) { return GEAR_DEFS.find(g => g.id === id); }
@@ -673,8 +679,11 @@ async function reset() {
 
 // ----- Derived stats --------------------------------------------
 function statValue(def, level) {
+  // Clamp at maxLevel (currently only used by Cargo Hold) so players who
+  // upgraded past the cap before it was added don't keep the inflated stat.
+  const lvl = def.maxLevel ? Math.min(level, def.maxLevel) : level;
   let v = def.base;
-  for (let i = 0; i < level; i++) v = v * def.mult + def.add;
+  for (let i = 0; i < lvl; i++) v = v * def.mult + def.add;
   return v;
 }
 
@@ -771,8 +780,17 @@ function doPrestige() {
   state.xp = 0;
   state.level = 1;
   state.upgrades = { depth: 0, speed: 0, cargo: 0, sonar: 0, value: 0 };
-  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], cargoGrouped: {}, cargoTotalValue: 0, mode: "idle" };
+  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], cargoGrouped: {}, cargoTotalValue: 0, mode: "idle", lingerStart: 0 };
   state.lastHaul = [];
+  // Wipe pinned dive-loot rows AND the chest-haul flyouts so the post-promote
+  // sub starts visually empty — otherwise the player saw their pre-promote
+  // pile of loot still on screen and felt like they were leveling off it.
+  clearDiveLoot();
+  const chestHaulRoot = $("chestHaul");
+  if (chestHaulRoot) chestHaulRoot.innerHTML = "";
+  // Force the cargo + haul UI panels to rebuild from the now-empty state.
+  _cargoSig = null;
+  _haulRef  = undefined;
   state.totalDives = 0;
   state.totalItems = 0;
   state.boostsUsed = 0;
@@ -1240,8 +1258,8 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.15s interval so picks come quickly while at depth
-    // (~40 legendaries per encounter instead of ~20).
+    // we force a fast 0.20s interval so picks come quickly while at depth
+    // (~30 legendaries per encounter — 1.5× the original 0.30s pace).
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
@@ -1249,7 +1267,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < 50) {
-      const interval = treasure ? 0.15 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.20 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;
@@ -1635,7 +1653,8 @@ let buyMode = "1";
 // budget, capped at `target` (Infinity for max mode). Returns { count, total }.
 function planBulkBuy(def, startLvl, target, cash) {
   let count = 0, total = 0;
-  while (count < target && count < 10000) {
+  const cap = def.maxLevel ?? Infinity;
+  while (count < target && count < 10000 && (startLvl + count) < cap) {
     const c = upgradeCost(def, startLvl + count);
     if (total + c > cash) break;
     total += c;
@@ -1704,6 +1723,7 @@ function updateUpgrades() {
     const row = upgradeRows[def.id];
     if (!row) continue;
     const lvl = state.upgrades[def.id];
+    const atMax = def.maxLevel !== undefined && lvl >= def.maxLevel;
     const target = buyTarget();
     // Plan the purchase against current cash to figure out cost + count.
     const plan = planBulkBuy(def, lvl, target, state.cash);
@@ -1717,21 +1737,24 @@ function updateUpgrades() {
     const fixed = def.fixed ?? 0;
     const curr = statValue(def, lvl);
     const next = statValue(def, lvl + Math.max(1, showCount));
-    row.lvl.textContent = `Lv ${lvl}`;
-    row.meta.textContent = `${def.desc}: ${curr.toFixed(fixed)}${def.suffix} → ${next.toFixed(fixed)}${def.suffix}`;
-    const amountText = `$${fmt(showCost)}`;
+    row.lvl.textContent = atMax ? `Lv ${lvl} · MAX` : `Lv ${lvl}`;
+    row.meta.textContent = atMax
+      ? `${def.desc}: ${curr.toFixed(fixed)}${def.suffix}`
+      : `${def.desc}: ${curr.toFixed(fixed)}${def.suffix} → ${next.toFixed(fixed)}${def.suffix}`;
+    const amountText = atMax ? "MAX" : `$${fmt(showCost)}`;
     if (row.amount.textContent !== amountText) row.amount.textContent = amountText;
-    const countText = (buyMode === "1") ? "" : `×${showCount}`;
+    const countText = atMax ? "" : (buyMode === "1") ? "" : `×${showCount}`;
     if (row.count.textContent !== countText) row.count.textContent = countText;
     // Affordability: x1/x10 require the full target; max only needs >=1.
-    const canAfford = (buyMode === "max") ? plan.count >= 1 : plan.count >= target;
+    const canAfford = !atMax && ((buyMode === "max") ? plan.count >= 1 : plan.count >= target);
     if (row.btn.disabled === canAfford) row.btn.disabled = !canAfford;
   }
 }
 
 function planFullCost(def, startLvl, n) {
   let total = 0;
-  for (let i = 0; i < n && i < 10000; i++) total += upgradeCost(def, startLvl + i);
+  const cap = def.maxLevel ?? Infinity;
+  for (let i = 0; i < n && i < 10000 && (startLvl + i) < cap; i++) total += upgradeCost(def, startLvl + i);
   return total;
 }
 
@@ -2262,7 +2285,7 @@ const SLOT_OUTCOMES = [
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
   mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥2 legendaries!", chestFrenzy: true, duration: 10000 },
-  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "5× value & 10× XP for 15s.", valueMult: 5, xpMult: 10, duration: 15000 },
+  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "5× value & 8× XP for 15s.", valueMult: 5, xpMult: 8, duration: 15000 },
   major:   { icon: "🗺", name: "Deep Dive Bonus", desc: "Legendary picks for 15s!", duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
 };

@@ -276,15 +276,14 @@ const UPGRADE_DEFS = [
     name: "Cargo Hold",
     desc: "Cargo capacity",
     stat: "cargoMax",
-    base: 4, add: 4, mult: 1.08,
+    // Flatter curve + lower cap so cargo actually fills on realistic dives
+    // (the old 1.08/L80 curve hit ~25k kg, leaving the bar barely 1% full
+    // even on treasure-map linger dives). L50 ≈ 333 kg keeps a comfortable
+    // buffer over what a single dive can pick up.
+    base: 4, add: 2, mult: 1.04,
     baseCost: 30, costMult: 1.6,
     suffix: " kg",
-    // Capped at the level where filling cargo in a single dive becomes
-    // impossible. Worst-case dive: 1s descent at the 500-pick/sec hard cap
-    // + 5s treasure-map linger ≈ 517 picks, doubled by Lucky Current ≈ 1034
-    // weight-adds, max ~18 kg per pick = ~18,600 kg. cargoMax(80) ≈ 25,400 kg
-    // gives a comfortable buffer past that ceiling.
-    maxLevel: 80,
+    maxLevel: 50,
   },
   {
     id: "sonar",
@@ -560,8 +559,11 @@ async function reset() {
 
 // ----- Derived stats --------------------------------------------
 function statValue(def, level) {
+  // Clamp at maxLevel so players who upgraded past the cap before it was
+  // tightened (Cargo Hold L50) don't keep an inflated stat.
+  const lvl = def.maxLevel ? Math.min(level, def.maxLevel) : level;
   let v = def.base;
-  for (let i = 0; i < level; i++) v = v * def.mult + def.add;
+  for (let i = 0; i < lvl; i++) v = v * def.mult + def.add;
   return v;
 }
 
@@ -657,8 +659,17 @@ function doPrestige() {
   state.xp = 0;
   state.level = 1;
   state.upgrades = { depth: 0, speed: 0, cargo: 0, sonar: 0, value: 0 };
-  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], cargoGrouped: {}, cargoTotalValue: 0, mode: "idle" };
+  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], cargoGrouped: {}, cargoTotalValue: 0, mode: "idle", lingerStart: 0 };
   state.lastHaul = [];
+  // Wipe pinned dive-loot rows AND chest-haul flyouts so the post-promote
+  // sub starts visually empty — otherwise the player saw the pre-promote
+  // pile of loot still on screen and felt like they were leveling off it.
+  clearDiveLoot();
+  const _chestHaulRoot = $("chestHaul");
+  if (_chestHaulRoot) _chestHaulRoot.innerHTML = "";
+  // Force the cargo + haul UI panels to rebuild from the now-empty state.
+  _cargoSig = null;
+  _haulRef  = undefined;
   state.totalDives = 0;
   state.totalItems = 0;
   state.boostsUsed = 0;
@@ -1021,8 +1032,8 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.15s interval so picks come quickly while at depth
-    // (~40 legendaries per encounter instead of ~20).
+    // we force a fast 0.20s interval so picks come quickly while at depth
+    // (~30 legendaries per encounter — 1.5× the original 0.30s pace).
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
@@ -1030,7 +1041,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < 50) {
-      const interval = treasure ? 0.15 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.20 : Math.max(0.01, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;
@@ -2060,7 +2071,7 @@ const SLOT_OUTCOMES = [
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
   mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥2 legendaries!", chestFrenzy: true, duration: 10000 },
-  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "5× value & 10× XP for 15s.", valueMult: 5, xpMult: 10, duration: 15000 },
+  minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "5× value & 8× XP for 15s.", valueMult: 5, xpMult: 8, duration: 15000 },
   major:   { icon: "🗺", name: "Deep Dive Bonus", desc: "Legendary picks for 15s!", duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
 };

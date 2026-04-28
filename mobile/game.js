@@ -148,9 +148,12 @@ const UPGRADE_DEFS = [
     name: "Cargo Hold",
     desc: "Cargo capacity",
     stat: "cargoMax",
-    base: 4, add: 4, mult: 1.08,
+    // Flatter curve + level cap so the bar actually fills on realistic
+    // dives — old 1.08 mult inflated late-game cargo to ~100k+ kg.
+    base: 4, add: 2, mult: 1.04,
     baseCost: 30, costMult: 1.6,
     suffix: " kg",
+    maxLevel: 50,
   },
   {
     id: "sonar",
@@ -294,8 +297,11 @@ function reset() {
 
 // ----- Derived stats --------------------------------------------
 function statValue(def, level) {
+  // Clamp at maxLevel so players who upgraded past the cap before it was
+  // added don't keep an inflated stat.
+  const lvl = def.maxLevel ? Math.min(level, def.maxLevel) : level;
   let v = def.base;
-  for (let i = 0; i < level; i++) v = v * def.mult + def.add;
+  for (let i = 0; i < lvl; i++) v = v * def.mult + def.add;
   return v;
 }
 
@@ -377,8 +383,15 @@ function doPrestige() {
   state.xp = 0;
   state.level = 1;
   state.upgrades = { depth: 0, speed: 0, cargo: 0, sonar: 0, value: 0 };
-  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], mode: "idle" };
+  state.sub = { depth: 0, targetDepth: 0, cargoKg: 0, cargoItems: [], mode: "idle", lingerStart: 0 };
   state.lastHaul = [];
+  // Wipe pinned dive-loot rows + chest-haul flyouts so the post-promote sub
+  // starts visually empty.
+  clearDiveLoot();
+  const _chestHaulRoot = $("chestHaul");
+  if (_chestHaulRoot) _chestHaulRoot.innerHTML = "";
+  _cargoSig = null;
+  _haulRef  = undefined;
   state.totalDives = 0;
   state.totalItems = 0;
   state.boostsUsed = 0;
@@ -684,12 +697,12 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax * cargoEncounterMult();
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.15s interval so picks come quickly while at depth
-    // (~40 legendaries per encounter instead of ~20).
+    // we force a fast 0.20s interval so picks come quickly while at depth
+    // (~30 legendaries per encounter — 1.5× the original 0.30s pace).
     const treasure = legendaryEncounterActive();
     lootCooldown -= dtSec;
     while (lootCooldown <= 0) {
-      lootCooldown += treasure ? 0.15 : (LOOT_INTERVAL_BASE / sonar);
+      lootCooldown += treasure ? 0.20 : (LOOT_INTERVAL_BASE / sonar);
       tryCollect(s);
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }
