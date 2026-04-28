@@ -307,9 +307,10 @@ const UPGRADE_DEFS = [
 // and the rising pearl cost makes spending vs. banking a real tradeoff
 // (banked pearls give +0.5% loot value forever).
 const GEAR_DEFS = [
-  // All gears are deep-late-game investments. Costs start at 1T+ and scale
-  // ×10 per level — by L10 the price is far past the leaderboard's bigint
-  // cap, so reaching cap is a true endgame brag.
+  // Three pricing tiers — basic / meta / apex — each ~3.3-4.5× per level so
+  // L1 is reachable by lvl ~50-100 and L10 is a deep-prestige goal. Pearl
+  // banking is sqrt(totalEarned/10000), so this scale keeps gear meaningful
+  // without being a wall for early players or a max-by-lvl-200 cakewalk.
   {
     id: "hull",
     name: "Reinforced Hull",
@@ -318,8 +319,8 @@ const GEAR_DEFS = [
     perLevel: 0.08,        // -8% hazard duration per level (max -80% at L10)
     suffix: "% shorter",
     maxLevel: 10,
-    // Mid-game starter so lvl 100-200 players have something to chase.
-    costs: [1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18],
+    // Basic tier (×3.3/lvl). Affordable around lvl 50-100 first promotions.
+    costs: [50, 165, 550, 1800, 5900, 19000, 64000, 210000, 700000, 2300000],
   },
   {
     id: "stabilizer",
@@ -329,8 +330,8 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // +10% bonus duration per level (max +100% at L10)
     suffix: "% longer",
     maxLevel: 10,
-    // Mid-game starter so lvl 100-200 players have something to chase.
-    costs: [1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18],
+    // Basic tier (×3.3/lvl) — mirrors Hull cost.
+    costs: [50, 165, 550, 1800, 5900, 19000, 64000, 210000, 700000, 2300000],
   },
   {
     id: "compressor",
@@ -340,8 +341,9 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // +10% pending pearls per level (max +100% at L10)
     suffix: "% pearls",
     maxLevel: 10,
-    // Meta upgrade — one tier above the basic defensive/offensive gears.
-    costs: [5e12, 5e13, 5e14, 5e15, 5e16, 5e17, 5e18, 5e19, 5e20, 5e21],
+    // Meta tier (×3.7/lvl). Pearls compounds — once invested it pays itself
+    // back, so the cost ramps faster than the basics.
+    costs: [200, 740, 2700, 10000, 37000, 140000, 510000, 1900000, 6900000, 25000000],
   },
   {
     id: "luck",
@@ -351,8 +353,8 @@ const GEAR_DEFS = [
     perLevel: 0.10,        // wired through slotLuckWeight (per-tier scaling)
     suffix: "% slot luck",
     maxLevel: 10,
-    // Slot manipulation — one full order of magnitude above the basics.
-    costs: [1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22],
+    // Slot tier (×4/lvl). Bigger jumps for the bigger payoff swings.
+    costs: [500, 2000, 8000, 32000, 128000, 512000, 2000000, 8000000, 32000000, 130000000],
   },
   {
     id: "insight",
@@ -362,9 +364,9 @@ const GEAR_DEFS = [
     perLevel: 0.25,        // +25% XP per level (max +250% at L10)
     suffix: "% bonus XP",
     maxLevel: 10,
-    // Most powerful gear — direct XP multiplier. Two orders of magnitude
-    // above the basics so it stays the apex investment.
-    costs: [1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22, 1e23],
+    // Apex tier (×4.5/lvl). Direct XP multiplier — the most powerful long-
+    // term scaling lever, gated behind the steepest curve.
+    costs: [2000, 9000, 41000, 185000, 830000, 3700000, 17000000, 75000000, 340000000, 1500000000],
   },
 ];
 function gearDef(id) { return GEAR_DEFS.find(g => g.id === id); }
