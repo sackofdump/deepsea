@@ -354,7 +354,7 @@ const defaultState = () => ({
   // Spring Bloom Chest Frenzy: bursts chests rapidly until this expires.
   // Persisted so a reload mid-frenzy resumes the spawn chain.
   chestFrenzyUntil: 0,
-  // Number of chests still owed a "guaranteed 1 legendary pick" payload.
+  // Number of chests still owed a "guaranteed 3 legendary picks" payload.
   // Incremented when a chest is collected during a frenzy; decremented
   // when one is opened. Lets the bonus follow the chest into inventory
   // even though state.inventory itself only stores tier strings.
@@ -1859,7 +1859,7 @@ function spawnTreasureChest(forcedTier) {
     clearTimeout(removeTimer);
     state.inventory.push(tier);
     state.chestsCollected = (state.chestsCollected || 0) + 1;
-    // Frenzy chests tag the inventory with a "guaranteed 1 legendary pick"
+    // Frenzy chests tag the inventory with a "guaranteed 3 legendary picks"
     // promise that's redeemed on the next openChest() call (any tier).
     if (isFrenzy) state.frenzyChestsPending = (state.frenzyChestsPending || 0) + 1;
     log(`${def.icon} ${def.name} (${def.label}) added to inventory!`, "good");
@@ -1978,7 +1978,7 @@ function openChest(tier) {
   // forced to legend rarity, regardless of which tier chest the player
   // happened to click. Capped at def.items so a 2-item common still works.
   const isFrenzyRedeem = (state.frenzyChestsPending || 0) > 0;
-  const guaranteedLegend = isFrenzyRedeem ? Math.min(1, def.items) : 0;
+  const guaranteedLegend = isFrenzyRedeem ? Math.min(3, def.items) : 0;
   if (isFrenzyRedeem) state.frenzyChestsPending -= 1;
   const rolled = [];
   let totalValue = 0;
@@ -2080,7 +2080,7 @@ const SLOT_OUTCOMES = [
 ];
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
-  mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥1 legendary!", chestFrenzy: true, duration: 10000 },
+  mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥3 legendaries!", chestFrenzy: true, duration: 10000 },
   minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "5× value & 8× XP for 15s.", valueMult: 5, xpMult: 8, duration: 15000 },
   major:   { icon: "🗺", name: "Deep Dive Bonus", desc: "Legendary picks for 15s!", duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },

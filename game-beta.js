@@ -454,7 +454,7 @@ const defaultState = () => ({
   // until this timestamp. Persisted so a page reload mid-frenzy keeps the
   // burst going to its natural end.
   chestFrenzyUntil: 0,
-  // Number of chests still owed a "guaranteed 1 legendary pick" payload.
+  // Number of chests still owed a "guaranteed 3 legendary picks" payload.
   // Incremented when a chest is collected during a frenzy; decremented
   // when one is opened. Lets the bonus follow the chest into inventory
   // even though state.inventory itself only stores tier strings.
@@ -2068,7 +2068,7 @@ function spawnTreasureChest(forcedTier) {
     clearTimeout(removeTimer);
     state.inventory.push(tier);
     state.chestsCollected = (state.chestsCollected || 0) + 1;
-    // Frenzy chests tag the inventory with a "guaranteed 1 legendary pick"
+    // Frenzy chests tag the inventory with a "guaranteed 3 legendary picks"
     // promise that's redeemed on the next openChest() call (any tier).
     if (isFrenzy) state.frenzyChestsPending = (state.frenzyChestsPending || 0) + 1;
     log(`${def.icon} ${def.name} (${def.label}) added to inventory!`, "good");
@@ -2192,7 +2192,7 @@ function openChest(tier) {
   // forced to legend rarity, regardless of which tier chest the player
   // happened to click. Capped at def.items so a 2-item common still works.
   const isFrenzyRedeem = (state.frenzyChestsPending || 0) > 0;
-  const guaranteedLegend = isFrenzyRedeem ? Math.min(1, def.items) : 0;
+  const guaranteedLegend = isFrenzyRedeem ? Math.min(3, def.items) : 0;
   if (isFrenzyRedeem) state.frenzyChestsPending -= 1;
   const rolled = [];
   let totalValue = 0;
@@ -2294,7 +2294,7 @@ const SLOT_OUTCOMES = [
 ];
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🦈", name: "Shark Attack!", desc: "No loot for 10s!",        duration: 10000, kind: "hazard" },
-  mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥1 legendary!", chestFrenzy: true, duration: 10000 },
+  mini:    { icon: "📦", name: "Chest Frenzy",  desc: "Rare/epic chest burst for 10s — each rolls ≥3 legendaries!", chestFrenzy: true, duration: 10000 },
   minor:   { icon: "🧜", name: "Mermaid's Kiss",desc: "5× value & 8× XP for 15s.", valueMult: 5, xpMult: 8, duration: 15000 },
   major:   { icon: "🗺", name: "Deep Dive Bonus", desc: "Legendary picks for 15s!", duration: 15000 },
   jackpot: { icon: "🎰", name: "JACKPOT",       desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
@@ -2312,11 +2312,12 @@ function applySlotBonus(tier, now, duration, bonus) {
   const dur = Math.round(duration * ext);
   if (tier === "mini")    {
     if (bonus && bonus.chestFrenzy) {
-      // Spring Bloom variant: spawn a burst of chests instead of doubling
-      // every pickup. Use the bonus's own duration (not the gear-extended
-      // one) so it stays a tight 10s burst, and let startChestFrenzy
-      // pre-pick the guaranteed legendary slots.
-      startChestFrenzy(bonus.duration || 10000);
+      // Chest Frenzy now picks up Stabilizer too — feed it the gear-
+      // extended duration so the burst window grows with stab levels.
+      // startChestFrenzy uses CHEST_FRENZY_INTERVAL_MS and that duration
+      // to pre-pick the forced-legendary spawn slots.
+      const baseFrenzy = (bonus && bonus.duration) || 10000;
+      startChestFrenzy(Math.round(baseFrenzy * ext));
     } else {
       state.encounterCargoUntil = now + dur;
       state.encounterCargoAmt   = (bonus && bonus.cargoMult) || 2;
@@ -2343,7 +2344,9 @@ function applySlotBonus(tier, now, duration, bonus) {
     const miniBonus  = SLOT_BONUSES.mini;
     const minorBonus = SLOT_BONUSES.minor;
     if (miniBonus && miniBonus.chestFrenzy) {
-      startChestFrenzy(miniBonus.duration || 10000);
+      // Stabilizer applies on jackpot too — extend the frenzy window.
+      const baseFrenzy = (miniBonus && miniBonus.duration) || 10000;
+      startChestFrenzy(Math.round(baseFrenzy * ext));
     } else {
       state.encounterCargoUntil = now + dur;
       state.encounterCargoAmt   = (miniBonus && miniBonus.cargoMult) || 2;
@@ -2664,11 +2667,11 @@ function renderActiveEffect() {
         extraDelta = `−${reducedSec}s`;
         extraCls = "ae-extra-hull";
       }
-    } else if (r.tier === "minor" || r.tier === "major" ||
-               (r.tier === "mini" && r.subKind === "cargo")) {
-      // Stabilizer extends positive-bonus duration; chest frenzy doesn't
-      // get extended (its duration is taken straight from the bonus
-      // config), so we skip the badge on the frenzy sub-row.
+    } else if (r.tier === "minor" || r.tier === "major" || r.tier === "mini") {
+      // Stabilizer extends every positive bonus — Mermaid's Kiss, Treasure
+      // Map, Lucky Current, AND Chest Frenzy all use the gear-extended
+      // duration in applySlotBonus / startChestFrenzy, so the badge fires
+      // on every mini/minor/major sub-row.
       const stabLvl = gearLevel("stabilizer");
       if (stabLvl > 0) {
         const addedSec = Math.max(1, Math.round(baseSec * 0.10 * stabLvl));
