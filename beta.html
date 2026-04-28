@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Deep Sea Salvage</title>
+<title>Deep Sea Salvage — Beta (Gear)</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,7 +14,8 @@
 <div id="app">
   <aside id="sidebar">
     <header>
-      <h1>Deep Sea Salvage</h1>
+      <a href="index.html" class="event-link-banner back-banner">&lsaquo; Back to main game</a>
+      <h1>Deep Sea Salvage <span class="muted" style="font-size: 12px; letter-spacing: 1.5px;">· BETA</span></h1>
       <span id="accountBadge" class="account-badge" hidden></span>
       <div class="cash-wrap">
         <div class="cash"><span id="cash">0</span></div>
@@ -29,7 +30,6 @@
       </div>
       <div class="bar"><div class="bar-fill bar-fill-level" id="levelBar"></div></div>
       <div class="next-biome-info" id="nextBiomeInfo">10 levels to Twilight Wreck</div>
-      <a href="event.html" class="event-link-banner">🌸 Spring Bloom — limited-time event &rsaquo;</a>
     </header>
 
     <section class="panel" data-key="submersible">
@@ -88,7 +88,7 @@
     </section>
 
     <section class="panel" data-key="leaderboard">
-      <h2>🏅 Leaderboard</h2>
+      <h2>🏅 Beta Leaderboard</h2>
       <div class="lb-name-row">
         <input id="lbName" placeholder="Display name" maxlength="32" />
         <button id="lbSync" class="ghost">Sync</button>
@@ -112,6 +112,7 @@
       <button id="importSaveBtn" class="ghost">⬆ Load</button>
       <input id="importSaveFile" type="file" accept="application/json,.json" hidden />
       <button id="resetBtn" class="ghost">Reset Save</button>
+      <a href="index.html" class="ghost block back-to-main">← Main game</a>
     </footer>
   </aside>
 
@@ -126,9 +127,9 @@
           <div class="sub-window"></div>
           <div class="sub-stripe"></div>
         </div>
+        <div class="sub-gear" id="subGear"></div>
       </div>
     </div>
-    <a href="beta.html" id="betaLink" class="beta-link" title="Try the Gear beta (separate save)">🧪 Beta</a>
     <div id="depthMarkers"></div>
     <div id="chestHaul" class="chest-haul"></div>
     <div id="chestTray" class="chest-tray"></div>
@@ -151,14 +152,48 @@
       <span class="boost-sub"></span>
       <span class="boost-cooldown" id="boostCooldown"></span>
     </button>
+    <button id="gearBtn" class="gear-btn" title="Gear Workshop">
+      <span class="gear-icon">🛠</span>
+      <span class="gear-label">GEAR</span>
+      <span class="gear-sub"><span id="gearOwnedPearls">0</span> 🔮</span>
+    </button>
   </main>
+</div>
+
+<div id="gearOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal gear-modal">
+    <button class="howto-close" id="gearClose" aria-label="Close">×</button>
+    <h2>🛠 Gear Workshop</h2>
+    <div id="gearWelcome" class="gear-welcome" hidden>
+      <h3>🛠 Welcome to the Gear Workshop</h3>
+      <p>
+        Your sub can be permanently customized with <strong>five pieces of gear</strong>.
+        Each piece is bought by trading in <strong>🔮 promotion pearls</strong>
+        — the same pearls you bank when you Promote.
+      </p>
+      <ul>
+        <li>Pearls spent here no longer add their +0.5% loot value, so it's a real tradeoff.</li>
+        <li>Gear is <strong>permanent</strong> — it survives every promotion. Only a full Reset wipes it.</li>
+        <li>Each piece caps at Lv 10. Equipped gear is visible on your sub.</li>
+      </ul>
+    </div>
+    <div class="gear-bank">
+      Pearls available: <strong><span id="gearPearls">0</span> 🔮</strong>
+      <span class="muted">· Permanent · Pearls spent here no longer give +0.5% loot value</span>
+    </div>
+    <div id="gearList" class="gear-list"></div>
+  </div>
 </div>
 
 <div id="howToOverlay" class="howto-overlay" hidden>
   <div class="howto-modal">
     <button class="howto-close" id="howToClose" aria-label="Close">×</button>
-    <h2>🤿 How to Play</h2>
+    <h2>🤿 How to Play — Beta</h2>
     <div class="howto-body">
+      <section>
+        <h3>🧪 Beta build</h3>
+        <p>This is a separate version of Deep Sea Salvage with the experimental <strong>Gear</strong> system. Your save here is independent from the main game and is stored under its own key.</p>
+      </section>
       <section>
         <h3>🌊 Dive cycle</h3>
         <p>Your sub auto-dives, collects loot, and surfaces to sell. You don't pilot it — you upgrade it.</p>
@@ -172,6 +207,10 @@
         <p>Spend cash to upgrade Hull, Thrusters, Cargo, Sonar, and Appraiser. Levels are permanent within a run, but reset on Promotion.</p>
       </section>
       <section>
+        <h3>🛠 Gear Workshop (beta-only)</h3>
+        <p>Spend <strong>🔮 pearls</strong> to permanently install one of five pieces of gear. Gear survives every promotion and stacks across runs. Each piece visibly attaches to your sub. See the intro screen or open the workshop for details.</p>
+      </section>
+      <section>
         <h3>🎒 On Deck &amp; encounters</h3>
         <p>Items collected this dive show in On Deck. Every encounter — bonuses (<strong>Lucky Current</strong>, <strong>Mermaid's Kiss</strong>, <strong>Treasure Map</strong>) and the <strong>Shark Attack</strong> hazard — comes from the Salvage Slot.</p>
       </section>
@@ -181,11 +220,11 @@
       </section>
       <section>
         <h3>📦 Treasure chests</h3>
-        <p>Bronze/Silver/Gold chests spawn occasionally. Click to add to your tray (next to the cash). Open them whenever — multi-item rolls biased toward higher rarity.</p>
+        <p>Chests spawn occasionally. Click to add to your tray (next to the cash). Open them whenever — multi-item rolls biased toward higher rarity.</p>
       </section>
       <section>
         <h3>⚓ Promotion &amp; pearls</h3>
-        <p>Hit a tier's level threshold to promote (Deckhand → Salvager → …). Promotion banks <strong>pearls</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each pearl is +0.5% loot value, forever. Push deeper before promoting to bank more.</p>
+        <p>Hit a tier's level threshold to promote (Deckhand → Salvager → …). Promotion banks <strong>pearls</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each pearl is +0.5% loot value, forever. Push deeper before promoting to bank more — or spend them in the Gear Workshop instead.</p>
       </section>
       <section>
         <h3>🏆 Honors</h3>
@@ -238,7 +277,75 @@
   </div>
 </div>
 
+<!-- First-visit intro: pops automatically and explains the gear system. -->
+<div id="betaIntroOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal beta-intro-modal">
+    <button class="howto-close" id="betaIntroClose" aria-label="Close">×</button>
+    <span class="beta-intro-tag">🧪 Beta Build</span>
+    <h2>🛠 Welcome to the Gear Beta</h2>
+    <p class="beta-intro-blurb">
+      This is a separate version of Deep Sea Salvage with the experimental <strong>Gear</strong>
+      system. Your save here is fully independent from the main game — you start fresh.
+      The new feature: spend <strong>🔮 pearls</strong> in the Gear Workshop to permanently
+      customize your sub. Five pieces of gear, each capping at Lv 10:
+    </p>
+    <ul class="beta-intro-list">
+      <li><span class="bi-icon">🛡</span><span><strong>Reinforced Hull</strong> — Shark Attack duration shortened.</span></li>
+      <li><span class="bi-icon">✨</span><span><strong>Bonus Stabilizer</strong> — Positive slot bonuses last longer.</span></li>
+      <li><span class="bi-icon">🔮</span><span><strong>Pearl Compressor</strong> — Each promotion banks more pearls.</span></li>
+      <li><span class="bi-icon">🍀</span><span><strong>Lucky Salvage Charm</strong> — Slot odds shift toward jackpots, away from sharks.</span></li>
+      <li><span class="bi-icon">🧠</span><span><strong>Salvager's Insight</strong> — Bonus XP on every loot pickup and chest.</span></li>
+    </ul>
+    <p class="beta-intro-blurb">
+      Trade-off: pearls spent on gear no longer give their +0.5% loot value forever, so each
+      level is a real long-term decision. Gear survives every promotion — only a full Reset
+      wipes it. Equipped pieces are visible on your sub.
+    </p>
+    <div class="beta-intro-footer">
+      <button id="betaIntroBtn" class="beta-intro-btn">Got it — start diving</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Beta build configuration. Loaded before game-beta.js so the engine
+// picks up the separate save scope. We do NOT override loot/biomes/ranks
+// — beta is the regular Deep Sea Salvage game plus the Gear system.
+window.EVENT_CONFIG = {
+  // eventKey scopes the leaderboard so beta scores don't mix with main
+  // (different progression because of the Gear system). Save + panel
+  // keys keep beta state isolated in localStorage and cloud.
+  eventKey: "beta",
+  saveKey:  "deepSeaSalvage_beta_v1",
+  panelKey: "deepSeaPanels_beta_v2",
+};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="game.js?v=40"></script>
+<script src="game-beta.js?v=1"></script>
+<script>
+// First-visit beta intro. The dismissal flag rides in localStorage under
+// the same beta save scope so a player who clears their save sees it
+// again. Click outside / × / button all close + persist the flag.
+(function () {
+  const overlay = document.getElementById("betaIntroOverlay");
+  const closeBtn = document.getElementById("betaIntroClose");
+  const okBtn = document.getElementById("betaIntroBtn");
+  if (!overlay) return;
+  const KEY = "deepSeaSalvage_beta_introSeen";
+  function dismiss() {
+    overlay.hidden = true;
+    try { localStorage.setItem(KEY, "1"); } catch {}
+  }
+  let seen = false;
+  try { seen = !!localStorage.getItem(KEY); } catch {}
+  if (!seen) overlay.hidden = false;
+  closeBtn?.addEventListener("click", dismiss);
+  okBtn?.addEventListener("click", dismiss);
+  overlay.addEventListener("click", (ev) => { if (ev.target === overlay) dismiss(); });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !overlay.hidden) dismiss();
+  });
+})();
+</script>
 </body>
 </html>

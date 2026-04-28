@@ -1284,6 +1284,384 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   box-shadow: none;
 }
 
+/* Gear button (sits to the right of the boost button) ---------- */
+.gear-btn {
+  position: absolute;
+  left: 168px;        /* boost left(20) + width(140) + 8 gap */
+  bottom: 20px;
+  width: 84px;
+  height: 80px;
+  background: linear-gradient(180deg, #2c4a64 0%, #1a2e44 60%, #0d1b2a 100%);
+  color: #cfe7ff;
+  border: 1px solid rgba(120, 200, 255, 0.55);
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-shadow:
+    0 0 14px rgba(80, 180, 255, 0.25),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -3px 0 rgba(0,0,0,0.4);
+  transition: transform 80ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  user-select: none;
+}
+.gear-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(170, 220, 255, 0.85);
+  box-shadow:
+    0 0 22px rgba(120, 200, 255, 0.45),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -3px 0 rgba(0,0,0,0.45);
+}
+.gear-btn:active { transform: translateY(1px); }
+.gear-btn .gear-icon { font-size: 22px; line-height: 1; }
+.gear-btn .gear-label {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+.gear-btn .gear-sub {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.85;
+  letter-spacing: 0.4px;
+}
+
+/* Gear modal --------------------------------------------------- */
+.gear-modal { max-width: 540px; }
+.gear-bank {
+  font-size: 13px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: rgba(120, 200, 255, 0.06);
+  border: 1px solid rgba(120, 200, 255, 0.25);
+  border-radius: 6px;
+}
+.gear-bank strong { color: #cfe7ff; }
+.gear-bank .muted { display: block; margin-top: 4px; font-size: 11px; }
+.gear-list { display: flex; flex-direction: column; gap: 10px; }
+.gear-row {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  border-left: 3px solid rgba(120, 200, 255, 0.6);
+  border-radius: 6px;
+}
+.gear-row .gear-row-icon { font-size: 26px; text-align: center; }
+.gear-row .gear-row-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+.gear-row .gear-row-desc {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.gear-row .gear-row-effect {
+  font-size: 11.5px;
+  margin-top: 4px;
+  color: #aee0ff;
+}
+.gear-row .gear-row-effect .gear-arrow { color: var(--muted); }
+.gear-row .gear-row-buy {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 110px;
+}
+.gear-row button.gear-buy {
+  background: linear-gradient(180deg, #2a4f6f, #163149);
+  color: #cfe7ff;
+  border: 1px solid rgba(120, 200, 255, 0.55);
+  border-radius: 5px;
+  padding: 7px 10px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  letter-spacing: 0.4px;
+  transition: background 120ms, border-color 120ms;
+}
+.gear-row button.gear-buy:hover:not(:disabled) {
+  background: linear-gradient(180deg, #355f83, #1a3a55);
+  border-color: rgba(170, 220, 255, 0.85);
+}
+.gear-row button.gear-buy:disabled {
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  cursor: not-allowed;
+  border-color: var(--line);
+}
+.gear-row .gear-row-pips {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+}
+.gear-row .gear-pip {
+  width: 10px;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.gear-row .gear-pip.on {
+  background: linear-gradient(180deg, #6fd0ff, #2b7fb8);
+  border-color: rgba(170, 220, 255, 0.65);
+  box-shadow: 0 0 6px rgba(120, 200, 255, 0.55);
+}
+.gear-row.maxed { border-left-color: #ffd866; }
+.gear-row.maxed .gear-row-effect { color: #ffd866; }
+
+/* Floating "🧪 Beta" pill in the top-right of the ocean — links to the
+   gear-enabled beta page. Kept small so it doesn't fight the slot stack
+   in the top-left for visual real estate. */
+.beta-link {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 10;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #d6c2ff;
+  background: linear-gradient(180deg, rgba(120, 80, 200, 0.30) 0%, rgba(60, 40, 100, 0.18) 100%);
+  border: 1px solid rgba(180, 140, 255, 0.55);
+  border-radius: 999px;
+  text-decoration: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+  box-shadow: 0 0 12px rgba(140, 100, 220, 0.30), inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: transform 100ms ease, border-color 150ms ease, color 150ms ease, box-shadow 200ms ease;
+  user-select: none;
+}
+.beta-link:hover {
+  color: #fff;
+  border-color: rgba(220, 180, 255, 0.95);
+  box-shadow: 0 0 16px rgba(170, 130, 240, 0.55), inset 0 1px 0 rgba(255,255,255,0.07);
+  transform: translateY(-1px);
+}
+@media (max-width: 760px) {
+  .beta-link { top: 8px; right: 8px; padding: 4px 8px; font-size: 10px; letter-spacing: 1px; }
+}
+
+/* Beta page intro modal — gear-themed walkthrough that pops on first
+   visit. Reuses .howto-overlay infrastructure. */
+.beta-intro-modal { max-width: 560px; }
+.beta-intro-modal .beta-intro-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #d6c2ff;
+  border: 1px solid rgba(180, 140, 255, 0.6);
+  border-radius: 999px;
+  padding: 3px 9px;
+  margin-bottom: 10px;
+  background: rgba(120, 80, 200, 0.16);
+}
+.beta-intro-modal .beta-intro-blurb {
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  color: var(--text);
+  opacity: 0.92;
+}
+.beta-intro-modal .beta-intro-list {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.beta-intro-modal .beta-intro-list li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 9px 11px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--line);
+  border-left: 3px solid rgba(180, 140, 255, 0.6);
+  border-radius: 6px;
+}
+.beta-intro-modal .beta-intro-list .bi-icon { font-size: 22px; line-height: 1; text-align: center; }
+.beta-intro-modal .beta-intro-list strong { color: #d6c2ff; }
+.beta-intro-modal .beta-intro-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+.beta-intro-modal .beta-intro-btn {
+  background: linear-gradient(180deg, #6e44b6, #3a1f7a);
+  color: #fff;
+  border: 1px solid rgba(220, 180, 255, 0.7);
+  border-radius: 6px;
+  padding: 9px 18px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+.beta-intro-modal .beta-intro-btn:hover {
+  background: linear-gradient(180deg, #8556d4, #4d2999);
+  border-color: rgba(240, 210, 255, 0.95);
+}
+
+/* First-open welcome screen for the gear menu */
+.gear-welcome {
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, rgba(120, 200, 255, 0.10) 0%, rgba(120, 200, 255, 0.02) 100%);
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gear-welcome h3 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: #cfe7ff;
+}
+.gear-welcome p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  opacity: 0.92;
+}
+.gear-welcome p strong { color: #ffd866; }
+.gear-welcome ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+  opacity: 0.9;
+}
+.gear-welcome .gear-welcome-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.gear-welcome .gear-welcome-btn {
+  background: linear-gradient(180deg, #2a4f6f, #163149);
+  color: #cfe7ff;
+  border: 1px solid rgba(120, 200, 255, 0.6);
+  border-radius: 5px;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+.gear-welcome .gear-welcome-btn:hover {
+  border-color: rgba(170, 220, 255, 0.85);
+}
+
+/* Sub gear visuals -------------------------------------------- */
+.sub-gear {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+/* Reinforced Hull: rivets ride along the side of the sub. More levels = more rivets. */
+.sub-gear .gear-hull {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 18%;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.sub-gear .gear-hull span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #d8d3c0;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+/* Bonus Stabilizer: glowing halo behind the sub. */
+.sub-gear .gear-stab {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,210,120,0.35) 0%, rgba(255,210,120,0) 65%);
+  animation: gearStabPulse 2.4s ease-in-out infinite;
+}
+@keyframes gearStabPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.95; transform: scale(1.08); }
+}
+/* Pearl Compressor: a string of pearls along the top stripe. */
+.sub-gear .gear-comp {
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+}
+.sub-gear .gear-comp span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ffffff, #cfe7ff 50%, #6a8ea8 100%);
+  box-shadow: 0 0 4px rgba(180, 220, 255, 0.7);
+}
+/* Lucky Salvage Charm: a small clover charm dangling off the front of the sub. */
+.sub-gear .gear-luck {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  line-height: 1;
+  text-shadow:
+    0 0 6px rgba(120, 255, 160, 0.85),
+    0 0 12px rgba(255, 220, 120, 0.45);
+  animation: gearLuckSway 1.6s ease-in-out infinite alternate;
+}
+@keyframes gearLuckSway {
+  from { transform: translateY(-50%) rotate(-12deg); }
+  to   { transform: translateY(-50%) rotate(12deg);  }
+}
+/* Salvager's Insight: a soft glowing star that hovers above the sub,
+   pulsing to telegraph the bonus XP gain. */
+.sub-gear .gear-insight {
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  line-height: 1;
+  color: #ffe680;
+  text-shadow:
+    0 0 6px rgba(255, 220, 100, 0.95),
+    0 0 14px rgba(255, 200, 80, 0.55);
+  animation: gearInsightPulse 1.6s ease-in-out infinite alternate;
+}
+@keyframes gearInsightPulse {
+  from { transform: translateX(-50%) scale(0.9);  filter: brightness(0.85); }
+  to   { transform: translateX(-50%) scale(1.15); filter: brightness(1.25); }
+}
+
 /* Loot effects -------------------------------------------------- */
 .loot-fx {
   position: absolute;
@@ -2300,6 +2678,15 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
     font-size: 9.5px;
     padding: 4px 6px;
   }
+  .gear-btn {
+    left: 144px;     /* boost left(12) + width(124) + 8 gap */
+    bottom: 12px;
+    width: 72px;
+    height: 72px;
+  }
+  .gear-btn .gear-icon { font-size: 18px; }
+  .gear-btn .gear-label { font-size: 10px; letter-spacing: 1.1px; }
+  .gear-btn .gear-sub { font-size: 9px; }
   .boost-label { font-size: 14px; letter-spacing: 1.1px; }
   .boost-sub { font-size: 9px; letter-spacing: 1.1px; }
   /* Reveal popup smaller on phone */
@@ -2339,6 +2726,9 @@ button.ghost:hover { color: var(--bad); border-color: var(--bad); }
   .boost-btn { width: 112px; height: 64px; }
   .boost-hint { width: 112px; bottom: 84px; }
   .boost-label { font-size: 13px; }
+  .gear-btn { left: 132px; width: 64px; height: 64px; }
+  .gear-btn .gear-icon { font-size: 16px; }
+  .gear-btn .gear-label { font-size: 9.5px; }
   .chest-tray { bottom: 132px; left: 14px; }
   .chest-haul { bottom: 200px; width: 220px; left: 14px; }
   .chest-haul-row { font-size: 13px; padding: 7px 10px; }
