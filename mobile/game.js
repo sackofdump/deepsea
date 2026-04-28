@@ -148,9 +148,10 @@ const UPGRADE_DEFS = [
     name: "Cargo Hold",
     desc: "Cargo capacity",
     stat: "cargoMax",
-    // Flatter curve + level cap so the bar actually fills on realistic
-    // dives — old 1.08 mult inflated late-game cargo to ~100k+ kg.
-    base: 4, add: 2, mult: 1.04,
+    // Bigger starting capacity (10 kg) + slightly faster early growth so
+    // the bar isn't constantly choking a new player. Mult stays at 1.04 so
+    // late-game still doesn't explode.
+    base: 10, add: 3, mult: 1.04,
     baseCost: 30, costMult: 1.6,
     suffix: " kg",
     maxLevel: 50,

@@ -276,11 +276,11 @@ const UPGRADE_DEFS = [
     name: "Cargo Hold",
     desc: "Cargo capacity",
     stat: "cargoMax",
-    // Flatter curve than the original 1.08/+4 — that exploded past 100k kg
-    // by L100 and left the bar at ~1% fill. 1.04/+2 keeps growth tame
-    // (L100 ≈ 1440 kg, L200 ≈ 21k kg) without an explicit cap, so it stays
-    // an infinite-progression upgrade.
-    base: 4, add: 2, mult: 1.04,
+    // Bigger starting capacity (10 kg → fits a couple of items immediately)
+    // and slightly faster early growth so the bar isn't constantly choking
+    // a new player. Mult stays at 1.04 so late-game still doesn't explode
+    // (L100 ≈ 1.7k kg) — infinite progression, just kinder up front.
+    base: 10, add: 3, mult: 1.04,
     baseCost: 30, costMult: 1.6,
     suffix: " kg",
   },
@@ -1727,12 +1727,16 @@ function updateUpgrades() {
     // Plan the purchase against current cash to figure out cost + count.
     const plan = planBulkBuy(def, lvl, target, state.cash);
     // For x1 / x10, show the full requested cost even if unaffordable so the
-    // player can see what they're saving up for. Max shows what's actually
-    // affordable right now.
+    // player can see what they're saving up for. Max shows what's affordable
+    // right now — but falls back to the next-1-upgrade cost when broke so
+    // the player still sees the price tag they're saving toward (just grayed
+    // out via :disabled), instead of "$0".
     const showCost = (buyMode === "max")
-      ? plan.total
+      ? (plan.count >= 1 ? plan.total : upgradeCost(def, lvl))
       : planFullCost(def, lvl, target);
-    const showCount = (buyMode === "max") ? plan.count : target;
+    const showCount = (buyMode === "max")
+      ? (plan.count >= 1 ? plan.count : 1)
+      : target;
     const fixed = def.fixed ?? 0;
     const curr = statValue(def, lvl);
     const next = statValue(def, lvl + Math.max(1, showCount));
