@@ -279,6 +279,12 @@ const UPGRADE_DEFS = [
     base: 4, add: 4, mult: 1.08,
     baseCost: 30, costMult: 1.6,
     suffix: " kg",
+    // Capped at the level where filling cargo in a single dive becomes
+    // impossible. Worst-case dive: 1s descent at the 500-pick/sec hard cap
+    // + 5s treasure-map linger ≈ 517 picks, doubled by Lucky Current ≈ 1034
+    // weight-adds, max ~18 kg per pick = ~18,600 kg. cargoMax(80) ≈ 25,400 kg
+    // gives a comfortable buffer past that ceiling.
+    maxLevel: 80,
   },
   {
     id: "sonar",
@@ -1354,16 +1360,24 @@ async function catchUpOffline() {
 // ----- UI --------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 
+// Short-scale magnitude suffixes. Each entry covers 3 powers of 10. Going
+// well past Postgres `numeric`'s practical use so the leaderboard never
+// needs to be re-extended every time someone passes a new threshold.
+const FMT_SUFFIXES = [
+  "K",  "M",   "B",   "T",   "Qa",  "Qi",  "Sx",  "Sp",  "Oc",  "No",
+  "Dc", "UDc", "DDc", "TDc", "QaDc","QiDc","SxDc","SpDc","OcDc","NoDc",
+  "Vg", "UVg", "DVg", "TVg", "QaVg","QiVg","SxVg","SpVg","OcVg","NoVg",
+  "Tg",
+];
 function fmt(n) {
   if (!isFinite(n)) return "—";
   if (n < 1000) return Math.floor(n).toString();
-  if (n < 1e6)  return (n / 1e3).toFixed(2) + "K";
-  if (n < 1e9)  return (n / 1e6).toFixed(2) + "M";
-  if (n < 1e12) return (n / 1e9).toFixed(2) + "B";
-  if (n < 1e15) return (n / 1e12).toFixed(2) + "T";
-  if (n < 1e18) return (n / 1e15).toFixed(2) + "Qa";
-  if (n < 1e21) return (n / 1e18).toFixed(2) + "Qi";
-  if (n < 1e24) return (n / 1e21).toFixed(2) + "Sx";
+  // Walk 1000-fold through the suffix table; each step is +3 powers of 10.
+  let scaled = n / 1000;
+  for (let i = 0; i < FMT_SUFFIXES.length; i++) {
+    if (scaled < 1000) return scaled.toFixed(2) + FMT_SUFFIXES[i];
+    scaled /= 1000;
+  }
   return n.toExponential(2);
 }
 
@@ -1375,8 +1389,12 @@ let buyMode = "1";
 // Plan a bulk purchase: how many levels can we actually buy at the given
 // budget, capped at `target` (Infinity for max mode). Returns { count, total }.
 function planBulkBuy(def, startLvl, target, cash) {
+  // Respect per-upgrade maxLevel when set (e.g., Cargo Hold's hard cap so
+  // players don't waste cash on capacity past what one dive can ever fill).
+  const remaining = def.maxLevel != null ? Math.max(0, def.maxLevel - startLvl) : Infinity;
+  const effTarget = Math.min(target, remaining);
   let count = 0, total = 0;
-  while (count < target && count < 10000) {
+  while (count < effTarget && count < 10000) {
     const c = upgradeCost(def, startLvl + count);
     if (total + c > cash) break;
     total += c;
@@ -1445,6 +1463,7 @@ function updateUpgrades() {
     const row = upgradeRows[def.id];
     if (!row) continue;
     const lvl = state.upgrades[def.id];
+    const maxed = def.maxLevel != null && lvl >= def.maxLevel;
     const target = buyTarget();
     // Plan the purchase against current cash to figure out cost + count.
     const plan = planBulkBuy(def, lvl, target, state.cash);
@@ -1454,25 +1473,31 @@ function updateUpgrades() {
     const showCost = (buyMode === "max")
       ? plan.total
       : planFullCost(def, lvl, target);
-    const showCount = (buyMode === "max") ? plan.count : target;
+    const remaining = def.maxLevel != null ? Math.max(0, def.maxLevel - lvl) : Infinity;
+    const showCount = (buyMode === "max") ? plan.count : Math.min(target, remaining);
     const fixed = def.fixed ?? 0;
     const curr = statValue(def, lvl);
     const next = statValue(def, lvl + Math.max(1, showCount));
-    row.lvl.textContent = `Lv ${lvl}`;
-    row.meta.textContent = `${def.desc}: ${curr.toFixed(fixed)}${def.suffix} → ${next.toFixed(fixed)}${def.suffix}`;
-    const amountText = `$${fmt(showCost)}`;
+    const lvlLabel = def.maxLevel != null ? `Lv ${lvl}/${def.maxLevel}` : `Lv ${lvl}`;
+    row.lvl.textContent = lvlLabel;
+    row.meta.textContent = maxed
+      ? `${def.desc}: ${curr.toFixed(fixed)}${def.suffix} (max)`
+      : `${def.desc}: ${curr.toFixed(fixed)}${def.suffix} → ${next.toFixed(fixed)}${def.suffix}`;
+    const amountText = maxed ? "MAX" : `$${fmt(showCost)}`;
     if (row.amount.textContent !== amountText) row.amount.textContent = amountText;
-    const countText = (buyMode === "1") ? "" : `×${showCount}`;
+    const countText = (maxed || buyMode === "1") ? "" : `×${showCount}`;
     if (row.count.textContent !== countText) row.count.textContent = countText;
     // Affordability: x1/x10 require the full target; max only needs >=1.
-    const canAfford = (buyMode === "max") ? plan.count >= 1 : plan.count >= target;
+    const canAfford = !maxed && ((buyMode === "max") ? plan.count >= 1 : plan.count >= showCount && showCount > 0);
     if (row.btn.disabled === canAfford) row.btn.disabled = !canAfford;
   }
 }
 
 function planFullCost(def, startLvl, n) {
+  const remaining = def.maxLevel != null ? Math.max(0, def.maxLevel - startLvl) : Infinity;
+  const effN = Math.min(n, remaining);
   let total = 0;
-  for (let i = 0; i < n && i < 10000; i++) total += upgradeCost(def, startLvl + i);
+  for (let i = 0; i < effN && i < 10000; i++) total += upgradeCost(def, startLvl + i);
   return total;
 }
 
@@ -1480,6 +1505,7 @@ function buy(id) {
   const def = UPGRADE_DEFS.find((d) => d.id === id);
   if (!def) return;
   const lvl = state.upgrades[id];
+  if (def.maxLevel != null && lvl >= def.maxLevel) return;
   const target = buyTarget();
   // x1 / x10 are all-or-nothing — can't afford the requested count, no buy.
   if (buyMode !== "max") {

@@ -13,26 +13,26 @@ create table if not exists public.scores (
   -- players past 9.22e18 (bigint max) don't get clipped to "9.00Qi"
   -- forever. Pearls and total_earned in particular grow exponentially via
   -- prestige and deep biomes.
-  total_earned   numeric(40,0) not null default 0,
+  total_earned   numeric not null default 0,
   level          int           not null default 1,
   prestige_count int           not null default 0,
-  pearls         numeric(40,0) not null default 0,
+  pearls         numeric not null default 0,
   jackpots       int           not null default 0,
   chests         int           not null default 0,
   total_dives    int           not null default 0,
-  time_played_ms numeric(40,0) not null default 0,
+  time_played_ms numeric not null default 0,
   updated_at     timestamptz   not null default now()
 );
 
 -- Migrations for existing deployments.
 alter table public.scores
-  add column if not exists time_played_ms numeric(40,0) not null default 0;
+  add column if not exists time_played_ms numeric not null default 0;
 alter table public.scores
-  alter column total_earned   type numeric(40,0) using total_earned::numeric;
+  alter column total_earned   type numeric using total_earned::numeric;
 alter table public.scores
-  alter column pearls         type numeric(40,0) using pearls::numeric;
+  alter column pearls         type numeric using pearls::numeric;
 alter table public.scores
-  alter column time_played_ms type numeric(40,0) using time_played_ms::numeric;
+  alter column time_played_ms type numeric using time_played_ms::numeric;
 
 create index if not exists scores_total_earned_idx on public.scores (total_earned desc);
 create index if not exists scores_level_idx        on public.scores (level desc);
