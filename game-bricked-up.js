@@ -2120,15 +2120,26 @@ let _frenzySpawnCount = 0;                  // index of the next spawn this fren
 // legendary chests so the player always gets a guaranteed minimum,
 // regardless of how the 8% random rolls land.
 function startChestFrenzy(durationMs) {
-  state.chestFrenzyUntil = Date.now() + durationMs;
-  _frenzySpawnCount = 0;
-  const expected = Math.max(1, Math.floor(durationMs / CHEST_FRENZY_INTERVAL_MS));
-  _frenzyLegendarySlots = new Set();
-  while (_frenzyLegendarySlots.size < CHEST_FRENZY_FORCED_LEGENDARIES &&
-         _frenzyLegendarySlots.size < expected) {
-    _frenzyLegendarySlots.add(Math.floor(Math.random() * expected));
+  const now = Date.now();
+  const wasActive = (state.chestFrenzyUntil || 0) > now;
+  // Stack: extend the existing window instead of resetting it. A
+  // back-to-back Brick Delivery / GET BRICKED then runs for the sum of
+  // both durations and gets an additional batch of forced legendaries.
+  state.chestFrenzyUntil = (wasActive ? state.chestFrenzyUntil : now) + durationMs;
+  if (!wasActive) {
+    _frenzySpawnCount = 0;
+    _frenzyLegendarySlots = new Set();
   }
-  runChestFrenzy();
+  // Pick more forced-legendary slots inside the (new or extended) window.
+  // Indexes are absolute spawn positions starting from _frenzySpawnCount,
+  // so re-running adds slots ahead of the current spawn cursor.
+  const expected = Math.max(1, Math.floor(durationMs / CHEST_FRENZY_INTERVAL_MS));
+  let added = 0;
+  while (added < CHEST_FRENZY_FORCED_LEGENDARIES && added < expected) {
+    _frenzyLegendarySlots.add(_frenzySpawnCount + Math.floor(Math.random() * expected));
+    added++;
+  }
+  if (!wasActive) runChestFrenzy();
 }
 
 function runChestFrenzy() {
@@ -2334,12 +2345,20 @@ const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   jackpot: { icon: "🏗", name: "GET BRICKED",         desc: "All bonuses · 30s (legendary 15s)!", duration: 30000 },
 };
 
+// Stacking-duration helper: if the bonus is still active (until > now),
+// add `dur` on top of the existing end time so back-to-back hits of the
+// same bonus accumulate instead of resetting. If it's expired (or never
+// started), start fresh at now + dur.
+function stackUntil(currentUntil, now, dur) {
+  return Math.max(currentUntil || 0, now) + dur;
+}
+
 // Tier → state mutation. Lives here (not in SLOT_BONUSES data) so event configs
 // loaded from a different script tag don't have to close over `state`.
 function applySlotBonus(tier, now, duration, bonus) {
   // Gear: hazard duration shrinks (Reinforced Hull); positive bonuses extend (Bonus Stabilizer).
   if (tier === "shark") {
-    state.sharkSlowUntil = now + Math.round(duration * hazardDurationMult());
+    state.sharkSlowUntil = stackUntil(state.sharkSlowUntil, now, Math.round(duration * hazardDurationMult()));
     return;
   }
   const ext = bonusDurationMult();
@@ -2348,29 +2367,31 @@ function applySlotBonus(tier, now, duration, bonus) {
     if (bonus && bonus.chestFrenzy) {
       // Chest Frenzy now picks up Stabilizer too — feed it the gear-
       // extended duration so the burst window grows with stab levels.
-      // startChestFrenzy uses CHEST_FRENZY_INTERVAL_MS and that duration
-      // to pre-pick the forced-legendary spawn slots.
+      // startChestFrenzy stacks internally if a frenzy is already running.
       const baseFrenzy = (bonus && bonus.duration) || 10000;
       startChestFrenzy(Math.round(baseFrenzy * ext));
     } else {
-      state.encounterCargoUntil = now + dur;
+      state.encounterCargoUntil = stackUntil(state.encounterCargoUntil, now, dur);
       state.encounterCargoAmt   = (bonus && bonus.cargoMult) || 2;
     }
     return;
   }
   if (tier === "minor")   {
-    state.encounterValueUntil = now + dur;
+    state.encounterValueUntil = stackUntil(state.encounterValueUntil, now, dur);
     state.encounterValueAmt   = (bonus && bonus.valueMult) || 2;
     // Per-bonus xpMult is opt-in (Butterfly Kiss = 5×; Mermaid's Kiss = none).
     if (bonus && bonus.xpMult && bonus.xpMult > 1) {
-      state.encounterXpUntil = now + dur;
+      state.encounterXpUntil = stackUntil(state.encounterXpUntil, now, dur);
       state.encounterXpAmt   = bonus.xpMult;
     }
     return;
   }
-  if (tier === "major")   { state.encounterLegendaryUntil = now + dur; return; }
+  if (tier === "major")   {
+    state.encounterLegendaryUntil = stackUntil(state.encounterLegendaryUntil, now, dur);
+    return;
+  }
   if (tier === "jackpot") {
-    state.encounterValueUntil     = now + dur;
+    state.encounterValueUntil = stackUntil(state.encounterValueUntil, now, dur);
     // Jackpot stacks all positive bonuses, so it inherits whatever
     // multipliers / behaviors the mini (current/frenzy) and minor (kiss)
     // tiers carry. Mini tier here can be either a cargo mult OR a chest
@@ -2382,18 +2403,18 @@ function applySlotBonus(tier, now, duration, bonus) {
       const baseFrenzy = (miniBonus && miniBonus.duration) || 10000;
       startChestFrenzy(Math.round(baseFrenzy * ext));
     } else {
-      state.encounterCargoUntil = now + dur;
+      state.encounterCargoUntil = stackUntil(state.encounterCargoUntil, now, dur);
       state.encounterCargoAmt   = (miniBonus && miniBonus.cargoMult) || 2;
     }
     state.encounterValueAmt = (minorBonus && minorBonus.valueMult) || 2;
     if (minorBonus && minorBonus.xpMult && minorBonus.xpMult > 1) {
-      state.encounterXpUntil = now + dur;
+      state.encounterXpUntil = stackUntil(state.encounterXpUntil, now, dur);
       state.encounterXpAmt   = minorBonus.xpMult;
     }
     // Legendary picks always cap at the standalone major duration even on
     // jackpot so the highest-rarity floor doesn't run for the full 30s.
     const majorBase = (SLOT_BONUSES.major && SLOT_BONUSES.major.duration) || duration;
-    state.encounterLegendaryUntil = now + Math.round(majorBase * ext);
+    state.encounterLegendaryUntil = stackUntil(state.encounterLegendaryUntil, now, Math.round(majorBase * ext));
   }
 }
 
