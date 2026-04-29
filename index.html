@@ -355,16 +355,16 @@
   });
 })();
 
-// Ascension countdown — tied to the Bricked Up event end (2026-04-29
-// 23:59:59 local). Same Date constructor as bricked-up.html so the splash
-// timer matches what's running in the live event. Card stays disabled
-// until launch; once the timer hits zero, it becomes a live link.
+// Ascension launches 5 min after Bricked Up ends — Apr 29 2026
+// 9:05 PM CDT (= Apr 30 02:05 UTC). Hard-coded UTC so every player
+// sees the same launch instant. Card stays disabled until then; once
+// the timer hits zero it becomes a live link.
 (function () {
   var card  = document.getElementById("ascensionCard");
   var cta   = document.getElementById("ascensionCardCta");
   var badge = document.getElementById("ascensionCardBadge");
   if (!card || !cta || !badge) return;
-  var launchAt = new Date(2026, 3, 29, 23, 59, 59).getTime();
+  var launchAt = Date.UTC(2026, 3, 30, 2, 5, 0);
 
   function tick() {
     var now = Date.now();
