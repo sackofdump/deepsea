@@ -3329,6 +3329,13 @@ async function handleAccountSignIn(email, password) {
 async function handleAccountSignOut() {
   if (!supaClient) return;
   await supaClient.auth.signOut();
+  // Drop the local save so the next session (anonymous or another account)
+  // can't inherit this account's progress. Without this, syncCloudSaveOnBoot
+  // sees a fresh user with no cloud row and pushes the leftover local state
+  // up under the new identity. Keep the panel preferences around — they're
+  // per-device, not per-account.
+  try { localStorage.removeItem(SAVE_KEY); } catch {}
+  try { localStorage.removeItem(_LOGIN_SKIP_KEY); } catch {}
   location.reload();
 }
 
