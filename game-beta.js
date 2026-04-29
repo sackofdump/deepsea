@@ -1343,9 +1343,9 @@ function creditItem(item, s) {
   // collect) and returned for the eventual cash credit at the surface.
   const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
   // Treasure Map is the jackpot encounter — every forced-legendary pick is
-  // worth 200× on top of all other multipliers, so a TM dive absolutely
+  // worth 350× on top of all other multipliers, so a TM dive absolutely
   // crushes a normal dive's value.
-  const treasureMult = legendaryEncounterActive() ? 200 : 1;
+  const treasureMult = legendaryEncounterActive() ? 350 : 1;
   const v = Math.ceil(item.value * valueMult * treasureMult);
   state.xp += v * xpBonusMult() * xpEncounterMult();
   checkLevelUp();
