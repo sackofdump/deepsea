@@ -7,7 +7,10 @@
 (function () {
   "use strict";
 
-  var END = new Date(2026, 3, 29, 23, 59, 59).getTime(); // Apr 29 2026 23:59:59 local
+  // Bricked Up ends Apr 29 2026 9:00 PM CDT (= Apr 30 02:00 UTC).
+  // Hard-coded UTC so all players see the same cutoff. Keep in sync
+  // with EVENT_CONFIG.endAt in bricked-up.html.
+  var END = Date.UTC(2026, 3, 30, 2, 0, 0);
   // Absolute path so this works from /, /mobile/, or any other subpath.
   var HREF = "/bricked-up.html";
 
