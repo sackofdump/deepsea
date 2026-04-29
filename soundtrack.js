@@ -1,42 +1,74 @@
-// Bricked Up soundtrack: loops s1..s8.mp3 in order, top-right widget
-// for on/off + volume. Settings persist in localStorage. Music defaults
+// Bricked Up soundtrack: 25-track playlist (s1..s8 + sa1..sa17). Every
+// fresh page load builds a new cycle that opens with sa9, then s2, then
+// a shuffle of the remaining 23 tracks. After all 25 tracks have played
+// the cycle regenerates with the same rules. Top-right widget (just
+// left of the gear sign) for on/off + prev/next + volume. Music defaults
 // ON; first user interaction unblocks the browser autoplay gate.
 (function () {
   "use strict";
 
-  var TRACKS = [
+  // Full pool, in deterministic order. The cycle pulls from this list.
+  var ALL_TRACKS = [
     "s1.mp3", "s2.mp3", "s3.mp3", "s4.mp3",
     "s5.mp3", "s6.mp3", "s7.mp3", "s8.mp3",
+    "sa1.mp3",  "sa2.mp3",  "sa3.mp3",  "sa4.mp3",
+    "sa5.mp3",  "sa6.mp3",  "sa7.mp3",  "sa8.mp3",  "sa9.mp3",
+    "sa10.mp3", "sa11.mp3", "sa12.mp3", "sa13.mp3",
+    "sa14.mp3", "sa15.mp3", "sa16.mp3", "sa17.mp3",
   ];
+  var FIRST_TRACK  = "sa9.mp3";
+  var SECOND_TRACK = "s2.mp3";
+
   var SETTINGS_KEY = "brickedUp_music_v1";
 
   function loadSettings() {
     try {
       var raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return { on: true, vol: 0.25, idx: 1 };
+      if (!raw) return { on: true, vol: 0.25 };
       var obj = JSON.parse(raw);
       return {
         on:  typeof obj.on  === "boolean" ? obj.on : true,
-        vol: typeof obj.vol === "number"  ? Math.max(0, Math.min(1, obj.vol)) : 0.5,
-        idx: typeof obj.idx === "number"  ? Math.max(0, Math.min(TRACKS.length - 1, Math.floor(obj.idx))) : 1,
+        vol: typeof obj.vol === "number"  ? Math.max(0, Math.min(1, obj.vol)) : 0.25,
       };
     } catch (e) {
-      return { on: true, vol: 0.25, idx: 1 };
+      return { on: true, vol: 0.25 };
     }
   }
   function saveSettings(s) {
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
+    // Only the on/off + volume are persisted. Position resets each load.
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ on: s.on, vol: s.vol })); } catch (e) {}
+  }
+
+  // Fisher–Yates shuffle in place.
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  // sa9 first, s2 second, then a fresh shuffle of everything else. No
+  // duplicates within a cycle — guaranteed since `rest` is the unique
+  // ALL_TRACKS minus the two pinned tracks.
+  function buildCycle() {
+    var rest = ALL_TRACKS.filter(function (t) {
+      return t !== FIRST_TRACK && t !== SECOND_TRACK;
+    });
+    shuffle(rest);
+    return [FIRST_TRACK, SECOND_TRACK].concat(rest);
   }
 
   var settings = loadSettings();
-  // Always boot on s2 (idx 1) regardless of whichever track was playing
-  // last session — the player can step forward/back during the session.
-  settings.idx = 1;
   saveSettings(settings);
+
+  var cycle = buildCycle();
+  var idx = 0; // position within `cycle`
+
   var audio = new Audio();
   audio.preload = "auto";
   audio.volume = settings.vol;
-  audio.src = TRACKS[settings.idx];
+  audio.src = cycle[idx];
 
   var btn, vol, trackLabel, prevBtn, nextBtn;
 
@@ -44,14 +76,25 @@
     if (!btn) return;
     btn.textContent = settings.on ? "🎵 ON" : "🎵 OFF";
     btn.classList.toggle("off", !settings.on);
-    trackLabel.textContent = "S" + (settings.idx + 1) + "/" + TRACKS.length;
+    trackLabel.textContent = "Track " + (idx + 1) + "/" + cycle.length;
   }
 
+  // Step the cursor by `delta`. After advancing past the end of a cycle,
+  // build a fresh cycle (sa9, s2, new shuffle of the rest) and restart
+  // at position 0. Going back past 0 wraps to the last track of the
+  // current cycle for parity with the prev button's previous behavior.
   function jump(delta) {
-    var n = TRACKS.length;
-    settings.idx = ((settings.idx + delta) % n + n) % n;
-    saveSettings(settings);
-    audio.src = TRACKS[settings.idx];
+    var n = cycle.length;
+    var next = idx + delta;
+    if (next >= n) {
+      cycle = buildCycle();
+      idx = 0;
+    } else if (next < 0) {
+      idx = n - 1;
+    } else {
+      idx = next;
+    }
+    audio.src = cycle[idx];
     if (settings.on) audio.play().catch(function () {});
     refreshUI();
   }
@@ -64,8 +107,7 @@
   function injectStyles() {
     if (document.getElementById("music-ctrl-style")) return;
     // Worksite radio aesthetic: brick-red body, hardhat-yellow trim, a
-    // hazard-stripe lid up top. Lives in the bottom-right corner so it
-    // dodges the gear sign (top-right) and the boost button (bottom-left).
+    // hazard-stripe lid up top.
     var css = ""
       // Anchored to the top-right just left of the gear sign
       // (.gear-btn is right:20 top:20 width:84 in style.css).
@@ -76,7 +118,7 @@
       +   "background:linear-gradient(180deg,#8a3a25 0%,#5a2515 100%);"
       +   "font-family:'Sora',sans-serif;"
       +   "box-shadow:0 4px 0 #1a1a1a,0 8px 18px rgba(0,0,0,.55);"
-      +   "min-width:206px;"
+      +   "min-width:226px;"
       + "}"
       // Hazard-stripe lid — same visual language as the GET BRICKED banner.
       + ".music-ctrl::before{"
@@ -106,9 +148,9 @@
       +   "flex:1;width:100%;accent-color:#ffea2a;cursor:pointer;margin:0;"
       + "}"
       + ".music-ctrl .music-track{"
-      +   "font-size:10px;color:#ffea2a;letter-spacing:.8px;font-weight:800;"
-      +   "min-width:36px;text-align:center;font-variant-numeric:tabular-nums;"
-      +   "text-shadow:0 1px 0 #1a1a1a;"
+      +   "font-size:10px;color:#ffea2a;letter-spacing:.5px;font-weight:800;"
+      +   "min-width:64px;text-align:center;font-variant-numeric:tabular-nums;"
+      +   "text-shadow:0 1px 0 #1a1a1a;white-space:nowrap;"
       + "}"
       + ".music-ctrl .music-vol-icon{"
       +   "font-size:11px;color:#ffea2a;letter-spacing:.5px;font-weight:700;"
@@ -116,13 +158,13 @@
       // Gear-btn shrinks at the same breakpoints in style.css (720 and
       // 380), so slide the music widget in to stay flush against it.
       + "@media (max-width:720px){"
-      +   ".music-ctrl{top:12px;right:96px;min-width:170px;}"
+      +   ".music-ctrl{top:12px;right:96px;min-width:190px;}"
       +   ".music-ctrl button{font-size:11px;padding:2px 6px;}"
       + "}"
-      // Below ~480px the widget would overlap the gear sign before it can
-      // fit at all — drop it to its own row directly under the gear sign.
+      // Below ~480px the widget would overlap the gear sign before it
+      // can fit at all — drop it to its own row directly under the gear.
       + "@media (max-width:480px){"
-      +   ".music-ctrl{top:auto;bottom:12px;right:12px;min-width:160px;}"
+      +   ".music-ctrl{top:auto;bottom:12px;right:12px;min-width:180px;}"
       + "}";
     var s = document.createElement("style");
     s.id = "music-ctrl-style";
@@ -135,7 +177,7 @@
     var wrap = document.createElement("div");
     wrap.className = "music-ctrl";
 
-    // Row 1: prev | ON/OFF (with track label) | next
+    // Row 1: prev | ON/OFF | next
     var row1 = document.createElement("div");
     row1.className = "music-row";
 
@@ -158,7 +200,7 @@
     row1.appendChild(btn);
     row1.appendChild(nextBtn);
 
-    // Row 2: 🔊 icon + volume slider + Sn/8 label
+    // Row 2: 🔊 + volume slider + Track N/25 label
     var row2 = document.createElement("div");
     row2.className = "music-row";
 
