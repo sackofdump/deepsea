@@ -332,28 +332,6 @@
   var seen = false;
   try { seen = !!localStorage.getItem(KEY); } catch (e) {}
   if (forceShow || !seen) overlay.hidden = false;
-  // Play welcome.m4a on first user interaction inside the splash —
-  // browsers block autoplay until a gesture, so click counts. Volume
-  // matches the saved music level if present, else 10%.
-  var welcomePlayed = false;
-  function playWelcome() {
-    if (welcomePlayed) return;
-    welcomePlayed = true;
-    try {
-      var savedVol = 0.1;
-      try {
-        var raw = localStorage.getItem("brickedUp_music_v1");
-        if (raw) {
-          var s = JSON.parse(raw);
-          if (typeof s.vol === "number") savedVol = Math.max(0, Math.min(1, s.vol));
-        }
-      } catch (e) {}
-      var a = new Audio("music/welcome.m4a");
-      a.volume = savedVol;
-      a.play().catch(function () {});
-    } catch (e) {}
-  }
-  overlay.addEventListener("click", playWelcome, { capture: true });
   // Dismiss = pick Deep Sea (this page). Other cards are <a> links and
   // navigate normally.
   overlay.querySelectorAll('[data-action="dismiss"]').forEach(function (el) {
