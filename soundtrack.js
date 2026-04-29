@@ -29,15 +29,15 @@
   function loadSettings() {
     try {
       var raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return { on: true, vol: 0.25, sfxVol: 0.5 };
+      if (!raw) return { on: true, vol: 0.05, sfxVol: 0.05 };
       var obj = JSON.parse(raw);
       return {
         on:     typeof obj.on     === "boolean" ? obj.on : true,
-        vol:    typeof obj.vol    === "number"  ? Math.max(0, Math.min(1, obj.vol))    : 0.25,
-        sfxVol: typeof obj.sfxVol === "number"  ? Math.max(0, Math.min(1, obj.sfxVol)) : 0.5,
+        vol:    typeof obj.vol    === "number"  ? Math.max(0, Math.min(1, obj.vol))    : 0.05,
+        sfxVol: typeof obj.sfxVol === "number"  ? Math.max(0, Math.min(1, obj.sfxVol)) : 0.05,
       };
     } catch (e) {
-      return { on: true, vol: 0.25, sfxVol: 0.5 };
+      return { on: true, vol: 0.05, sfxVol: 0.05 };
     }
   }
   function saveSettings(s) {

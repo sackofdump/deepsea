@@ -736,6 +736,13 @@ function currentBiome() {
 }
 
 function biomeIndex(level) {
+  // Ascension: biome is locked to your commission count, not your level.
+  // A whole Lv 1→100 run happens in one biome; commissioning advances
+  // to the next realm. Past BIOMES.length commissions, you stay in the
+  // last biome.
+  if (ASCENSION && ASCENSION.enabled) {
+    return Math.min(state.prestigeCount || 0, BIOMES.length - 1);
+  }
   return Math.min(Math.floor(level / LEVELS_PER_BIOME), BIOMES.length - 1);
 }
 
@@ -763,19 +770,25 @@ function rankName(tier) { return SUB_RANKS[Math.min(tier - 1, SUB_RANKS.length -
 function tierLevelRequired(tier) {
   if (tier <= 1) return 0;
   // Linear: each rank costs `levelsPerRank` levels (default 10). Themed
-  // builds can shorten the climb by setting EVENT.levelsPerRank.
+  // builds can shorten the climb by setting EVENT.levelsPerRank, and
+  // can shift the whole ladder up with EVENT.tierLevelOffset (Ascension
+  // uses offset 10 → first ascend at Lv 20, then 30, 40, ...).
   const perRank = (EVENT && EVENT.levelsPerRank) || 10;
-  return (tier - 1) * perRank;
+  const offset  = (EVENT && EVENT.tierLevelOffset) || 0;
+  return (tier - 1) * perRank + offset;
 }
-function nextTierLevel() { return tierLevelRequired(currentTier() + 1); }
-function canUpgradeSub() {
-  // Ascension mode: button is disabled until you clear BOTH the rank
-  // gate AND the Star-unlock level. Below that, no commission happens.
-  if (ASCENSION && ASCENSION.enabled && ASCENSION.starUnlockLevel) {
-    return state.level >= Math.max(nextTierLevel(), ASCENSION.starUnlockLevel);
+function nextTierLevel() {
+  let lvl = tierLevelRequired(currentTier() + 1);
+  // Ascension hard cap — once the rank-gate exceeds maxLevel, every
+  // subsequent ascension still needs the same fixed top level. Lets the
+  // ladder run "20, 30, ..., 200, 200, 200..." for endless Star farming
+  // past max rank.
+  if (ASCENSION && ASCENSION.enabled && ASCENSION.maxLevel) {
+    lvl = Math.min(lvl, ASCENSION.maxLevel);
   }
-  return state.level >= nextTierLevel();
+  return lvl;
 }
+function canUpgradeSub() { return state.level >= nextTierLevel(); }
 
 function prestigeMult() {
   if (ASCENSION && ASCENSION.enabled) return ascensionTotalMult();
@@ -810,13 +823,10 @@ function ascensionTotalMult() {
 }
 
 function pendingPearls() {
-  // Ascension mode: each commission earns 1 Star ONLY if your in-run
-  // level is at or above starUnlockLevel (default = level needed for
-  // max rank). Sub-threshold commissions still happen — they just
-  // advance rank without banking a star.
+  // Ascension mode: every ascend earns +1 Star. The rank-gate level
+  // (escalating Lv 20/30/40/...) is the only friction.
   if (ASCENSION && ASCENSION.enabled) {
-    const unlockLevel = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
-    return state.level >= unlockLevel ? 1 : 0;
+    return 1;
   }
   // Higher divisor = fewer pearls per promotion. EVENT.pearlDivisor lets
   // themed builds tune economy harshness without forking the formula.
@@ -845,8 +855,8 @@ function doPrestige() {
     const noun = newPearls === 1 ? "Star" : "Stars";
     const unlockLevel = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
     dialog = earned > 0
-      ? `Commission to ${nextName}?\n\n+ ${star} ${earned} (now ${newPearls} ${noun} · ×${fmt(newMult)} multiplier)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, run history.\nKeeps: rank, ${noun.toLowerCase()}, milestones, achievements, catalog.`
-      : `Commission to ${nextName}?\n\nRank-up only — no ${star} earned (need Lv ${unlockLevel}+, you're at Lv ${state.level}).\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, run history.\nKeeps: rank, milestones, achievements, catalog.`;
+      ? `Ascend to ${nextName}?\n\n+ ${star} ${earned} (now ${newPearls} ${noun} · ×${fmt(newMult)} multiplier)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, run history.\nKeeps: rank, ${noun.toLowerCase()}, milestones, achievements, catalog.`
+      : `Ascend to ${nextName}?\n\nRank-up only — no ${star} earned (need Lv ${unlockLevel}+, you're at Lv ${state.level}).\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, run history.\nKeeps: rank, milestones, achievements, catalog.`;
   } else {
     dialog = `Promote to ${nextName}?\n\nBank ${earned} blueprints (+${earnedPct}% brick value)\nTotal: ${newPearls} blueprints (+${totalPct}% brick value)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, drop history.\nKeeps: rank, blueprints, achievements, catalog.`;
   }
@@ -867,6 +877,23 @@ function doPrestige() {
   clearDiveLoot();
   const chestHaulRoot = $("chestHaul");
   if (chestHaulRoot) chestHaulRoot.innerHTML = "";
+  // Floating uncollected chests (.treasure-chest), in-flight reveal popups
+  // (.item-reveal), and any pinned creature drift all belong to the
+  // previous run — sweep everything so the new biome starts clean.
+  document.querySelectorAll("#ocean .treasure-chest").forEach(el => el.remove());
+  document.querySelectorAll("#ocean .item-reveal").forEach(el => el.remove());
+  // Belt + suspenders — the state.sub replacement above already resets
+  // cargo, but make absolutely sure the level/xp/cash floor is honored
+  // after every other reset has run so any straggler increment lands on
+  // a clean slate. Also re-run checkLevelUp so the level reflects xp=0.
+  state.xp = 0;
+  state.level = 1;
+  state.cash = 0;
+  // Bust the cached stats signature so the next dive uses the freshly
+  // reset upgrades (defensive — shouldn't be needed but free safety).
+  _cargoSig = null;
+  _haulRef  = undefined;
+  checkLevelUp();
   // Force the cargo + haul UI panels to rebuild from the now-empty state.
   _cargoSig = null;
   _haulRef  = undefined;
@@ -1218,31 +1245,44 @@ function achievementXpFactor() {
   return 1;
 }
 
+// Same idea for cash — achievements in ascension can dump a multi-billion
+// payout that trivializes upgrades. Default 1 (no scaling); ascension
+// builds tune via EVENT.ascension.achievementCashFactor.
+function achievementCashFactor() {
+  if (ASCENSION && ASCENSION.enabled) {
+    return ASCENSION.achievementCashFactor != null ? ASCENSION.achievementCashFactor : 1;
+  }
+  return 1;
+}
+
 function claimAchievement(id) {
   const a = ACHIEVEMENTS.find(x => x.id === id);
   if (!a) return;
   if (!state.achievements[id]) return;
   if (state.achievementsClaimed[id]) return;
-  state.cash += a.reward;
-  state.totalEarned += a.reward;
+  const cash = Math.round(a.reward * achievementCashFactor());
+  state.cash += cash;
+  state.totalEarned += cash;
   state.xp += Math.round(a.reward * achievementXpFactor());
   state.achievementsClaimed[id] = Date.now();
-  log(`🏆 ${a.name} claimed (+$${fmt(a.reward)})`, "good");
+  log(`🏆 ${a.name} claimed (+$${fmt(cash)})`, "good");
   checkLevelUp();
 }
 
 function claimAllAchievements() {
   let claimed = 0;
   let total = 0;
-  const xpFactor = achievementXpFactor();
+  const xpFactor   = achievementXpFactor();
+  const cashFactor = achievementCashFactor();
   for (const a of ACHIEVEMENTS) {
     if (!state.achievements[a.id]) continue;
     if (state.achievementsClaimed[a.id]) continue;
-    state.cash += a.reward;
-    state.totalEarned += a.reward;
+    const cash = Math.round(a.reward * cashFactor);
+    state.cash += cash;
+    state.totalEarned += cash;
     state.xp += Math.round(a.reward * xpFactor);
     state.achievementsClaimed[a.id] = Date.now();
-    total += a.reward;
+    total += cash;
     claimed += 1;
   }
   if (claimed === 0) return;
@@ -1374,6 +1414,17 @@ let _achievementsDirty = false;
 
 function tick(dtSec) {
   if (eventEnded()) return;
+  // Themed builds (Ascension splash) can pause the simulation by setting
+  // window.__GAME_PAUSED__ = true — sub stays at the surface, no loot,
+  // no encounters fire. Cleared by the page once the splash dismisses.
+  if (typeof window !== "undefined" && window.__GAME_PAUSED__) return;
+  // Themed builds can also slow the simulation by setting
+  // window.__GAME_SLOWMO__ to a value < 1 (e.g., 0.3 = 30% speed).
+  // Used by Ascension to drift into slow-mo when the player hits the
+  // cap and needs to ascend — the game stays alive but visibly stalls.
+  if (typeof window !== "undefined" && typeof window.__GAME_SLOWMO__ === "number") {
+    dtSec *= window.__GAME_SLOWMO__;
+  }
   // Accumulate time-played. Includes offline catch-up ticks and live ticks,
   // so the metric reflects total simulated game time, not wall-clock time.
   state.timePlayedMs = (state.timePlayedMs || 0) + Math.round(dtSec * 1000);
@@ -1473,9 +1524,21 @@ function checkLevelUp() {
   const prevBiomeIdx = biomeIndex(state.level);
   // Cap matches BIOMES.length × LEVELS_PER_BIOME so every authored biome
   // is reachable. Bump this if more biomes are appended.
-  const LEVEL_CAP = BIOMES.length * LEVELS_PER_BIOME;
+  let LEVEL_CAP = BIOMES.length * LEVELS_PER_BIOME;
+  // Ascension: hard cap at the next-rank threshold. Player MUST ascend
+  // to continue leveling — bar greys out at the cap and reads "Ascend
+  // to continue" (see updateUI).
+  if (ASCENSION && ASCENSION.enabled) {
+    LEVEL_CAP = Math.min(LEVEL_CAP, nextTierLevel());
+  }
   while (state.level < LEVEL_CAP && state.xp >= levelCostCumulative(state.level + 1)) {
     state.level += 1;
+  }
+  // Once we're at the cap, freeze XP at the threshold so the bar shows
+  // full and additional XP gain doesn't silently bank toward… nothing.
+  if (state.level >= LEVEL_CAP) {
+    const capXp = levelCostCumulative(LEVEL_CAP);
+    if (state.xp > capXp) state.xp = capXp;
   }
   if (!suppressFx && state.level > startLevel) {
     log(`⭐ Level up! Now Lv ${state.level}.`, "good");
@@ -1489,12 +1552,28 @@ function creditItem(item, s) {
   // The item's value is granted as XP immediately (the level bar fills as you
   // collect) and returned for the eventual cash credit at the surface.
   const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
-  // Treasure Map is the jackpot encounter — every forced-legendary pick is
-  // worth 350× on top of all other multipliers, so a TM dive absolutely
-  // crushes a normal dive's value.
-  const treasureMult = legendaryEncounterActive() ? 350 : 1;
+  // Apotheosis (legendary encounter): each forced-legendary pick is
+  // worth Nx on top of all other multipliers. Bricked Up uses 350×;
+  // Ascension uses ASCENSION.legendaryBaseMult (default 5×, much
+  // smaller) AND applies a (level/cap)^1.5 scale, so even at the cap
+  // it's a modest boost instead of an instant fortune.
+  let legendaryScale = 1;
+  let legendaryBase  = 350;
+  if (ASCENSION && ASCENSION.enabled) {
+    const cap = nextTierLevel() || 1;
+    legendaryScale = Math.min(1, Math.pow(state.level / cap, 1.5));
+    legendaryBase  = ASCENSION.legendaryBaseMult != null ? ASCENSION.legendaryBaseMult : 5;
+  }
+  const treasureMult = legendaryEncounterActive() ? Math.max(1, legendaryBase * legendaryScale) : 1;
   const v = Math.ceil(item.value * valueMult * treasureMult);
-  state.xp += v * xpBonusMult() * xpEncounterMult();
+  // Ascension: scale per-pickup XP so Lv 1 → 2 doesn't happen on the
+  // very first item. Default 0.05 (5% of cash as XP) — picks still
+  // contribute, just modestly. Tunable via ASCENSION.pickupXpFactor.
+  let pickupXpFactor = 1;
+  if (ASCENSION && ASCENSION.enabled) {
+    pickupXpFactor = ASCENSION.pickupXpFactor != null ? ASCENSION.pickupXpFactor : 0.05;
+  }
+  state.xp += v * xpBonusMult() * xpEncounterMult() * pickupXpFactor;
   checkLevelUp();
   return v;
 }
@@ -2031,9 +2110,15 @@ function updatePrestigeUI() {
   const pendingEl = $("prestigePending");
   if (pendingEl) pendingEl.textContent = pending > 0 ? `+${fmt(pending)}` : "0";
   if (nextEl) {
+    // Ascension surfaces the Star-unlock level instead of the rank-gate,
+    // because canUpgradeSub now ONLY gates on starUnlockLevel.
+    let displayLvl = reqLevel;
+    if (ascending) {
+      displayLvl = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
+    }
     nextEl.textContent = ready
       ? `${rankName(nextTier)} — ready!`
-      : `${rankName(nextTier)} @ Lv ${reqLevel}`;
+      : `${rankName(nextTier)} @ Lv ${displayLvl}`;
   }
   const badge = $("prestigeBadge");
   if (badge) {
@@ -2044,18 +2129,11 @@ function updatePrestigeUI() {
   if (btn) {
     btn.disabled = !ready;
     if (ascending) {
-      // Ascension: disabled until the higher of (rank gate, Lv 100). Once
-      // ready, always pending>0 because Lv >= unlockLevel by construction.
-      const unlockLevel = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
-      if (ready) {
-        btn.textContent = `Commission · +${pending} ${starEmoji}`;
-      } else if (state.level < unlockLevel) {
-        btn.textContent = `Requires Level ${unlockLevel}`;
-      } else {
-        // Past Lv 100 already, but the rank gate now exceeds it (rank
-        // 51+: needs Lv 102, 104, …). Surface the actual rank-gate level.
-        btn.textContent = `Requires Level ${reqLevel}`;
-      }
+      // Single source of truth: rank-gate level. Each ascend's threshold
+      // is +levelsPerRank higher than the last (Lv 20 → 30 → 40 → ...).
+      btn.textContent = ready
+        ? `Ascend`
+        : `Requires Level ${reqLevel}`;
     } else {
       btn.textContent = ready
         ? `Promote · bank ${pending} ${starEmoji}`
@@ -2158,16 +2236,22 @@ const CREATURES_PER_BIOME = (EVENT && EVENT.creatures) || {
 })();
 
 // Reveal popup used by bonus loot clicks (and other reward moments).
-function showItemReveal(item, value, tierLabel) {
+function showItemReveal(item, value, tierLabel, xpGain) {
   const ocean = $("ocean");
   if (!ocean) return;
   const reveal = document.createElement("div");
   reveal.className = `item-reveal rarity-${item.rarity}`;
+  // Optional XP line for chest reveals — surfaces the curve-based XP
+  // grant directly so the player can verify chests still feed leveling.
+  const xpLine = (xpGain && xpGain > 0)
+    ? `<div class="reveal-xp">+${fmt(xpGain)} XP</div>`
+    : "";
   reveal.innerHTML = `
     <div class="reveal-tier">${tierLabel || item.rarity.toUpperCase()}</div>
     <div class="reveal-icon">${item.icon || "✨"}</div>
     <div class="reveal-name">${item.name}</div>
     <div class="reveal-value">+$${fmt(value)}</div>
+    ${xpLine}
   `;
   ocean.appendChild(reveal);
   setTimeout(() => reveal.remove(), 2700);
@@ -2385,47 +2469,65 @@ function openChest(tier) {
   if (window.brickedUpSfx) window.brickedUpSfx.chestOpen();
 
   const s = stats();
+  const itemCount = def.items || 1;
+  const tierValMult = def.valueMult || 1;
+  const useAscensionXp = ASCENSION && ASCENSION.enabled;
+
+  // ----- Ascension chest payout (simple, predictable) -----------------
+  // Flat cash + tiny XP per tier, both scaled by (level/cap). Avoids the
+  // biome×rarity×rolls explosion that made the old curve flicker between
+  // 0 and "broken-rich." Cash gets prestigeMult on top so Vows + Stars
+  // make late-game chests genuinely fat without making Lv 1 ones huge.
+  const ASCENSION_CASH_PER_ITEM = { common: 50, rare: 200, epic: 1000, legendary: 5000 };
+  const ASCENSION_XP_PCT_PER_ITEM = { common: 0.002, rare: 0.005, epic: 0.012, legendary: 0.025 };
+  let ascensionLevelScale = 1;
+  let ascensionCashPerItem = 0;
+  let ascensionXpPerItem   = 0;
+  if (useAscensionXp) {
+    const cap = nextTierLevel() || 1;
+    // Floor at 0.1 so a Lv-1 chest still pays *something* (avoids the
+    // "round-to-zero" silent-no-op the user kept hitting).
+    ascensionLevelScale = Math.max(0.1, Math.min(1, state.level / cap));
+    const baseCashPerItem = ASCENSION_CASH_PER_ITEM[tier] || 50;
+    ascensionCashPerItem = Math.round(baseCashPerItem * ascensionLevelScale * prestigeMult() * valueEncounterMult());
+    const nextLevelXp = Math.max(1, levelCostCumulative(state.level + 1) - levelCostCumulative(state.level));
+    ascensionXpPerItem = Math.max(1, Math.ceil(nextLevelXp * (ASCENSION_XP_PCT_PER_ITEM[tier] || 0.002)));
+  }
+
   // Mermaid's Kiss doubles the chest payout while it's active, same as live picks.
-  const baseMult = s.valueMult * prestigeMult() * def.valueMult * valueEncounterMult();
+  // (Brick path only — Ascension uses the flat formula above.)
+  const baseMult = s.valueMult * prestigeMult() * tierValMult * valueEncounterMult();
   // Chests are a rare event — make them count for leveling. XP per chest item
   // scales with chest tier so a Reliquary feels meaningfully different from
   // a basic Crate.
   const CHEST_XP_MULT = { common: 3, rare: 5, epic: 8, legendary: 14 };
   const xpMult = CHEST_XP_MULT[tier] || 3;
-  // Ascension chest XP is curve-based: each item grants a % of the next
-  // level's XP cost so chests stay meaningful at every depth (unlike the
-  // default formula, which scales linearly with biome value and falls off
-  // hard against the ×1.55-per-level cost curve). Tier % roughly matches
-  // the default tier ratios but pinned to "fraction of next level."
-  const ASCENSION_CHEST_PCT = { common: 0.05, rare: 0.08, epic: 0.12, legendary: 0.18 };
-  const useAscensionXp = ASCENSION && ASCENSION.enabled;
-  const nextLevelXp = useAscensionXp
-    ? Math.max(1, levelCostCumulative(state.level + 1) - levelCostCumulative(state.level))
-    : 0;
-  const ascensionXpPerItem = useAscensionXp
-    ? Math.ceil(nextLevelXp * (ASCENSION_CHEST_PCT[tier] || 0.05))
-    : 0;
   // Redeem one frenzy-chest promise on this open: the first 2 rolls are
   // forced to legend rarity, regardless of which tier chest the player
   // happened to click. Capped at def.items so a 2-item common still works.
   const isFrenzyRedeem = (state.frenzyChestsPending || 0) > 0;
-  const guaranteedLegend = isFrenzyRedeem ? Math.min(3, def.items) : 0;
+  const guaranteedLegend = isFrenzyRedeem ? Math.min(3, itemCount) : 0;
   if (isFrenzyRedeem) state.frenzyChestsPending -= 1;
   const rolled = [];
   let totalValue = 0;
+  let totalXp    = 0;  // tracked so we can surface it on chest reveal/log
   // Stack repeated rolls into a single haul row per item, like the activity log.
   const summary = {};
-  for (let i = 0; i < def.items; i++) {
+  for (let i = 0; i < itemCount; i++) {
     const item = rollChestItem(def, i < guaranteedLegend ? "legend" : null);
     if (!item) continue;
-    const value = Math.ceil(item.value * baseMult);
+    // Ascension uses the simple per-tier flat cash; brick uses item-based.
+    const value = useAscensionXp
+      ? ascensionCashPerItem
+      : Math.ceil(item.value * baseMult);
     rolled.push({ item, value });
     totalValue += value;
     state.cash += value;
     state.totalEarned += value;
-    // Ascension: per-item curve-based XP. Default: linear with item value.
     const baseXp = useAscensionXp ? ascensionXpPerItem : (value * xpMult);
-    state.xp += baseXp * xpBonusMult() * xpEncounterMult();
+    const xpGain = Math.round(baseXp * xpBonusMult() * xpEncounterMult());
+    state.xp += xpGain;
+    totalXp  += xpGain;
     state.totalItems += 1;
     state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
     state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
@@ -2438,9 +2540,13 @@ function openChest(tier) {
     .sort((a, b) => b.value - a.value)
     .forEach((g, i) => spawnChestHaulRow(def, g.item, g.value, g.count, i));
   checkLevelUp();
+  // Activity-log entry confirms the XP gain so the player can see at a
+  // glance whether chests are still firing into the level bar (cash is
+  // shown in the reveal already, XP wasn't visible anywhere before).
+  if (totalXp > 0) log(`${def.icon} ${def.name} +$${fmt(totalValue)} · +${fmt(totalXp)} XP`, "good");
   // Show the highest-rarity (or highest-value) item with the chest's total payout.
   const best = rolled.reduce((a, b) => (b.value > a.value ? b : a)).item;
-  showItemReveal(best, totalValue, `${def.icon} ${def.name} (${rolled.length} items)`);
+  showItemReveal(best, totalValue, `${def.icon} ${def.name} (${rolled.length} items)`, totalXp);
   checkAchievements();
 }
 
@@ -2736,6 +2842,13 @@ function scheduleSlot() {
   const delay = Math.max(0, state.nextSpinAt - Date.now());
   setTimeout(() => {
     if (eventEnded()) return;
+    // Themed builds can pause the slot too (Ascension freezes everything
+    // at-cap so the player must ascend to keep playing). Just retry in
+    // a moment instead of firing the spin.
+    if (typeof window !== "undefined" && window.__GAME_PAUSED__) {
+      setTimeout(scheduleSlot, 500);
+      return;
+    }
     spinSlot();
     state.nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
     scheduleSlot();
@@ -2861,10 +2974,12 @@ function updateLifetime() {
 // Inline summaries are universal across themes — names and icons come from
 // SLOT_BONUSES so themed events (Spring Bloom etc.) render their own copy.
 const ACTIVE_EFFECT_SHORT = {
-  major: "Legendary picks",
-  minor: "2× value",
-  mini:  "Double pickups",
-  shark: "No loot",
+  major:   "Legendary picks",
+  minor:   "2× value",
+  mini:    "Double pickups",
+  shark:   "No loot",
+  cargo:   "Cargo bonus",
+  xpburst: "XP burst",
 };
 
 function renderActiveEffect() {
@@ -2876,6 +2991,13 @@ function renderActiveEffect() {
   if ((state.sharkSlowUntil          || 0) > now) rows.push({ until: state.sharkSlowUntil,          tier: "shark", cls: "eff-shark" });
   if ((state.encounterLegendaryUntil || 0) > now) rows.push({ until: state.encounterLegendaryUntil, tier: "major", cls: "eff-map" });
   if ((state.encounterValueUntil     || 0) > now) rows.push({ until: state.encounterValueUntil,     tier: "minor", cls: "eff-kiss" });
+  // xpburst (Inner Eye) — XP-only bonus. Only show its own row when
+  // there's no value-bonus active (otherwise the minor row already
+  // surfaces the XP component to avoid double-counting).
+  const xpUntil = (state.encounterXpUntil || 0);
+  if (xpUntil > now && !((state.encounterValueUntil || 0) > now)) {
+    rows.push({ until: xpUntil, tier: "xpburst", cls: "eff-kiss", subKind: "xpburst" });
+  }
   // Mini tier covers either Lucky Current (cargo bonus) or Chest Frenzy.
   // When both are active simultaneously (e.g. mid-jackpot, or a fresh
   // cargo spin landing while frenzy is still running), render BOTH rows
@@ -2908,6 +3030,15 @@ function renderActiveEffect() {
         const c = state.encounterCargoAmt || 2;
         shortDesc = `${c}× pickups`;
       }
+    } else if (r.tier === "xpburst") {
+      // Inner Eye solo — show the actual active multiplier so the
+      // player knows exactly how much XP they're gaining.
+      const x = state.encounterXpAmt || 1;
+      shortDesc = `${x}× XP`;
+    } else if (r.tier === "cargo") {
+      // Pure cargo bonus (Serpent's Coil) when no mini is active.
+      const c = state.encounterCargoAmt || 2;
+      shortDesc = `${c}× cargo`;
     }
 
     // Gear-extra badge: stacks below the bonus row with the actual gear
@@ -3193,10 +3324,21 @@ function refreshUI() {
   if (nb) {
     const nextIdx = biomeIndex(state.level) + 1;
     const nextBiome = BIOMES[nextIdx];
-    const nextLevel = nextIdx * LEVELS_PER_BIOME; // first level in next biome (Lv 10, 20, 30...)
-    nb.innerHTML = nextBiome
-      ? `Next: <strong>${nextBiome.name}</strong> @ Lv ${nextLevel}`
-      : `Deepest biome reached`;
+    if (ASCENSION && ASCENSION.enabled) {
+      // Biome is rank-locked, not level-locked — surface the trigger,
+      // the ascension number, AND the level required to do it (the
+      // current rank-gate). Past Lv 200 the gate stays at 200.
+      const nextAscNum = (state.prestigeCount || 0) + 1;
+      const reqLvl     = nextTierLevel();
+      nb.innerHTML = nextBiome
+        ? `Next: <strong>${nextBiome.name}</strong> at ascension #${nextAscNum} (Lv ${reqLvl})`
+        : `Deepest realm reached`;
+    } else {
+      const nextLevel = nextIdx * LEVELS_PER_BIOME;
+      nb.innerHTML = nextBiome
+        ? `Next: <strong>${nextBiome.name}</strong> @ Lv ${nextLevel}`
+        : `Deepest biome reached`;
+    }
   }
 
   // XP progress bar to next level.
@@ -3204,9 +3346,26 @@ function refreshUI() {
   const cumNext = levelCostCumulative(state.level + 1);
   const progressed = Math.max(0, state.xp - cumPrev);
   const needed = Math.max(1, cumNext - cumPrev);
-  $("levelMoney").textContent = fmt(Math.min(progressed, needed));
-  $("levelMoneyMax").textContent = fmt(needed);
-  $("levelBar").style.width = `${Math.min(100, (progressed / needed) * 100)}%`;
+  // Ascension: hard cap at the next-rank threshold (escalating Lv 20/30/...).
+  // Bar fills + greys + reads "Ascend to continue" until the player ascends.
+  const ascensionCap = (ASCENSION && ASCENSION.enabled) ? nextTierLevel() : 0;
+  const atAscensionCap = ascensionCap > 0 && state.level >= ascensionCap;
+  const bar = $("levelBar");
+  if (atAscensionCap) {
+    $("levelMoney").textContent = "MAX";
+    $("levelMoneyMax").textContent = "Ascend to continue";
+    if (bar) {
+      bar.style.width = "100%";
+      bar.classList.add("level-bar-capped");
+    }
+  } else {
+    $("levelMoney").textContent = fmt(Math.min(progressed, needed));
+    $("levelMoneyMax").textContent = fmt(needed);
+    if (bar) {
+      bar.style.width = `${Math.min(100, (progressed / needed) * 100)}%`;
+      bar.classList.remove("level-bar-capped");
+    }
+  }
 
   $("cargoBar").style.width = `${(state.sub.cargoKg / s.cargoMax) * 100}%`;
   updateBiomeColor(biome);
