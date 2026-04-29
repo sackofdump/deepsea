@@ -2189,6 +2189,11 @@ function spawnChestHaulRow(chestDef, item, value, count, idx) {
       `<span class="ch-name">${chestDef.icon} ${item.icon} ${item.name}${countText}</span>` +
       `<span class="ch-val">+$${fmt(value)}</span>`;
     root.appendChild(row);
+    // Cap visible rows the same way the activity log does (12-entry max)
+    // so chest frenzies and Brick Deliveries can't pile up an unbounded
+    // column. Oldest rows are dropped first; their fade-out timeout
+    // still fires harmlessly against a detached node.
+    while (root.childElementCount > 12) root.firstChild.remove();
     setTimeout(() => row.remove(), 3700);
   }, idx * 90);
 }
