@@ -99,6 +99,64 @@
     osc.stop(t0 + dur + 0.05);
   }
 
+  // ASMR-style click — very short bandpass-filtered noise burst with
+  // a near-instant attack. Reads as a wooden "tk" rather than a hi-hat
+  // hiss thanks to the narrow band and quick decay.
+  function click(opts) {
+    var c = ensureCtx();
+    if (!c || !unlocked) return;
+    var t0 = c.currentTime + (opts.delay || 0);
+    var dur = opts.dur || 0.022;
+    var peak = (opts.gain != null ? opts.gain : 0.4) * sfxVol();
+    if (peak <= 0) return;
+    var sampleCount = Math.max(1, Math.floor(c.sampleRate * dur));
+    var buffer = c.createBuffer(1, sampleCount, c.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < sampleCount; i++) data[i] = Math.random() * 2 - 1;
+    var src = c.createBufferSource();
+    src.buffer = buffer;
+
+    var g = c.createGain();
+    g.gain.setValueAtTime(peak, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+    var f = c.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.setValueAtTime(opts.cutoff || 3000, t0);
+    f.Q.setValueAtTime(opts.Q || 2.5, t0);
+
+    src.connect(f).connect(g).connect(c.destination);
+    src.start(t0);
+    src.stop(t0 + dur + 0.02);
+  }
+
+  // ASMR bubble pop — short rising sine sweep with a soft envelope.
+  // Reads as a water-drop / soap-bubble pop.
+  function bubble(opts) {
+    var c = ensureCtx();
+    if (!c || !unlocked) return;
+    var t0 = c.currentTime + (opts.delay || 0);
+    var dur = opts.dur || 0.10;
+    var freqStart = opts.freq    || 220;
+    var freqEnd   = opts.freqEnd || (freqStart * 2.5);
+    var peak = (opts.gain != null ? opts.gain : 0.30) * sfxVol();
+    if (peak <= 0) return;
+
+    var osc = c.createOscillator();
+    osc.type = opts.type || "sine";
+    osc.frequency.setValueAtTime(freqStart, t0);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(0.01, freqEnd), t0 + dur * 0.75);
+
+    var g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+    osc.connect(g).connect(c.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
   // Short white-noise burst (good for impact hits / brick smashes).
   function noise(opts) {
     var c = ensureCtx();
@@ -247,22 +305,34 @@
         });
       }
     },
-    // Crate appears and the player snags it — a soft thump + chime ping.
+    // Snagging a crate — single ASMR click + a rising bubble pop.
     chestCollect: function () {
-      tone({ dur: 0.08, freq: 180, freqEnd: 100, type: "sine", gain: 0.30, release: 0.04 });
-      tone({ delay: 0.04, dur: 0.20, freq: 1320, type: "triangle", gain: 0.18, release: 0.10 });
+      click({ dur: 0.020, gain: 0.40, cutoff: 3200 });
+      bubble({ delay: 0.025, dur: 0.11, freq: 220, freqEnd: 540, gain: 0.22 });
     },
-    // Cracking the lid: rising arpeggio + sparkle.
+    // Opening a crate — lid click, then a small cascade of bubble pops
+    // at staggered pitches. Reads as ASMR foam / popcorn pops rather
+    // than a bell chime.
     chestOpen: function () {
-      [523.25, 659.25, 783.99, 1046.50].forEach(function (f, n) {
-        tone({
-          delay: n * 0.06, dur: 0.14, freq: f,
-          type: "triangle", gain: 0.22, release: 0.06,
+      // Two crisp lid clicks
+      click({ dur: 0.022, gain: 0.42, cutoff: 3500 });
+      click({ delay: 0.05, dur: 0.018, gain: 0.28, cutoff: 4500, Q: 3 });
+      // Bubble cascade — 5 rising pops, varied pitch & gentle stagger.
+      var pops = [
+        { delay: 0.10, freq: 200, freqEnd: 480, gain: 0.20 },
+        { delay: 0.20, freq: 280, freqEnd: 660, gain: 0.20 },
+        { delay: 0.32, freq: 240, freqEnd: 580, gain: 0.18 },
+        { delay: 0.46, freq: 320, freqEnd: 760, gain: 0.18 },
+        { delay: 0.60, freq: 380, freqEnd: 880, gain: 0.18 },
+      ];
+      pops.forEach(function (p) {
+        bubble({
+          delay:   p.delay,
+          dur:     0.12,
+          freq:    p.freq,
+          freqEnd: p.freqEnd,
+          gain:    p.gain,
         });
-      });
-      tone({
-        delay: 0.30, dur: 0.35, freq: 1568, freqEnd: 1318.51,
-        type: "sine", gain: 0.20, release: 0.18,
       });
     },
     // Level up: G4 → C5 → E5 → G5 quick fanfare.
