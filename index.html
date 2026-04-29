@@ -174,13 +174,13 @@
       <div class="splash-card-desc">Touch-first build optimized for phones. Same dive loop, smaller UI.</div>
       <div class="splash-card-cta">Play ›</div>
     </a>
-    <div class="splash-card disabled" title="Not yet released">
-      <span class="splash-card-badge soon">Soon</span>
+    <a class="splash-card disabled" id="ascensionCard" data-launch-at="2026-04-29T23:59:59" href="comingsoon/" title="Locked until Bricked Up ends">
+      <span class="splash-card-badge soon" id="ascensionCardBadge">Locked</span>
       <div class="splash-card-icon">⛧</div>
       <div class="splash-card-title">Ascension</div>
-      <div class="splash-card-desc">Dark-mystic descent. Vows, Stars, no shop. In prototype.</div>
-      <div class="splash-card-cta">Coming soon</div>
-    </div>
+      <div class="splash-card-desc">Dark-mystic descent. Vows, Stars, no shop. Unlocks when Bricked Up ends.</div>
+      <div class="splash-card-cta" id="ascensionCardCta">Starts in —</div>
+    </a>
   </div>
   <div class="splash-skip-row">
     <input type="checkbox" id="splashSkip" checked />
@@ -219,6 +219,49 @@
       overlay.hidden = true;
     }
   });
+})();
+
+// Ascension countdown — tied to the Bricked Up event end (2026-04-29
+// 23:59:59 local). Same Date constructor as bricked-up.html so the splash
+// timer matches what's running in the live event. Card stays disabled
+// until launch; once the timer hits zero, it becomes a live link.
+(function () {
+  var card  = document.getElementById("ascensionCard");
+  var cta   = document.getElementById("ascensionCardCta");
+  var badge = document.getElementById("ascensionCardBadge");
+  if (!card || !cta || !badge) return;
+  var launchAt = new Date(2026, 3, 29, 23, 59, 59).getTime();
+
+  function tick() {
+    var now = Date.now();
+    var ms  = launchAt - now;
+    if (ms <= 0) {
+      card.classList.remove("disabled");
+      card.removeAttribute("title");
+      badge.textContent = "New";
+      cta.textContent = "Play ›";
+      return; // stop ticking
+    }
+    var s = Math.floor(ms / 1000);
+    var d = Math.floor(s / 86400);
+    var h = Math.floor((s % 86400) / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+    var txt = d > 0 ? (d + "d " + h + "h " + m + "m")
+            : h > 0 ? (h + ":" + pad(m) + ":" + pad(sec))
+            :         (m + ":" + pad(sec));
+    cta.textContent = "Starts in " + txt;
+    setTimeout(tick, 1000);
+  }
+  // Block navigation while disabled — even though the card is greyed,
+  // disabled-class doesn't actually prevent <a> clicks by default.
+  card.addEventListener("click", function (ev) {
+    if (card.classList.contains("disabled")) {
+      ev.preventDefault();
+    }
+  });
+  tick();
 })();
 </script>
 <div id="app">
