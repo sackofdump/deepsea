@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bricked Up — Construction Tower</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css?v=5" />
+<style>
+/* ----- Bricked Up theme overrides ------------------------------ */
+/* Replaces the deep-sea blue sub + water visuals with a construction
+   shaft: brick walls, mortar lines, a hardhat-yellow grapple bucket
+   on a steel cable. Keeps every #id the engine reads/writes. */
+body.bricked-up {
+  --brick-red:    #8a3a25;
+  --brick-dark:   #5a2515;
+  --brick-light:  #b85a3a;
+  --mortar:       #d8c8a8;
+  --girder:       #3a3a3a;
+  --hardhat:      #ffc830;
+  --caution:      #ffea2a;
+}
+body.bricked-up #ocean {
+  background:
+    /* horizontal mortar lines */
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 28px,
+      rgba(216, 200, 168, 0.55) 28px,
+      rgba(216, 200, 168, 0.55) 32px
+    ),
+    /* vertical mortar lines (running-bond brick) */
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent 60px,
+      rgba(216, 200, 168, 0.4) 60px,
+      rgba(216, 200, 168, 0.4) 64px
+    ),
+    /* base brick gradient */
+    linear-gradient(180deg, var(--brick-light) 0%, var(--brick-red) 35%, var(--brick-dark) 100%);
+}
+body.bricked-up #surface {
+  background:
+    linear-gradient(180deg, #2a1a10 0%, transparent 100%);
+  border-bottom: 4px solid var(--girder);
+  box-shadow: 0 0 0 2px var(--caution) inset, 0 4px 0 0 var(--caution);
+}
+body.bricked-up #water {
+  /* dust haze + scaffold rails instead of water */
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent 120px,
+      rgba(58, 58, 58, 0.18) 120px,
+      rgba(58, 58, 58, 0.18) 124px
+    );
+}
+/* The "sub" becomes a yellow hardhat-painted grapple bucket on a steel
+   cable. The .sub-* sub-elements get repainted into a bucket body, hook,
+   caution stripe, and dangling chain so the whole thing reads as
+   construction at a glance. */
+body.bricked-up #sub {
+  width: 64px;
+  height: 70px;
+}
+body.bricked-up #sub::before {
+  /* The cable that suspends the bucket from the top of the shaft. */
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 9999px;
+  background: linear-gradient(180deg, #888 0%, #444 100%);
+  box-shadow: 0 0 0 1px #222;
+  pointer-events: none;
+}
+body.bricked-up .sub-body {
+  background: var(--hardhat) !important;
+  border: 3px solid #1a1a1a !important;
+  border-radius: 8px 8px 14px 14px !important;
+  box-shadow:
+    inset 0 -8px 0 0 rgba(0,0,0,0.18),
+    0 4px 0 0 rgba(0,0,0,0.35);
+}
+body.bricked-up .sub-window {
+  background: #2a2a2a !important;
+  border: 2px solid #1a1a1a !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 0 0 1px #d8d8d8;
+}
+body.bricked-up .sub-stripe {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      #1a1a1a 0 8px,
+      var(--caution) 8px 16px
+    ) !important;
+}
+body.bricked-up .sub-fin {
+  /* Side claw of the grapple bucket. */
+  background: #1a1a1a !important;
+  border-radius: 0 0 50% 50% !important;
+}
+body.bricked-up .sub-prop {
+  /* Hook at the top of the bucket where the cable attaches. */
+  background: #888 !important;
+  border: 2px solid #1a1a1a !important;
+  border-radius: 50% !important;
+}
+body.bricked-up .sub-light {
+  background: radial-gradient(circle at center, rgba(255,232,140,0.8) 0%, rgba(255,232,140,0) 65%) !important;
+  border: none !important;
+}
+body.bricked-up .sub-gear {
+  /* Gear icons hang off the bucket like attached tools. */
+  filter: drop-shadow(0 1px 0 #000);
+}
+/* Depth markers re-skinned to look like floor labels. */
+body.bricked-up #depthMarkers .marker {
+  color: var(--mortar);
+  font-weight: 700;
+  text-shadow: 0 1px 0 #000;
+}
+/* Slot machine accents — caution-yellow Brick Lottery board. */
+body.bricked-up #slotMachine {
+  border-color: var(--caution) !important;
+}
+body.bricked-up .slot-title {
+  color: var(--caution) !important;
+}
+/* Header subtitle styling */
+body.bricked-up #sidebar header h1 .muted {
+  color: var(--caution);
+}
+</style>
+</head>
+<body class="bricked-up">
+<div id="app">
+  <aside id="sidebar">
+    <header>
+      <a href="index.html" class="event-link-banner back-banner">&lsaquo; Back to main game</a>
+      <h1>Bricked Up <span class="muted" style="font-size: 12px; letter-spacing: 1.5px;">· CONSTRUCTION</span></h1>
+      <span id="accountBadge" class="account-badge" hidden></span>
+      <div class="cash-wrap">
+        <div class="cash"><span id="cash">0</span></div>
+        <div class="prestige-badge" id="prestigeBadge"></div>
+      </div>
+      <div class="header-level">
+        Lv <span id="headerLevel">1</span> · <span id="headerBiome">Ground Floor</span>
+      </div>
+      <div class="header-progress-row">
+        <span class="muted">Next level</span>
+        <span><span id="levelMoney">0</span> / <span id="levelMoneyMax">100</span> XP</span>
+      </div>
+      <div class="bar"><div class="bar-fill bar-fill-level" id="levelBar"></div></div>
+      <div class="next-biome-info" id="nextBiomeInfo">10 levels to Subbasement</div>
+    </header>
+
+    <section class="panel" data-key="submersible">
+      <h2>🏗 Crane</h2>
+      <div class="stat"><span>Status</span><span id="status">Up Top</span></div>
+      <div class="stat"><span>Floor</span><span><span id="depth">0</span> / <span id="maxDepth">50</span> ft</span></div>
+      <div class="stat"><span>Bin</span><span><span id="cargo">0</span> / <span id="cargoMax">4</span> kg</span></div>
+      <div class="bar"><div class="bar-fill" id="cargoBar"></div></div>
+    </section>
+
+    <section class="panel" data-key="ondeck">
+      <h2>🧰 In Bin</h2>
+      <ul id="currentCargo" class="cargo-list"><li class="muted">Empty</li></ul>
+    </section>
+
+    <section class="panel" data-key="lastrun">
+      <h2>📋 Last Drop</h2>
+      <ul id="lastHaul"><li class="muted">Nothing yet.</li></ul>
+    </section>
+
+    <section class="panel" data-key="outfitting">
+      <h2>🔧 Equipment</h2>
+      <div id="upgrades"></div>
+    </section>
+
+    <section class="panel" id="prestigePanel" data-key="promotion">
+      <h2>👷 Promotion</h2>
+      <div class="stat"><span>Rank</span><span id="subTier">Apprentice</span></div>
+      <div class="stat"><span>Rarity upgrade</span><span id="prestigeRarity">+0%</span></div>
+      <div class="stat"><span>Brick value</span><span id="prestigeMult">+0%</span></div>
+      <div class="stat"><span>Blueprints banked</span><span id="prestigePearls">0</span></div>
+      <div class="stat"><span>Pending blueprints</span><span id="prestigePending">0</span></div>
+      <div class="stat"><span>Next rank</span><span id="nextTierInfo">Laborer @ Lv 25</span></div>
+      <button id="prestigeBtn" class="prestige-btn" disabled>Promote Crew</button>
+      <div class="muted prestige-hint">Each promotion: +3% chance per haul roll to bump the brick up one rarity tier. Blueprints give +0.5% brick value forever — bank more by pushing deeper before promoting, or spend them in the Gear Workshop.</div>
+    </section>
+
+    <section class="panel" data-key="log">
+      <h2>📊 Foreman's Log</h2>
+      <div class="stat"><span>Total earned</span><span>$<span id="lifeEarned">0</span></span></div>
+      <div class="stat"><span>Bricks hauled</span><span id="lifeItems">0</span></div>
+      <div class="stat"><span>Drops</span><span id="lifeDives">0</span></div>
+      <div class="stat"><span>Boosts used</span><span id="lifeBoosts">0</span></div>
+      <div class="stat"><span>Rare+ finds</span><span id="lifeRare">0</span></div>
+      <div class="stat"><span>Bonus drops</span><span id="lifeBonus">0</span></div>
+    </section>
+
+    <section class="panel" data-key="honors">
+      <h2>🏆 Honors <span class="muted" id="achCount">0/0</span><button type="button" id="achClaimAll" hidden>Claim all</button></h2>
+      <div id="achievements" class="achievement-list"></div>
+    </section>
+
+    <section class="panel" data-key="journal">
+      <h2>📖 Materials Catalog <span class="muted" id="codexCount">0/0</span></h2>
+      <div id="codex" class="codex-grid"></div>
+    </section>
+
+    <section class="panel" data-key="leaderboard">
+      <h2>🏅 Bricked Up Leaderboard</h2>
+      <div class="lb-name-row">
+        <input id="lbName" placeholder="Display name" maxlength="32" />
+        <button id="lbSync" class="ghost">Sync</button>
+      </div>
+      <div class="lb-tabs">
+        <button class="lb-tab active" data-metric="gear_upgrades">Gear</button>
+        <button class="lb-tab" data-metric="pearls">Blueprints</button>
+        <button class="lb-tab" data-metric="total_earned">Cash</button>
+        <button class="lb-tab" data-metric="level">Level</button>
+        <button class="lb-tab" data-metric="prestige_count">Promotes</button>
+        <button class="lb-tab" data-metric="jackpots">Brickings</button>
+        <button class="lb-tab" data-metric="total_dives">Drops</button>
+        <button class="lb-tab" data-metric="time_played_ms">Time</button>
+      </div>
+      <div id="lbBoard" class="lb-board"></div>
+    </section>
+
+    <footer>
+      <button id="howToBtn" class="ghost">How to Play</button>
+      <button id="accountBtn" class="ghost">Account</button>
+      <button id="exportSaveBtn" class="ghost">⬇ Save</button>
+      <button id="importSaveBtn" class="ghost">⬆ Load</button>
+      <input id="importSaveFile" type="file" accept="application/json,.json" hidden />
+      <button id="resetBtn" class="ghost">Reset Save</button>
+      <a href="index.html" class="ghost block back-to-main">← Main game</a>
+    </footer>
+  </aside>
+
+  <main id="ocean">
+    <div id="surface"></div>
+    <div id="water">
+      <div id="sub">
+        <div class="sub-light"></div>
+        <div class="sub-fin"></div>
+        <div class="sub-prop"></div>
+        <div class="sub-body">
+          <div class="sub-window"></div>
+          <div class="sub-stripe"></div>
+        </div>
+        <div class="sub-gear" id="subGear"></div>
+      </div>
+    </div>
+    <div id="depthMarkers"></div>
+    <div id="chestHaul" class="chest-haul"></div>
+    <div id="chestTray" class="chest-tray"></div>
+    <div class="slot-stack">
+      <div id="slotMachine" class="slot-machine" data-state="idle">
+        <div class="slot-title">🏗 BRICK LOTTERY</div>
+        <div class="slot-reels">
+          <div class="slot-reel" id="slotReel0"><div class="slot-strip">🚛</div></div>
+          <div class="slot-reel" id="slotReel1"><div class="slot-strip">👷</div></div>
+          <div class="slot-reel" id="slotReel2"><div class="slot-strip">📐</div></div>
+        </div>
+        <div class="slot-status">Next pull in 15s</div>
+      </div>
+      <div id="activeEffect"></div>
+    </div>
+    <div id="log"></div>
+    <div class="boost-hint">+200% speed &amp; pickup rate</div>
+    <button id="boostBtn" class="boost-btn" title="Boost (Space)">
+      <span class="boost-label">⚡ BOOST</span>
+      <span class="boost-sub"></span>
+      <span class="boost-cooldown" id="boostCooldown"></span>
+    </button>
+    <button id="gearBtn" class="gear-btn" title="Gear Workshop">
+      <span class="gear-icon">🛠</span>
+      <span class="gear-label">GEAR</span>
+      <span class="gear-sub"><span id="gearOwnedPearls">0</span> 📐</span>
+    </button>
+  </main>
+</div>
+
+<div id="gearOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal gear-modal">
+    <button class="howto-close" id="gearClose" aria-label="Close">×</button>
+    <h2>🛠 Gear Workshop</h2>
+    <div id="gearWelcome" class="gear-welcome" hidden>
+      <h3>🛠 Welcome to the Gear Workshop</h3>
+      <p>
+        Your crew can be permanently outfitted with <strong>five pieces of gear</strong>.
+        Each piece is bought by trading in <strong>📐 blueprints</strong>
+        — the same blueprints you bank when you Promote.
+      </p>
+      <ul>
+        <li>Blueprints spent here no longer add their +0.5% brick value, so it's a real tradeoff.</li>
+        <li>Gear is <strong>permanent</strong> — it survives every promotion. Only a full Reset wipes it.</li>
+        <li>Each piece caps at Lv 10. Equipped gear is visible on your bucket.</li>
+      </ul>
+    </div>
+    <div class="gear-bank">
+      Blueprints available: <strong><span id="gearPearls">0</span> 📐</strong>
+      <span class="muted">· Permanent · Blueprints spent here no longer give +0.5% brick value</span>
+    </div>
+    <div id="gearList" class="gear-list"></div>
+  </div>
+</div>
+
+<div id="howToOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal">
+    <button class="howto-close" id="howToClose" aria-label="Close">×</button>
+    <h2>🏗 How to Play — Bricked Up</h2>
+    <div class="howto-body">
+      <section>
+        <h3>🧱 Bricked Up build</h3>
+        <p>This is a separate version of the game with a brick-and-construction theme and the experimental <strong>Gear</strong> system. Your save here is independent from the main game and is stored under its own key.</p>
+      </section>
+      <section>
+        <h3>🏗 Drop cycle</h3>
+        <p>Your crane bucket auto-lowers, scoops bricks, and hoists them up to sell. You don't pilot it — you upgrade it.</p>
+      </section>
+      <section>
+        <h3>⚡ Boost</h3>
+        <p>Tap the boost button (or press <strong>Space</strong>) for +200% speed and pickup rate. Tap again while active to add +1 second, up to a 10s cap. Cooldown starts after it ends.</p>
+      </section>
+      <section>
+        <h3>🔧 Equipment</h3>
+        <p>Spend cash to upgrade Cable Length, Winch Motor, Brick Bin, Site Survey, and Cost Estimator. Levels are permanent within a run, but reset on Promotion.</p>
+      </section>
+      <section>
+        <h3>🛠 Gear Workshop (Bricked Up–only)</h3>
+        <p>Spend <strong>📐 blueprints</strong> to permanently install one of five pieces of gear. Gear survives every promotion and stacks across runs. Each piece visibly attaches to your bucket. See the intro screen or open the workshop for details.</p>
+      </section>
+      <section>
+        <h3>🧰 In Bin &amp; encounters</h3>
+        <p>Bricks scooped this drop show in your Bin. Every encounter — bonuses (<strong>Brick Delivery</strong>, <strong>Bricklayer's Trance</strong>, <strong>Master Brickworks</strong>) and the <strong>Brick to the Head</strong> hazard — comes from the Brick Lottery.</p>
+      </section>
+      <section>
+        <h3>🏗 Brick Lottery</h3>
+        <p>The lottery in the corner auto-pulls every 15s. Triple matches: 🚛 Brick Delivery (rare/epic crate burst, ≥3 legendary picks each, 10s), 👷 Bricklayer's Trance (10× value &amp; 10× XP, 15s), 📐 Master Brickworks (legendary picks at 10× value, 15s), 🏗 GET BRICKED (all three). 🚧 triple = Brick to the Head (no loot for 10s).</p>
+      </section>
+      <section>
+        <h3>📦 Material crates</h3>
+        <p>Crates spawn occasionally. Click to add to your tray (next to the cash). Open them whenever — multi-item rolls biased toward higher rarity.</p>
+      </section>
+      <section>
+        <h3>👷 Promotion &amp; blueprints</h3>
+        <p>Hit a tier's level threshold to promote (Apprentice → Laborer → …). Promotion banks <strong>blueprints</strong> based on your run's lifetime earnings and resets level/cash/upgrades. Each blueprint is +0.5% brick value, forever. Push deeper before promoting to bank more — or spend them in the Gear Workshop instead.</p>
+      </section>
+      <section>
+        <h3>🏆 Honors</h3>
+        <p>Achievements unlock as you play but aren't free — open the Honors panel and click each one to claim its cash reward.</p>
+      </section>
+      <section>
+        <h3>📖 Materials Catalog</h3>
+        <p>Tracks every unique brick you've ever hauled. Empty slots are still buried somewhere.</p>
+      </section>
+    </div>
+  </div>
+</div>
+<div id="accountOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal account-modal">
+    <button class="howto-close" id="accountClose" aria-label="Close">×</button>
+    <h2>👤 Account</h2>
+    <div class="account-state">
+      <div id="accountStateLine" class="account-state-line">Connecting…</div>
+      <div id="accountStateBlurb" class="account-state-blurb">Setting up your account.</div>
+    </div>
+    <div id="accountAuthForm" class="account-auth-form" hidden>
+      <input id="accountEmail"    type="email"    placeholder="Email"    autocomplete="email" />
+      <input id="accountPassword" type="password" placeholder="Password" autocomplete="current-password" />
+      <div class="account-actions">
+        <button id="accountSignInBtn" class="account-btn primary">Sign in</button>
+        <button id="accountSignUpBtn" class="account-btn">Create account</button>
+      </div>
+      <div class="account-help muted">Cross-device save: sign in from anywhere with your email and password.</div>
+    </div>
+    <div id="accountSignedInActions" class="account-signed-in" hidden>
+      <button id="accountSignOutBtn" class="account-btn ghost-btn">Sign out</button>
+    </div>
+    <div id="accountMsg" class="account-msg"></div>
+    <button id="accountSkipBtn" class="account-skip" hidden>Continue without an account</button>
+  </div>
+</div>
+<div id="adminOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal admin-modal">
+    <button class="howto-close" id="adminClose" aria-label="Close">×</button>
+    <h2>🛠 Admin</h2>
+    <div id="adminGate">
+      <input id="adminPw" type="password" placeholder="Password" autocomplete="off" />
+      <button id="adminUnlock" class="ghost block">Unlock</button>
+    </div>
+    <div id="adminTools" hidden>
+      <button id="adminLvlBtn"   class="ghost block">+10 Lv</button>
+      <button id="adminCashBtn"  class="ghost block">+$1M</button>
+      <button id="adminBoostBtn" class="ghost block">Boost: OFF</button>
+    </div>
+  </div>
+</div>
+
+<!-- First-visit intro: pops automatically and explains the brick + gear system. -->
+<div id="betaIntroOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal beta-intro-modal">
+    <button class="howto-close" id="betaIntroClose" aria-label="Close">×</button>
+    <span class="beta-intro-tag">🧱 Bricked Up</span>
+    <h2>🏗 Welcome to Bricked Up</h2>
+    <p class="beta-intro-blurb">
+      This is a separate version of the game with a brick-and-construction theme and the
+      experimental <strong>Gear</strong> system. Your save here is fully independent from the
+      main game — you start fresh. The new feature: spend <strong>📐 blueprints</strong> in
+      the Gear Workshop to permanently outfit your crew. Five pieces of gear, each capping at Lv 10:
+    </p>
+    <ul class="beta-intro-list">
+      <li><span class="bi-icon">⛑</span><span><strong>Brick-Lined Hardhat</strong> — Brick to the Head duration shortened.</span></li>
+      <li><span class="bi-icon">🔨</span><span><strong>Mason's Trowel</strong> — Positive lottery bonuses last longer.</span></li>
+      <li><span class="bi-icon">📐</span><span><strong>Brick Press</strong> — Each promotion stamps more blueprints.</span></li>
+      <li><span class="bi-icon">🍀</span><span><strong>Lucky Brick</strong> — Lottery odds shift toward GET BRICKED, away from inspectors.</span></li>
+      <li><span class="bi-icon">🧠</span><span><strong>Bricklayer's Insight</strong> — Bonus XP on every brick pickup and crate.</span></li>
+    </ul>
+    <p class="beta-intro-blurb">
+      Trade-off: blueprints spent on gear no longer give their +0.5% brick value forever, so
+      each level is a real long-term decision. Gear survives every promotion — only a full
+      Reset wipes it. Equipped pieces are visible on your bucket.
+    </p>
+    <div class="beta-intro-footer">
+      <button id="betaIntroBtn" class="beta-intro-btn">Got it — start bricking</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Bricked Up build configuration. Loaded before game-bricked-up.js so the
+// engine picks up the separate save scope. The data tables (loot, ranks,
+// biomes, slot bonuses, gear, achievements) are baked into the JS itself
+// rather than overridden here, so this only carries the storage scope.
+window.EVENT_CONFIG = {
+  // eventKey scopes the leaderboard so brick scores don't mix with main /
+  // gear-beta. Save + panel keys keep state isolated in localStorage and
+  // cloud. endAt closes the 24h event window — final standings lock at
+  // that moment and the engine refuses further dives.
+  name: "Bricked Up",
+  eventKey: "brickedup",
+  saveKey:  "brickedUp_v1",
+  panelKey: "brickedUpPanels_v1",
+  // 24-hour event ending Apr 29 2026 23:59:59 local (≈ 24h from launch).
+  endAt: new Date(2026, 3, 29, 23, 59, 59).getTime(),
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="game-bricked-up.js?v=1"></script>
+<script>
+// First-visit intro. The dismissal flag rides in localStorage under the
+// same brick save scope so a player who clears their save sees it again.
+// Click outside / × / button all close + persist the flag.
+(function () {
+  const overlay = document.getElementById("betaIntroOverlay");
+  const closeBtn = document.getElementById("betaIntroClose");
+  const okBtn = document.getElementById("betaIntroBtn");
+  if (!overlay) return;
+  const KEY = "brickedUp_introSeen";
+  function dismiss() {
+    overlay.hidden = true;
+    try { localStorage.setItem(KEY, "1"); } catch {}
+  }
+  let seen = false;
+  try { seen = !!localStorage.getItem(KEY); } catch {}
+  if (!seen) overlay.hidden = false;
+  closeBtn?.addEventListener("click", dismiss);
+  okBtn?.addEventListener("click", dismiss);
+  overlay.addEventListener("click", (ev) => { if (ev.target === overlay) dismiss(); });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !overlay.hidden) dismiss();
+  });
+})();
+</script>
+<script src="get-bricked.js?v=1"></script>
+</body>
+</html>
