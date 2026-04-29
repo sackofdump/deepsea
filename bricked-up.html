@@ -24,34 +24,47 @@ body.bricked-up {
   --caution:      #ffea2a;
 }
 body.bricked-up #ocean {
+  /* The mortar grid is drawn as semi-transparent overlays on top of the
+     engine-driven biome gradient (var(--biome-color) at top, dark at
+     bottom), so the brick wall tints with whatever biome you're in:
+     warm tan on Ground Floor, dark red in the Boiler Room, molten in the
+     Foundry Vault, etc. */
   background:
     /* horizontal mortar lines */
     repeating-linear-gradient(
       to bottom,
       transparent 0,
       transparent 28px,
-      rgba(216, 200, 168, 0.55) 28px,
-      rgba(216, 200, 168, 0.55) 32px
+      rgba(232, 216, 184, 0.45) 28px,
+      rgba(232, 216, 184, 0.45) 32px
     ),
     /* vertical mortar lines (running-bond brick) */
     repeating-linear-gradient(
       to right,
       transparent 0,
       transparent 60px,
-      rgba(216, 200, 168, 0.4) 60px,
-      rgba(216, 200, 168, 0.4) 64px
+      rgba(232, 216, 184, 0.32) 60px,
+      rgba(232, 216, 184, 0.32) 64px
     ),
-    /* base brick gradient */
-    linear-gradient(180deg, var(--brick-light) 0%, var(--brick-red) 35%, var(--brick-dark) 100%);
+    /* darken bottom of shaft a touch so depth still reads */
+    linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.45) 100%),
+    /* biome-driven base color (engine sets this per floor) */
+    linear-gradient(180deg, var(--biome-color, #8a3a25) 0%, #1a0a0a 100%);
 }
 body.bricked-up #surface {
+  /* Pick up the biome accent so the "ground level" line above the shaft
+     subtly recolors per floor (warm yellow on Ground Floor, glowing
+     orange in the Foundry, etc.). */
   background:
-    linear-gradient(180deg, #2a1a10 0%, transparent 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--biome-accent, #ffea2a) 35%, #1a1a1a) 0%, transparent 100%);
   border-bottom: 4px solid var(--girder);
-  box-shadow: 0 0 0 2px var(--caution) inset, 0 4px 0 0 var(--caution);
+  box-shadow:
+    0 0 0 2px var(--biome-accent, var(--caution)) inset,
+    0 4px 0 0 var(--biome-accent, var(--caution));
 }
 body.bricked-up #water {
-  /* dust haze + scaffold rails instead of water */
+  /* Faint scaffold / rebar pattern + a soft accent wash so deeper biomes
+     glow. Scaffold lines stay neutral, the wash shifts with biome accent. */
   background:
     repeating-linear-gradient(
       to right,
@@ -59,7 +72,8 @@ body.bricked-up #water {
       transparent 120px,
       rgba(58, 58, 58, 0.18) 120px,
       rgba(58, 58, 58, 0.18) 124px
-    );
+    ),
+    radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--biome-accent, transparent) 18%, transparent) 0%, transparent 70%);
 }
 /* The "sub" becomes a yellow hardhat-painted grapple bucket on a steel
    cable. The .sub-* sub-elements get repainted into a bucket body, hook,
@@ -459,7 +473,7 @@ window.EVENT_CONFIG = {
 };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="game-bricked-up.js?v=1"></script>
+<script src="game-bricked-up.js?v=2"></script>
 <script>
 // First-visit intro. The dismissal flag rides in localStorage under the
 // same brick save scope so a player who clears their save sees it again.
