@@ -310,30 +310,12 @@
       click({ dur: 0.020, gain: 0.40, cutoff: 3200 });
       bubble({ delay: 0.025, dur: 0.11, freq: 220, freqEnd: 540, gain: 0.22 });
     },
-    // Opening a crate — lid click, then a small cascade of bubble pops
-    // at staggered pitches. Reads as ASMR foam / popcorn pops rather
-    // than a bell chime.
+    // Opening a crate — same single click + bubble as collect, by
+    // request. Kept as its own entry so the two events stay separately
+    // hookable in the engine.
     chestOpen: function () {
-      // Two crisp lid clicks
-      click({ dur: 0.022, gain: 0.42, cutoff: 3500 });
-      click({ delay: 0.05, dur: 0.018, gain: 0.28, cutoff: 4500, Q: 3 });
-      // Bubble cascade — 5 rising pops, varied pitch & gentle stagger.
-      var pops = [
-        { delay: 0.10, freq: 200, freqEnd: 480, gain: 0.20 },
-        { delay: 0.20, freq: 280, freqEnd: 660, gain: 0.20 },
-        { delay: 0.32, freq: 240, freqEnd: 580, gain: 0.18 },
-        { delay: 0.46, freq: 320, freqEnd: 760, gain: 0.18 },
-        { delay: 0.60, freq: 380, freqEnd: 880, gain: 0.18 },
-      ];
-      pops.forEach(function (p) {
-        bubble({
-          delay:   p.delay,
-          dur:     0.12,
-          freq:    p.freq,
-          freqEnd: p.freqEnd,
-          gain:    p.gain,
-        });
-      });
+      click({ dur: 0.020, gain: 0.40, cutoff: 3200 });
+      bubble({ delay: 0.025, dur: 0.11, freq: 220, freqEnd: 540, gain: 0.22 });
     },
     // Level up: G4 → C5 → E5 → G5 quick fanfare.
     levelUp: function () {

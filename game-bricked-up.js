@@ -2471,8 +2471,6 @@ function spinSlot() {
       const strip = reel.querySelector(".slot-strip");
       if (strip) strip.textContent = symbols[idx];
       reel.classList.add("settle");
-      // Per-reel thud as it locks in.
-      if (window.brickedUpSfx) window.brickedUpSfx.reelStop();
       setTimeout(() => reel.classList.remove("settle"), 300);
       if (idx === reels.length - 1) finishSpin(outcome, symbols);
     }, 900 + idx * 350);
