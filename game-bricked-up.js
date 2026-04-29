@@ -7,6 +7,11 @@ const EVENT = (typeof window !== "undefined" && window.EVENT_CONFIG) || null;
 const EVENT_KEY = (EVENT && EVENT.eventKey) || "";
 const EVENT_END = (EVENT && EVENT.endAt) || 0;
 const EVENT_NAME = (EVENT && EVENT.name) || "";
+// Ascension mode: replaces the per-piece gear shop with a rank-locked
+// milestone ladder + endgame "stars" earned per max-rank commission.
+// When enabled, pendingPearls/prestigeMult/refreshGearUI all swap behavior.
+// Shape: { enabled: bool, multPerStar: 1.5, milestones: [{tier, mult, label, icon}] }
+const ASCENSION = (EVENT && EVENT.ascension) || null;
 function eventEnded() { return EVENT_END > 0 && Date.now() >= EVENT_END; }
 
 const SAVE_KEY = (EVENT && EVENT.saveKey) || "brickedUp_v1";
@@ -753,17 +758,62 @@ function currentTier() { return (state.prestigeCount || 0) + 1; }
 function rankName(tier) { return SUB_RANKS[Math.min(tier - 1, SUB_RANKS.length - 1)]; }
 function tierLevelRequired(tier) {
   if (tier <= 1) return 0;
-  // Linear: first promotion at Lv 10, then 20, 30, ...
-  return (tier - 1) * 10;
+  // Linear: each rank costs `levelsPerRank` levels (default 10). Themed
+  // builds can shorten the climb by setting EVENT.levelsPerRank.
+  const perRank = (EVENT && EVENT.levelsPerRank) || 10;
+  return (tier - 1) * perRank;
 }
 function nextTierLevel() { return tierLevelRequired(currentTier() + 1); }
-function canUpgradeSub() { return state.level >= nextTierLevel(); }
+function canUpgradeSub() {
+  // Ascension mode: button is disabled until you clear BOTH the rank
+  // gate AND the Star-unlock level. Below that, no commission happens.
+  if (ASCENSION && ASCENSION.enabled && ASCENSION.starUnlockLevel) {
+    return state.level >= Math.max(nextTierLevel(), ASCENSION.starUnlockLevel);
+  }
+  return state.level >= nextTierLevel();
+}
 
 function prestigeMult() {
+  if (ASCENSION && ASCENSION.enabled) return ascensionTotalMult();
   return 1 + (state.pearls || 0) * 0.005;
 }
 
+// Per-star compounding multiplier — kicks in after every commission past
+// max rank. Default ×1.5/star (≈ 57× at 10 stars, ≈ 3.3M× at 25).
+function ascensionStarMult() {
+  if (!ASCENSION || !ASCENSION.enabled) return 1;
+  const stars = state.pearls || 0;
+  const per   = ASCENSION.multPerStar || 1.5;
+  return Math.pow(per, stars);
+}
+
+// Static milestone ladder — multipliers unlock the moment your rank
+// reaches a threshold. They stack multiplicatively with each other and
+// with star compound, so hitting Lv 100 (rank 11) instantly applies
+// every milestone at or below it.
+function ascensionMilestoneMult() {
+  if (!ASCENSION || !ASCENSION.enabled) return 1;
+  const tier = currentTier();
+  let m = 1;
+  for (const ms of (ASCENSION.milestones || [])) {
+    if (tier >= ms.tier) m *= (ms.mult || 1);
+  }
+  return m;
+}
+
+function ascensionTotalMult() {
+  return ascensionMilestoneMult() * ascensionStarMult();
+}
+
 function pendingPearls() {
+  // Ascension mode: each commission earns 1 Star ONLY if your in-run
+  // level is at or above starUnlockLevel (default = level needed for
+  // max rank). Sub-threshold commissions still happen — they just
+  // advance rank without banking a star.
+  if (ASCENSION && ASCENSION.enabled) {
+    const unlockLevel = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
+    return state.level >= unlockLevel ? 1 : 0;
+  }
   // Higher divisor = fewer pearls per promotion. EVENT.pearlDivisor lets
   // themed builds tune economy harshness without forking the formula.
   const divisor = (EVENT && EVENT.pearlDivisor) || 10000;
@@ -784,7 +834,19 @@ function doPrestige() {
   const earnedPct = (earned * 0.5).toFixed(1).replace(/\.0$/, "");
   const totalPct = (newPearls * 0.5).toFixed(1).replace(/\.0$/, "");
   const newRarityPct = Math.round((state.prestigeCount + 1) * TIER_RARITY_UPGRADE * 100);
-  if (!confirm(`Promote to ${nextName}?\n\nBank ${earned} blueprints (+${earnedPct}% brick value)\nTotal: ${newPearls} blueprints (+${totalPct}% brick value)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, drop history.\nKeeps: rank, blueprints, achievements, catalog.`)) return;
+  let dialog;
+  if (ASCENSION && ASCENSION.enabled) {
+    const star = (EVENT && EVENT.pearlEmoji) || "✨";
+    const newMult = Math.pow(ASCENSION.multPerStar || 1.5, newPearls) * ascensionMilestoneMult();
+    const noun = newPearls === 1 ? "Star" : "Stars";
+    const unlockLevel = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
+    dialog = earned > 0
+      ? `Commission to ${nextName}?\n\n+ ${star} ${earned} (now ${newPearls} ${noun} · ×${fmt(newMult)} multiplier)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, run history.\nKeeps: rank, ${noun.toLowerCase()}, milestones, achievements, catalog.`
+      : `Commission to ${nextName}?\n\nRank-up only — no ${star} earned (need Lv ${unlockLevel}+, you're at Lv ${state.level}).\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, run history.\nKeeps: rank, milestones, achievements, catalog.`;
+  } else {
+    dialog = `Promote to ${nextName}?\n\nBank ${earned} blueprints (+${earnedPct}% brick value)\nTotal: ${newPearls} blueprints (+${totalPct}% brick value)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, drop history.\nKeeps: rank, blueprints, achievements, catalog.`;
+  }
+  if (!confirm(dialog)) return;
   state.pearls = newPearls;
   state.prestigeCount = (state.prestigeCount || 0) + 1;
   // Reset progression
@@ -874,6 +936,62 @@ function refreshGearUI() {
   if (pearlEl) pearlEl.textContent = fmt(state.pearls || 0);
   const ownedEl = $("gearOwnedPearls");
   if (ownedEl) ownedEl.textContent = fmt(state.pearls || 0);
+
+  // Ascension mode: replace gear cards with milestone ladder + star meter.
+  // Milestones auto-unlock by rank; stars accumulate from max-rank commissions.
+  // Pure read-only UI — there's nothing to "buy."
+  if (ASCENSION && ASCENSION.enabled) {
+    const tier      = currentTier();
+    const stars     = state.pearls || 0;
+    const milestones = ASCENSION.milestones || [];
+    const commissionsDone = state.prestigeCount || 0;
+    const milestoneRows = milestones.map(ms => {
+      const unlocked = tier >= ms.tier;
+      // ms.tier is the rank you need to BE at; getting there costs
+      // (ms.tier - 1) commissions because you start at Rank 1.
+      const commissionsNeeded = Math.max(0, ms.tier - 1);
+      const remaining = Math.max(0, commissionsNeeded - commissionsDone);
+      const gateText = unlocked
+        ? `Rank ${ms.tier} · ${rankName(ms.tier)}`
+        : `Rank ${ms.tier} · ${rankName(ms.tier)} — ${remaining} more commission${remaining === 1 ? "" : "s"}`;
+      return `
+        <div class="ascension-milestone${unlocked ? " unlocked" : ""}">
+          <div class="ascension-icon">${ms.icon}</div>
+          <div class="ascension-milestone-meta">
+            <div class="ascension-milestone-name">${ms.label}</div>
+            <div class="ascension-milestone-req">${gateText}</div>
+            <div class="ascension-milestone-desc">${ms.desc || `Permanent ×${ms.mult} on all cash &amp; XP earned`}</div>
+          </div>
+          <div class="ascension-milestone-mult">×${ms.mult}</div>
+        </div>`;
+    }).join("");
+    const totalMult = ascensionTotalMult();
+    const atMax     = tier >= SUB_RANKS.length;
+    const starEmoji = (EVENT && EVENT.pearlEmoji) || "✨";
+    list.innerHTML = `
+      <div class="ascension-summary">
+        <div class="ascension-stars-row">
+          <span class="ascension-star-count">${starEmoji} ${fmt(stars)}</span>
+          <span class="ascension-star-label">Ascension ${stars === 1 ? "Star" : "Stars"}</span>
+        </div>
+        <div class="ascension-total">
+          <span class="ascension-total-mult">×${fmt(totalMult)}</span>
+          <span class="ascension-total-label">total cash &amp; XP multiplier</span>
+        </div>
+      </div>
+      <p class="ascension-explainer muted">
+        Each commission raises your <strong>Rank</strong> by 1. Reach <strong>Lv ${ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length)}+</strong> before commissioning to also bank an ✨ Star.
+        Vows auto-unlock at specific ranks and stack multiplicatively — all five = <strong>×7,500</strong> on top of Stars.
+      </p>
+      <div class="ascension-milestones">${milestoneRows}</div>
+      <p class="ascension-footer muted">
+        Each ${starEmoji} compounds at <strong>×${ASCENSION.multPerStar}</strong>, no cap.
+        Ten Stars ≈ ×57. Twenty-five ≈ ×25,000. On top of Vows.
+      </p>
+    `;
+    return;
+  }
+
   list.innerHTML = "";
   for (const def of GEAR_DEFS) {
     const lvl = gearLevel(def.id);
@@ -1085,6 +1203,17 @@ function checkAchievements() {
   }
 }
 
+// Ascension mode reduces achievement XP because the rank-grind already
+// has its own XP economy (Lv 1→100 per commission). Default 0.1 (10%) so
+// claiming a big achievement doesn't instantly skip 5 commissions worth
+// of grind. EVENT.ascension.achievementXpFactor tunes this.
+function achievementXpFactor() {
+  if (ASCENSION && ASCENSION.enabled) {
+    return ASCENSION.achievementXpFactor != null ? ASCENSION.achievementXpFactor : 0.1;
+  }
+  return 1;
+}
+
 function claimAchievement(id) {
   const a = ACHIEVEMENTS.find(x => x.id === id);
   if (!a) return;
@@ -1092,7 +1221,7 @@ function claimAchievement(id) {
   if (state.achievementsClaimed[id]) return;
   state.cash += a.reward;
   state.totalEarned += a.reward;
-  state.xp += a.reward;
+  state.xp += Math.round(a.reward * achievementXpFactor());
   state.achievementsClaimed[id] = Date.now();
   log(`🏆 ${a.name} claimed (+$${fmt(a.reward)})`, "good");
   checkLevelUp();
@@ -1101,12 +1230,13 @@ function claimAchievement(id) {
 function claimAllAchievements() {
   let claimed = 0;
   let total = 0;
+  const xpFactor = achievementXpFactor();
   for (const a of ACHIEVEMENTS) {
     if (!state.achievements[a.id]) continue;
     if (state.achievementsClaimed[a.id]) continue;
     state.cash += a.reward;
     state.totalEarned += a.reward;
-    state.xp += a.reward;
+    state.xp += Math.round(a.reward * xpFactor);
     state.achievementsClaimed[a.id] = Date.now();
     total += a.reward;
     claimed += 1;
@@ -1872,15 +2002,22 @@ function updatePrestigeUI() {
   const nextTier = tier + 1;
   const reqLevel = nextTierLevel();
   const ready = canUpgradeSub();
-  const pct = Math.round((prestigeMult() - 1) * 100);
+  const mult = prestigeMult();
+  const pct = Math.round((mult - 1) * 100);
   const subTierEl = $("subTier");
   const nextEl = $("nextTierInfo");
   const multEl = $("prestigeMult");
   const btn = $("prestigeBtn");
+  const ascending = ASCENSION && ASCENSION.enabled;
+  const starEmoji = (EVENT && EVENT.pearlEmoji) || "🔮";
   if (subTierEl) subTierEl.textContent = rankName(tier);
   const rarityEl = $("prestigeRarity");
   if (rarityEl) rarityEl.textContent = `+${Math.round(rarityUpgradeChance() * 100)}%`;
-  if (multEl) multEl.textContent = `+${pct}%`;
+  if (multEl) {
+    // Ascension mode: show absolute ×N (Vows + Stars compound to huge
+    // numbers — "+N%" reads as nonsense at ×7,500).
+    multEl.textContent = ascending ? `×${fmt(mult)}` : `+${pct}%`;
+  }
   const banked = state.pearls || 0;
   const pending = pendingPearls();
   const pearlsEl = $("prestigePearls");
@@ -1896,13 +2033,30 @@ function updatePrestigeUI() {
   }
   const badge = $("prestigeBadge");
   if (badge) {
-    badge.textContent = pct > 0 ? `LOOT VALUE +${fmt(pct)}%` : "";
+    badge.textContent = ascending
+      ? (mult > 1 ? `×${fmt(mult)} CASH & XP` : "")
+      : (pct > 0 ? `LOOT VALUE +${fmt(pct)}%` : "");
   }
   if (btn) {
     btn.disabled = !ready;
-    btn.textContent = ready
-      ? `Promote · bank ${pending} 🔮`
-      : "Upgrade Crew";
+    if (ascending) {
+      // Ascension: disabled until the higher of (rank gate, Lv 100). Once
+      // ready, always pending>0 because Lv >= unlockLevel by construction.
+      const unlockLevel = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
+      if (ready) {
+        btn.textContent = `Commission · +${pending} ${starEmoji}`;
+      } else if (state.level < unlockLevel) {
+        btn.textContent = `Requires Level ${unlockLevel}`;
+      } else {
+        // Past Lv 100 already, but the rank gate now exceeds it (rank
+        // 51+: needs Lv 102, 104, …). Surface the actual rank-gate level.
+        btn.textContent = `Requires Level ${reqLevel}`;
+      }
+    } else {
+      btn.textContent = ready
+        ? `Promote · bank ${pending} ${starEmoji}`
+        : "Upgrade Crew";
+    }
   }
 }
 
@@ -2234,6 +2388,19 @@ function openChest(tier) {
   // a basic Crate.
   const CHEST_XP_MULT = { common: 3, rare: 5, epic: 8, legendary: 14 };
   const xpMult = CHEST_XP_MULT[tier] || 3;
+  // Ascension chest XP is curve-based: each item grants a % of the next
+  // level's XP cost so chests stay meaningful at every depth (unlike the
+  // default formula, which scales linearly with biome value and falls off
+  // hard against the ×1.55-per-level cost curve). Tier % roughly matches
+  // the default tier ratios but pinned to "fraction of next level."
+  const ASCENSION_CHEST_PCT = { common: 0.05, rare: 0.08, epic: 0.12, legendary: 0.18 };
+  const useAscensionXp = ASCENSION && ASCENSION.enabled;
+  const nextLevelXp = useAscensionXp
+    ? Math.max(1, levelCostCumulative(state.level + 1) - levelCostCumulative(state.level))
+    : 0;
+  const ascensionXpPerItem = useAscensionXp
+    ? Math.ceil(nextLevelXp * (ASCENSION_CHEST_PCT[tier] || 0.05))
+    : 0;
   // Redeem one frenzy-chest promise on this open: the first 2 rolls are
   // forced to legend rarity, regardless of which tier chest the player
   // happened to click. Capped at def.items so a 2-item common still works.
@@ -2252,7 +2419,9 @@ function openChest(tier) {
     totalValue += value;
     state.cash += value;
     state.totalEarned += value;
-    state.xp += value * xpMult * xpBonusMult() * xpEncounterMult();
+    // Ascension: per-item curve-based XP. Default: linear with item value.
+    const baseXp = useAscensionXp ? ascensionXpPerItem : (value * xpMult);
+    state.xp += baseXp * xpBonusMult() * xpEncounterMult();
     state.totalItems += 1;
     state.lifetimeItems[item.name] = (state.lifetimeItems[item.name] || 0) + 1;
     state.rarityCounts[item.rarity] = (state.rarityCounts[item.rarity] || 0) + 1;
@@ -2330,14 +2499,36 @@ const SLOT_SYMBOLS = (EVENT && EVENT.slotSymbols) || ["🚧", "🚛", "👷", "�
 // 10 / 8; the kiss / map / jackpot ladder gets another +1 each (minor 7→8,
 // major 3→4, jackpot 2→3). "none" absorbs the +3. Lucky Salvage Charm still
 // boosts major + jackpot on top via slotLuckWeight().
-const SLOT_OUTCOMES = [
-  { tier: "none",    weight: 67, pick: () => slotNonMatch() },
-  { tier: "shark",   weight: 8,  pick: () => [SLOT_SYMBOLS[0], SLOT_SYMBOLS[0], SLOT_SYMBOLS[0]] },
-  { tier: "mini",    weight: 10, pick: () => [SLOT_SYMBOLS[1], SLOT_SYMBOLS[1], SLOT_SYMBOLS[1]] },
-  { tier: "minor",   weight: 8,  pick: () => [SLOT_SYMBOLS[2], SLOT_SYMBOLS[2], SLOT_SYMBOLS[2]] },
-  { tier: "major",   weight: 4,  pick: () => [SLOT_SYMBOLS[3], SLOT_SYMBOLS[3], SLOT_SYMBOLS[3]] },
-  { tier: "jackpot", weight: 3,  pick: () => [SLOT_SYMBOLS[4], SLOT_SYMBOLS[4], SLOT_SYMBOLS[4]] },
-];
+// Outcome table is event-overridable so themed builds can add their own
+// tiers (e.g., "cargo", "xpburst") with extra symbols. Each entry needs a
+// `tier` key (matched against SLOT_BONUSES + applySlotBonus) and an index
+// into SLOT_SYMBOLS to display on a triple match.
+function defaultSlotOutcomes() {
+  return [
+    { tier: "none",    weight: 67, pick: () => slotNonMatch() },
+    { tier: "shark",   weight: 8,  pick: () => [SLOT_SYMBOLS[0], SLOT_SYMBOLS[0], SLOT_SYMBOLS[0]] },
+    { tier: "mini",    weight: 10, pick: () => [SLOT_SYMBOLS[1], SLOT_SYMBOLS[1], SLOT_SYMBOLS[1]] },
+    { tier: "minor",   weight: 8,  pick: () => [SLOT_SYMBOLS[2], SLOT_SYMBOLS[2], SLOT_SYMBOLS[2]] },
+    { tier: "major",   weight: 4,  pick: () => [SLOT_SYMBOLS[3], SLOT_SYMBOLS[3], SLOT_SYMBOLS[3]] },
+    { tier: "jackpot", weight: 3,  pick: () => [SLOT_SYMBOLS[4], SLOT_SYMBOLS[4], SLOT_SYMBOLS[4]] },
+  ];
+}
+const SLOT_OUTCOMES = (function () {
+  const cfg = EVENT && EVENT.slotOutcomes;
+  if (!cfg) return defaultSlotOutcomes();
+  // Config provides plain data ({tier, weight, symbolIndex}); we resolve
+  // pick functions here so EVENT_CONFIG stays JSON-compatible.
+  return cfg.map(entry => ({
+    tier:   entry.tier,
+    weight: entry.weight,
+    pick:   entry.tier === "none"
+      ? (() => slotNonMatch())
+      : (() => {
+          const i = entry.symbolIndex || 0;
+          return [SLOT_SYMBOLS[i], SLOT_SYMBOLS[i], SLOT_SYMBOLS[i]];
+        }),
+  }));
+})();
 const SLOT_BONUSES = (EVENT && EVENT.slotBonuses) || {
   shark:   { icon: "🚧", name: "Brick to the Head!",  desc: "Knocked out cold — no bricks for 10s!", duration: 10000, kind: "hazard" },
   mini:    { icon: "🚛", name: "Brick Delivery",      desc: "Rare/epic crate burst for 10s — each rolls ≥3 legendaries!", chestFrenzy: true, duration: 10000 },
@@ -2389,6 +2580,20 @@ function applySlotBonus(tier, now, duration, bonus) {
   }
   if (tier === "major")   {
     state.encounterLegendaryUntil = stackUntil(state.encounterLegendaryUntil, now, dur);
+    return;
+  }
+  // New tier: pure cargo-multiplier bonus (no chest frenzy, no value/xp).
+  // Lets themed builds add a "carry more" bonus distinct from mini's frenzy.
+  if (tier === "cargo")   {
+    state.encounterCargoUntil = stackUntil(state.encounterCargoUntil, now, dur);
+    state.encounterCargoAmt   = (bonus && bonus.cargoMult) || 2;
+    return;
+  }
+  // New tier: pure XP burst (no value mult, no cargo). Useful for themes
+  // that want a "rank up faster" bonus separate from cash bonuses.
+  if (tier === "xpburst") {
+    state.encounterXpUntil = stackUntil(state.encounterXpUntil, now, dur);
+    state.encounterXpAmt   = (bonus && bonus.xpMult) || 5;
     return;
   }
   if (tier === "jackpot") {
@@ -3085,22 +3290,185 @@ function refreshEventCountdown() {
   el.textContent = `🌸 ${EVENT_NAME || "Event"} — ends in ${txt}`;
 }
 
+// "WHO'S THE MOST BRICKED?" — end-of-event report. Shows the final
+// blueprint leaderboard with the player's row highlighted, plus a
+// breakdown of metrics they did well at and "sucked at" (the user
+// requested that exact word). Once dismissed, a localStorage flag
+// prevents it from popping up again on every reload.
+const BRICKED_REPORT_KEY_PREFIX = "brickedReportSeen_";
+
+// Metric labels for the did-well/sucked-at narrative. Keys must match
+// columns in the Supabase scores table (same as LB_METRICS ids).
+const BRICKED_METRIC_LABELS = {
+  pearls:         "Banking blueprints",
+  jackpots:       "Hitting GET BRICKED",
+  chests:         "Collecting crates",
+  total_dives:    "Hauling drops",
+  gear_upgrades:  "Buying gear",
+  level:          "Leveling up",
+  total_earned:   "Earning cash",
+  time_played_ms: "Playing time",
+};
+
+// Fetch top 50 of each metric in parallel. Returns a map metric → rows[].
+// On any single fetch failure, that metric just isn't included in the
+// did-well/sucked-at calc — partial reports are still useful.
+async function fetchBrickedReportData() {
+  const metrics = Object.keys(BRICKED_METRIC_LABELS);
+  const settled = await Promise.allSettled(metrics.map(m => leaderboardFetch(m, 50)));
+  const out = {};
+  metrics.forEach((m, i) => {
+    if (settled[i].status === "fulfilled") out[m] = settled[i].value || [];
+  });
+  return out;
+}
+
+// Find the player's 1-indexed rank in a leaderboard row list. Returns 0
+// if not present (treated as "off the board" in the narrative).
+function playerRankIn(rows, playerId) {
+  if (!rows) return 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].player_id === playerId) return i + 1;
+  }
+  return 0;
+}
+
+// Translate "rank N out of fetched" into a percentile (1.0 = best).
+// Off-the-board players get 0.0.
+function rankToPercentile(rank, totalFetched) {
+  if (!rank || !totalFetched) return 0;
+  return 1 - ((rank - 1) / totalFetched);
+}
+
 function showEventEndedOverlay() {
   if (document.getElementById("eventEndedOverlay")) return;
-  const ocean = document.getElementById("ocean");
-  if (!ocean) return;
+  // Don't pop up again if the player already dismissed it this event.
+  const seenKey = BRICKED_REPORT_KEY_PREFIX + (EVENT_KEY || "default");
+  let seen = false;
+  try { seen = !!localStorage.getItem(seenKey); } catch (e) {}
+  if (seen) return;
+
   const ov = document.createElement("div");
   ov.id = "eventEndedOverlay";
-  ov.className = "event-ended-overlay";
+  ov.className = "bricked-report-overlay";
   ov.innerHTML = `
-    <div class="event-ended-card">
-      <div class="event-ended-title">🌸 Event Ended</div>
-      <div class="event-ended-sub">${escapeHtml(EVENT_NAME || "")} has closed.</div>
-      <div class="event-ended-msg">Final leaderboard is locked. See the sidebar for the standings.</div>
-      <a href="index.html" class="event-ended-btn">← Back to main game</a>
+    <div class="bricked-report-card">
+      <button class="bricked-report-close" type="button" aria-label="Close">×</button>
+      <div class="bricked-report-title">WHO'S THE MOST BRICKED?</div>
+      <div class="bricked-report-sub">${escapeHtml(EVENT_NAME || "Event")} · final standings</div>
+      <div class="bricked-report-body">
+        <div class="bricked-report-loading">Tallying the wreckage…</div>
+      </div>
+      <div class="bricked-report-footer">
+        <button class="bricked-report-btn" type="button" data-action="dismiss">Got it</button>
+        <a class="bricked-report-link" href="index.html?splash=1">🎮 All Games</a>
+      </div>
     </div>
   `;
-  ocean.appendChild(ov);
+  document.body.appendChild(ov);
+
+  function dismiss() {
+    try { localStorage.setItem(seenKey, "1"); } catch (e) {}
+    ov.remove();
+  }
+  ov.querySelector(".bricked-report-close").addEventListener("click", dismiss);
+  ov.querySelector('[data-action="dismiss"]').addEventListener("click", dismiss);
+  ov.addEventListener("click", (ev) => { if (ev.target === ov) dismiss(); });
+
+  // Async render — fetch leaderboards, compute ranks, paint the report.
+  (async () => {
+    const body = ov.querySelector(".bricked-report-body");
+    const playerId = ensurePlayerId();
+    const playerName = ((state.displayName || "").trim().slice(0, 32)) || "Anon";
+    let data;
+    try { data = await fetchBrickedReportData(); }
+    catch (e) { data = {}; }
+
+    const pearlsRows = data.pearls || [];
+    const top10 = pearlsRows.slice(0, 10);
+    const playerRank = playerRankIn(pearlsRows, playerId);
+    const playerInTop10 = playerRank > 0 && playerRank <= 10;
+
+    // Build rank/percentile per metric so we can pick winners + losers.
+    const metricRanks = Object.keys(BRICKED_METRIC_LABELS).map(m => {
+      const rows = data[m] || [];
+      const rank = playerRankIn(rows, playerId);
+      const pct  = rankToPercentile(rank, rows.length);
+      return { metric: m, label: BRICKED_METRIC_LABELS[m], rank, pct, total: rows.length };
+    });
+    // Player has data only on metrics they actually appeared on.
+    const playerOnBoard = metricRanks.some(r => r.rank > 0);
+    const ranked   = metricRanks.filter(r => r.rank > 0);
+    const didWell  = ranked.slice().sort((a, b) => b.pct - a.pct).slice(0, 2);
+    const didWellKeys = new Set(didWell.map(r => r.metric));
+    // Exclude metrics already in "did well" so a thin board doesn't say
+    // you both nailed AND sucked at the same thing.
+    const suckedAt = ranked
+      .filter(r => !didWellKeys.has(r.metric))
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 2);
+
+    // Build leaderboard table rows. Player's row gets a highlight class.
+    const lbRows = top10.map((row, i) => {
+      const isPlayer = row.player_id === playerId;
+      const name = escapeHtml((row.display_name || "Anon").slice(0, 24));
+      return `
+        <div class="bricked-lb-row${isPlayer ? " is-player" : ""}">
+          <span class="bricked-lb-rank">#${i + 1}</span>
+          <span class="bricked-lb-name">${name}</span>
+          <span class="bricked-lb-score">${fmt(row.pearls || 0)} 📐</span>
+        </div>`;
+    }).join("");
+
+    // Render the player's own rank line (if past top 10 and they're on the board).
+    const playerLine = playerOnBoard
+      ? (playerInTop10
+          ? ""
+          : `<div class="bricked-lb-row is-player off-board">
+               <span class="bricked-lb-rank">#${playerRank}</span>
+               <span class="bricked-lb-name">${escapeHtml(playerName)} (you)</span>
+               <span class="bricked-lb-score">${fmt(state.pearls || 0)} 📐</span>
+             </div>`)
+      : `<div class="bricked-lb-row off-board muted">
+           Set a name + Sync in the Leaderboard panel to land on the next event's board.
+         </div>`;
+
+    function metricLine(m) {
+      // "Banking blueprints — #3 (top 6%)" — clean human-readable.
+      const pctText = m.pct >= 0.9 ? "top 10%"
+                    : m.pct >= 0.75 ? "top 25%"
+                    : m.pct >= 0.5  ? "top half"
+                    : m.pct >= 0.25 ? "bottom half"
+                    : "bottom 25%";
+      return `<li><strong>${escapeHtml(m.label)}</strong> — #${m.rank} (${pctText})</li>`;
+    }
+
+    const didWellHtml = didWell.length
+      ? `<div class="bricked-report-section did-well">
+           <div class="bricked-section-head">🌟 What you did well at</div>
+           <ul>${didWell.map(metricLine).join("")}</ul>
+         </div>`
+      : "";
+
+    const suckedHtml = suckedAt.length
+      ? `<div class="bricked-report-section sucked-at">
+           <div class="bricked-section-head">💀 What you sucked at</div>
+           <ul>${suckedAt.map(metricLine).join("")}</ul>
+         </div>`
+      : "";
+
+    body.innerHTML = `
+      <div class="bricked-lb-block">
+        <div class="bricked-section-head">🏗 Top 10 Bricked</div>
+        <div class="bricked-lb-list">
+          ${lbRows || `<div class="bricked-lb-row off-board muted">No scores recorded.</div>`}
+          ${playerLine}
+        </div>
+      </div>
+      ${didWellHtml}
+      ${suckedHtml}
+    `;
+  })();
 }
 
 const LOG_LIFETIME_MS = 5000;
@@ -3896,6 +4264,20 @@ if (state.adminBoostAlwaysOn) {
 $("adminLvlBtn")?.addEventListener("click", () => {
   const prevBiomeIdx = biomeIndex(state.level);
   state.level += 10;
+  state.xp = Math.max(state.xp, levelCostCumulative(state.level));
+  const newBiomeIdx = biomeIndex(state.level);
+  log(`[admin] Now Lv ${state.level}.`);
+  if (newBiomeIdx !== prevBiomeIdx) {
+    log(`🏗 Now bricking ${BIOMES[newBiomeIdx].name}!`, "good");
+  }
+  checkAchievements();
+  refreshUI();
+});
+// +1 Lv testing handler — same shape as +10 button, mirrors biome-change
+// log so milestone biomes still announce themselves.
+$("adminLvl1Btn")?.addEventListener("click", () => {
+  const prevBiomeIdx = biomeIndex(state.level);
+  state.level += 1;
   state.xp = Math.max(state.xp, levelCostCumulative(state.level));
   const newBiomeIdx = biomeIndex(state.level);
   log(`[admin] Now Lv ${state.level}.`);

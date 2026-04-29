@@ -9,8 +9,218 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css?v=5" />
+<style>
+/* ---------- Mode-select splash ---------------------------------- */
+/* Full-screen takeover shown on first visit (or when the user clicks the
+   "All Games" link). Cards link to each version. Dismissing it persists a
+   localStorage flag so daily players don't see it every load — they can
+   re-summon via ?splash=1 in the URL or the All Games button in the
+   sidebar footer. */
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: radial-gradient(ellipse at 50% 30%, #0a2540 0%, #02060d 80%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  font-family: 'Sora', sans-serif;
+  color: #cfe7ff;
+}
+.splash-overlay[hidden] { display: none; }
+.splash-title {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #cfe7ff;
+  text-shadow: 0 0 18px rgba(80, 180, 255, 0.55);
+  margin: 0 0 4px;
+}
+.splash-tagline {
+  font-size: 13px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: rgba(207, 231, 255, 0.55);
+  margin: 0 0 28px;
+}
+.splash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  width: 100%;
+  max-width: 880px;
+  margin-bottom: 22px;
+}
+.splash-card {
+  background: linear-gradient(180deg, rgba(20, 50, 80, 0.85) 0%, rgba(8, 24, 44, 0.95) 100%);
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  border-radius: 12px;
+  padding: 18px 16px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform .15s ease, border-color .2s ease, box-shadow .2s ease;
+  position: relative;
+}
+.splash-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(170, 220, 255, 0.85);
+  box-shadow: 0 0 22px rgba(120, 200, 255, 0.4);
+}
+.splash-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.splash-card.disabled:hover {
+  transform: none;
+  border-color: rgba(120, 200, 255, 0.4);
+  box-shadow: none;
+}
+.splash-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.splash-card-badge.event   { background: #ffea2a; color: #1a1a1a; }
+.splash-card-badge.beta    { background: #b85aff; color: #fff; }
+.splash-card-badge.mobile  { background: #56a040; color: #fff; }
+.splash-card-badge.soon    { background: #555; color: #ddd; }
+.splash-card-icon { font-size: 36px; line-height: 1; }
+.splash-card-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+.splash-card-desc {
+  font-size: 12px;
+  color: rgba(207, 231, 255, 0.7);
+  line-height: 1.4;
+  min-height: 32px;
+}
+.splash-card-cta {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #7ac0ff;
+  text-transform: uppercase;
+}
+.splash-card.disabled .splash-card-cta { color: rgba(207, 231, 255, 0.4); }
+.splash-skip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(207, 231, 255, 0.6);
+}
+.splash-skip-row input { accent-color: #7ac0ff; cursor: pointer; }
+.splash-skip-row label { cursor: pointer; user-select: none; }
+@media (max-width: 480px) {
+  .splash-title { font-size: 26px; }
+  .splash-tagline { font-size: 11px; }
+  .splash-card { padding: 14px 12px; }
+  .splash-card-icon { font-size: 28px; }
+  .splash-card-title { font-size: 15px; }
+}
+</style>
 </head>
 <body>
+
+<!-- Splash overlay — first-visit mode picker. Hidden by default; the
+     bootstrap script below decides whether to show it based on the saved
+     "seen" flag and the ?splash=1 URL param. -->
+<div id="splashOverlay" class="splash-overlay" hidden>
+  <h1 class="splash-title">Deep Dive Salvage</h1>
+  <div class="splash-tagline">choose your salvage</div>
+  <div class="splash-grid">
+    <div class="splash-card" data-action="dismiss">
+      <div class="splash-card-icon">🌊</div>
+      <div class="splash-card-title">Deep Sea Salvage</div>
+      <div class="splash-card-desc">The original sub. Pearls, rare loot, all 50 biomes from Sunlit Reef to End of Time.</div>
+      <div class="splash-card-cta">Play ›</div>
+    </div>
+    <a class="splash-card" href="bricked-up.html">
+      <span class="splash-card-badge event">Event</span>
+      <div class="splash-card-icon">🏗</div>
+      <div class="splash-card-title">Bricked Up</div>
+      <div class="splash-card-desc">Construction-themed sister game with the experimental Gear system.</div>
+      <div class="splash-card-cta">Play ›</div>
+    </a>
+    <a class="splash-card" href="beta.html">
+      <span class="splash-card-badge beta">Beta</span>
+      <div class="splash-card-icon">🧪</div>
+      <div class="splash-card-title">Salvage Beta</div>
+      <div class="splash-card-desc">Test bench for new mechanics before they ship to the main game.</div>
+      <div class="splash-card-cta">Play ›</div>
+    </a>
+    <a class="splash-card" href="mobile/index.html">
+      <span class="splash-card-badge mobile">Mobile</span>
+      <div class="splash-card-icon">📱</div>
+      <div class="splash-card-title">Pocket Salvage</div>
+      <div class="splash-card-desc">Touch-first build optimized for phones. Same dive loop, smaller UI.</div>
+      <div class="splash-card-cta">Play ›</div>
+    </a>
+    <div class="splash-card disabled" title="Not yet released">
+      <span class="splash-card-badge soon">Soon</span>
+      <div class="splash-card-icon">⛧</div>
+      <div class="splash-card-title">Ascension</div>
+      <div class="splash-card-desc">Dark-mystic descent. Vows, Stars, no shop. In prototype.</div>
+      <div class="splash-card-cta">Coming soon</div>
+    </div>
+  </div>
+  <div class="splash-skip-row">
+    <input type="checkbox" id="splashSkip" checked />
+    <label for="splashSkip">Skip this screen next time</label>
+  </div>
+</div>
+<script>
+// Splash bootstrap — runs immediately so the overlay flashes up before
+// the Deep Sea game finishes hydrating, instead of after.
+(function () {
+  var KEY = "deepDiveSplashSeen_v1";
+  var overlay = document.getElementById("splashOverlay");
+  if (!overlay) return;
+  var forceShow = /[?&]splash=1\b/.test(location.search);
+  var seen = false;
+  try { seen = !!localStorage.getItem(KEY); } catch (e) {}
+  if (forceShow || !seen) overlay.hidden = false;
+  // Dismiss = pick Deep Sea (this page). Other cards are <a> links and
+  // navigate normally.
+  overlay.querySelectorAll('[data-action="dismiss"]').forEach(function (el) {
+    el.addEventListener("click", function () {
+      var skip = document.getElementById("splashSkip");
+      if (skip && skip.checked) {
+        try { localStorage.setItem(KEY, "1"); } catch (e) {}
+      }
+      overlay.hidden = true;
+    });
+  });
+  // ESC also dismisses (always treats as "Deep Sea pick").
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape" && !overlay.hidden) {
+      var skip = document.getElementById("splashSkip");
+      if (skip && skip.checked) {
+        try { localStorage.setItem(KEY, "1"); } catch (e) {}
+      }
+      overlay.hidden = true;
+    }
+  });
+})();
+</script>
 <div id="app">
   <aside id="sidebar">
     <header>
@@ -112,6 +322,7 @@
       <button id="importSaveBtn" class="ghost">⬆ Load</button>
       <input id="importSaveFile" type="file" accept="application/json,.json" hidden />
       <button id="resetBtn" class="ghost">Reset Save</button>
+      <a href="?splash=1" class="ghost block back-to-main">🎮 All Games</a>
     </footer>
   </aside>
 
