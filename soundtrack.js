@@ -13,7 +13,7 @@
   function loadSettings() {
     try {
       var raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return { on: true, vol: 0.5, idx: 0 };
+      if (!raw) return { on: true, vol: 0.25, idx: 0 };
       var obj = JSON.parse(raw);
       return {
         on:  typeof obj.on  === "boolean" ? obj.on : true,
@@ -21,7 +21,7 @@
         idx: typeof obj.idx === "number"  ? Math.max(0, Math.min(TRACKS.length - 1, Math.floor(obj.idx))) : 0,
       };
     } catch (e) {
-      return { on: true, vol: 0.5, idx: 0 };
+      return { on: true, vol: 0.25, idx: 0 };
     }
   }
   function saveSettings(s) {
