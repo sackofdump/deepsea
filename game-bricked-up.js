@@ -2418,6 +2418,8 @@ function spinSlot() {
   slot.classList.remove("win", "lose", "win-two", "win-mini", "win-minor", "win-major", "win-jackpot");
   const status = slot.querySelector(".slot-status");
   if (status) status.textContent = "Spinning…";
+  // Synthesized reel-tick stream that matches the 1.6s animation.
+  if (window.brickedUpSfx) window.brickedUpSfx.spin();
 
   const reels = Array.from(slot.querySelectorAll(".slot-reel"));
   reels.forEach((r) => r.classList.add("spinning"));
@@ -2441,6 +2443,8 @@ function spinSlot() {
       const strip = reel.querySelector(".slot-strip");
       if (strip) strip.textContent = symbols[idx];
       reel.classList.add("settle");
+      // Per-reel thud as it locks in.
+      if (window.brickedUpSfx) window.brickedUpSfx.reelStop();
       setTimeout(() => reel.classList.remove("settle"), 300);
       if (idx === reels.length - 1) finishSpin(outcome, symbols);
     }, 900 + idx * 350);
@@ -2457,6 +2461,8 @@ function finishSpin(outcome, symbols) {
   if (bonus) {
     const now = Date.now();
     applySlotBonus(outcome.tier, now, bonus.duration, bonus);
+    // Tier-keyed payout fanfare (or hazard bonk).
+    if (window.brickedUpSfx) window.brickedUpSfx.bonus(outcome.tier);
     const isHazard = bonus.kind === "hazard";
     // Don't count hazards toward the "slot wins" achievements counter.
     if (!isHazard) state.bonusCollected = (state.bonusCollected || 0) + 1;
