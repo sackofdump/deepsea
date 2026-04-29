@@ -491,6 +491,9 @@ const defaultState = () => ({
   // Leaderboard identity (anon UUID + display name)
   playerId: null,
   displayName: "",
+  // Total simulated game time (ms). Accumulated in tick() so the
+  // leaderboard's Time metric reflects actual play, not wall-clock.
+  timePlayedMs: 0,
 });
 
 let state = load() || defaultState();
@@ -1231,6 +1234,9 @@ let _achievementsDirty = false;
 
 function tick(dtSec) {
   if (eventEnded()) return;
+  // Accumulate time-played. Includes offline catch-up ticks and live ticks,
+  // so the metric reflects total simulated game time, not wall-clock time.
+  state.timePlayedMs = (state.timePlayedMs || 0) + Math.round(dtSec * 1000);
   const s = stats();
   const sub = state.sub;
   const boosting = state.adminBoostAlwaysOn || Date.now() < state.boost.activeUntil;
@@ -3170,14 +3176,26 @@ function spawnBubble() {
 }
 
 // ----- Leaderboard (Supabase, raw fetch) -----------------------
+function fmtDuration(ms) {
+  const n = Math.max(0, Math.floor(Number(ms) || 0));
+  const sec  = Math.floor(n / 1000);
+  const min  = Math.floor(sec / 60);
+  const hr   = Math.floor(min / 60);
+  const day  = Math.floor(hr / 24);
+  if (day > 0) return `${day}d ${hr % 24}h`;
+  if (hr  > 0) return `${hr}h ${min % 60}m`;
+  if (min > 0) return `${min}m ${sec % 60}s`;
+  return `${sec}s`;
+}
 const LB_METRICS = [
-  { id: "total_earned",   label: "Cash",     fmt: (n) => "$" + fmt(Number(n) || 0) },
-  { id: "level",          label: "Level",    fmt: (n) => "Lv " + n },
-  { id: "prestige_count", label: "Promotes", fmt: (n) => String(n) },
-  { id: "jackpots",       label: "Jackpots", fmt: (n) => String(n) },
-  { id: "pearls",         label: "Pearls",   fmt: (n) => fmt(Number(n) || 0) + " 🔮" },
-  { id: "gear_upgrades",  label: "Gear",     fmt: (n) => fmt(Number(n) || 0) + " 🛠" },
-  { id: "total_dives",    label: "Dives",    fmt: (n) => fmt(Number(n) || 0) },
+  { id: "total_earned",   label: "Cash",       fmt: (n) => "$" + fmt(Number(n) || 0) },
+  { id: "level",          label: "Level",      fmt: (n) => "Lv " + n },
+  { id: "prestige_count", label: "Promotes",   fmt: (n) => String(n) },
+  { id: "jackpots",       label: "Brickings",  fmt: (n) => String(n) },
+  { id: "pearls",         label: "Blueprints", fmt: (n) => fmt(Number(n) || 0) + " " + PEARL_EMOJI },
+  { id: "gear_upgrades",  label: "Gear",       fmt: (n) => fmt(Number(n) || 0) + " 🛠" },
+  { id: "total_dives",    label: "Drops",      fmt: (n) => fmt(Number(n) || 0) },
+  { id: "time_played_ms", label: "Time",       fmt: (n) => fmtDuration(Number(n) || 0) },
 ];
 // Pick the first .active tab as the initial metric so each page can choose
 // its own default (Spring Bloom defaults to pollen; main game to cash).
