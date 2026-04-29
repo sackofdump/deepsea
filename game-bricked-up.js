@@ -86,7 +86,11 @@ const SUB_RANKS = (EVENT && EVENT.subRanks) || [
   "The Architect",       // 50+
 ];
 const PITY_LEGENDARY_DIVES = 50;
-const LEVELS_PER_BIOME = 10;
+// Levels per biome — each biome covers `LEVELS_PER_BIOME` consecutive
+// player levels. EVENT.levelsPerBiome lets themed builds tighten the
+// pace (Ascension uses 4 so a single Lv 1→60 run cycles through ~15
+// biomes worth of loot).
+const LEVELS_PER_BIOME = (EVENT && EVENT.levelsPerBiome) || 10;
 
 const BIOMES = (EVENT && EVENT.biomes) || [
   { name: "Ground Floor",          color: "#caa472", accent: "#f0d4a8" },
