@@ -13,15 +13,15 @@
   function loadSettings() {
     try {
       var raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return { on: true, vol: 0.25, idx: 0 };
+      if (!raw) return { on: true, vol: 0.25, idx: 1 };
       var obj = JSON.parse(raw);
       return {
         on:  typeof obj.on  === "boolean" ? obj.on : true,
         vol: typeof obj.vol === "number"  ? Math.max(0, Math.min(1, obj.vol)) : 0.5,
-        idx: typeof obj.idx === "number"  ? Math.max(0, Math.min(TRACKS.length - 1, Math.floor(obj.idx))) : 0,
+        idx: typeof obj.idx === "number"  ? Math.max(0, Math.min(TRACKS.length - 1, Math.floor(obj.idx))) : 1,
       };
     } catch (e) {
-      return { on: true, vol: 0.25, idx: 0 };
+      return { on: true, vol: 0.25, idx: 1 };
     }
   }
   function saveSettings(s) {
@@ -34,7 +34,7 @@
   audio.volume = settings.vol;
   audio.src = TRACKS[settings.idx];
 
-  var btn, vol, trackLabel;
+  var btn, vol, trackLabel, prevBtn, nextBtn;
 
   function refreshUI() {
     if (!btn) return;
@@ -43,51 +43,77 @@
     trackLabel.textContent = "S" + (settings.idx + 1) + "/" + TRACKS.length;
   }
 
-  function advance() {
-    settings.idx = (settings.idx + 1) % TRACKS.length;
+  function jump(delta) {
+    var n = TRACKS.length;
+    settings.idx = ((settings.idx + delta) % n + n) % n;
     saveSettings(settings);
     audio.src = TRACKS[settings.idx];
     if (settings.on) audio.play().catch(function () {});
     refreshUI();
   }
 
-  audio.addEventListener("ended", advance);
+  audio.addEventListener("ended", function () { jump(1); });
   // If a track 404s or fails to decode, skip to the next so one bad file
   // doesn't kill the playlist.
-  audio.addEventListener("error", function () {
-    advance();
-  });
+  audio.addEventListener("error", function () { jump(1); });
 
   function injectStyles() {
     if (document.getElementById("music-ctrl-style")) return;
+    // Worksite radio aesthetic: brick-red body, hardhat-yellow trim, a
+    // hazard-stripe lid up top. Lives in the bottom-right corner so it
+    // dodges the gear sign (top-right) and the boost button (bottom-left).
     var css = ""
       + ".music-ctrl{"
-      +   "position:fixed;top:8px;right:8px;z-index:99998;"
-      +   "display:flex;align-items:center;gap:8px;padding:6px 10px;"
-      +   "background:rgba(26,26,26,0.9);border:2px solid #ffea2a;"
-      +   "border-radius:8px;font-family:'Sora',sans-serif;"
-      +   "box-shadow:0 4px 12px rgba(0,0,0,.45);"
+      +   "position:fixed;bottom:20px;right:20px;z-index:99998;"
+      +   "display:flex;flex-direction:column;align-items:stretch;gap:0;"
+      +   "padding:0;border:2px solid #1a1a1a;border-radius:6px;"
+      +   "background:linear-gradient(180deg,#8a3a25 0%,#5a2515 100%);"
+      +   "font-family:'Sora',sans-serif;"
+      +   "box-shadow:0 4px 0 #1a1a1a,0 8px 18px rgba(0,0,0,.55);"
+      +   "min-width:206px;"
+      + "}"
+      // Hazard-stripe lid — same visual language as the GET BRICKED banner.
+      + ".music-ctrl::before{"
+      +   "content:'';display:block;height:6px;"
+      +   "background:repeating-linear-gradient(135deg,#1a1a1a 0 6px,#ffea2a 6px 12px);"
+      +   "border-bottom:1px solid #1a1a1a;"
+      + "}"
+      + ".music-ctrl .music-row{"
+      +   "display:flex;align-items:center;gap:6px;padding:6px 8px;"
+      + "}"
+      + ".music-ctrl .music-row + .music-row{"
+      +   "border-top:1px dashed rgba(255,234,42,.25);"
       + "}"
       + ".music-ctrl button{"
       +   "background:#ffea2a;color:#1a1a1a;border:1px solid #1a1a1a;"
-      +   "padding:4px 10px;font-weight:800;font-size:12px;cursor:pointer;"
-      +   "border-radius:4px;letter-spacing:.5px;font-family:inherit;"
-      +   "transition:transform .08s ease;"
+      +   "padding:3px 8px;font-weight:800;font-size:12px;cursor:pointer;"
+      +   "border-radius:3px;letter-spacing:.5px;font-family:inherit;"
+      +   "transition:transform .08s ease,box-shadow .08s ease;"
+      +   "box-shadow:0 2px 0 #1a1a1a;"
       + "}"
-      + ".music-ctrl button:hover{transform:translateY(-1px);}"
+      + ".music-ctrl button:hover{transform:translateY(-1px);box-shadow:0 3px 0 #1a1a1a;}"
+      + ".music-ctrl button:active{transform:translateY(1px);box-shadow:0 1px 0 #1a1a1a;}"
       + ".music-ctrl button.off{background:#555;color:#ddd;}"
+      + ".music-ctrl button.music-step{padding:3px 6px;min-width:26px;font-size:11px;}"
+      + ".music-ctrl .music-toggle{flex:1;text-align:center;}"
       + ".music-ctrl input[type=range]{"
-      +   "width:90px;accent-color:#ffea2a;cursor:pointer;margin:0;"
+      +   "flex:1;width:100%;accent-color:#ffea2a;cursor:pointer;margin:0;"
       + "}"
       + ".music-ctrl .music-track{"
-      +   "font-size:10px;color:#ffea2a;letter-spacing:.5px;font-weight:700;"
-      +   "min-width:34px;text-align:center;"
+      +   "font-size:10px;color:#ffea2a;letter-spacing:.8px;font-weight:800;"
+      +   "min-width:36px;text-align:center;font-variant-numeric:tabular-nums;"
+      +   "text-shadow:0 1px 0 #1a1a1a;"
       + "}"
-      // Don't sit on top of the GET BRICKED banner on narrow screens — drop
-      // below it instead.
+      + ".music-ctrl .music-vol-icon{"
+      +   "font-size:11px;color:#ffea2a;letter-spacing:.5px;font-weight:700;"
+      + "}"
+      // On narrow screens shrink and let the boost button keep its space.
       + "@media (max-width:720px){"
-      +   ".music-ctrl{top:auto;bottom:8px;right:8px;padding:4px 8px;}"
-      +   ".music-ctrl input[type=range]{width:70px;}"
+      +   ".music-ctrl{bottom:auto;top:56px;right:8px;min-width:180px;}"
+      +   ".music-ctrl button{font-size:11px;padding:2px 6px;}"
+      + "}"
+      + "@media (max-width:420px){"
+      +   ".music-ctrl{min-width:160px;}"
       + "}";
     var s = document.createElement("style");
     s.id = "music-ctrl-style";
@@ -100,9 +126,36 @@
     var wrap = document.createElement("div");
     wrap.className = "music-ctrl";
 
+    // Row 1: prev | ON/OFF (with track label) | next
+    var row1 = document.createElement("div");
+    row1.className = "music-row";
+
+    prevBtn = document.createElement("button");
+    prevBtn.className = "music-step";
+    prevBtn.title = "Previous track";
+    prevBtn.textContent = "⏮";
+
     btn = document.createElement("button");
     btn.id = "musicToggle";
+    btn.className = "music-toggle";
     btn.title = "Music on/off";
+
+    nextBtn = document.createElement("button");
+    nextBtn.className = "music-step";
+    nextBtn.title = "Next track";
+    nextBtn.textContent = "⏭";
+
+    row1.appendChild(prevBtn);
+    row1.appendChild(btn);
+    row1.appendChild(nextBtn);
+
+    // Row 2: 🔊 icon + volume slider + Sn/8 label
+    var row2 = document.createElement("div");
+    row2.className = "music-row";
+
+    var volIcon = document.createElement("span");
+    volIcon.className = "music-vol-icon";
+    volIcon.textContent = "🔊";
 
     vol = document.createElement("input");
     vol.type = "range";
@@ -116,6 +169,10 @@
     trackLabel = document.createElement("span");
     trackLabel.className = "music-track";
 
+    row2.appendChild(volIcon);
+    row2.appendChild(vol);
+    row2.appendChild(trackLabel);
+
     btn.addEventListener("click", function () {
       settings.on = !settings.on;
       saveSettings(settings);
@@ -126,6 +183,8 @@
       }
       refreshUI();
     });
+    prevBtn.addEventListener("click", function () { jump(-1); });
+    nextBtn.addEventListener("click", function () { jump(1); });
     vol.addEventListener("input", function () {
       var v = parseInt(vol.value, 10);
       if (!isFinite(v)) v = 0;
@@ -134,9 +193,8 @@
       saveSettings(settings);
     });
 
-    wrap.appendChild(btn);
-    wrap.appendChild(vol);
-    wrap.appendChild(trackLabel);
+    wrap.appendChild(row1);
+    wrap.appendChild(row2);
     document.body.appendChild(wrap);
     refreshUI();
   }
