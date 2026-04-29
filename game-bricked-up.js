@@ -506,6 +506,17 @@ const defaultState = () => ({
 });
 
 let state = load() || defaultState();
+// Exposed on window so themed builds (e.g., Ascension's run timer) can
+// read/write game state from inline scripts. Only intended for narrow
+// integration use, not as a public API.
+if (typeof window !== "undefined") {
+  window.__GAME_STATE__ = state;
+  // Bind helpers lazily — they're declared further down in this file.
+  setTimeout(() => {
+    window.__GAME_SAVE__ = (typeof save === "function") ? save : null;
+    window.__GAME_LB_SYNC__ = (typeof leaderboardSync === "function") ? leaderboardSync : null;
+  }, 0);
+}
 // Defensive defaults — old saves or partial-load states sometimes miss
 // fields the tick loop relies on. Without sub.mode the dive cycle never
 // auto-starts and the sub stays pinned at the surface.
@@ -2677,7 +2688,32 @@ function applySlotBonus(tier, now, duration, bonus) {
     state.sharkSlowUntil = stackUntil(state.sharkSlowUntil, now, Math.round(duration * hazardDurationMult()));
     return;
   }
-  const ext = bonusDurationMult();
+  let ext = bonusDurationMult();
+  // Multi-stage cascade jackpot: each consecutive jackpot within the
+  // cascade window levels up the stage (1 → 2 → 3 → max). Higher stages
+  // get a duration multiplier, so a 3-stage cascade fires for ~3× the
+  // base time. Resets if the player goes too long without a jackpot.
+  // Default off — themed builds opt in via EVENT.cascadeJackpot config.
+  const cascade = (EVENT && EVENT.cascadeJackpot) || null;
+  if (tier === "jackpot" && cascade && cascade.enabled) {
+    const windowMs = cascade.windowMs || 60000;
+    const maxStage = cascade.maxStage || 3;
+    if (!state.cascadeStage || state.cascadeStage < 1) state.cascadeStage = 0;
+    const lastJackpot = state.cascadeLastJackpotAt || 0;
+    if (now - lastJackpot <= windowMs && state.cascadeStage > 0) {
+      state.cascadeStage = Math.min(maxStage, state.cascadeStage + 1);
+    } else {
+      state.cascadeStage = 1;
+    }
+    state.cascadeLastJackpotAt = now;
+    // Stage N → ext × stageMult^(N-1). Default stageMult 1.5: stage 1 = 1×,
+    // stage 2 = 1.5×, stage 3 = 2.25× the base duration.
+    const stageMult = cascade.stageMult || 1.5;
+    ext *= Math.pow(stageMult, state.cascadeStage - 1);
+    if (state.cascadeStage > 1) {
+      log(`🌑 Black Mass cascade · stage ${state.cascadeStage}/${maxStage}!`, "good");
+    }
+  }
   const dur = Math.round(duration * ext);
   if (tier === "mini")    {
     if (bonus && bonus.chestFrenzy) {
@@ -3776,7 +3812,9 @@ function fmtDuration(ms) {
   if (min > 0) return `${min}m ${sec % 60}s`;
   return `${sec}s`;
 }
-const LB_METRICS = [
+// Default metrics — themed builds can append/override via EVENT.lbMetrics.
+// Each metric: { id (column), label, fmt, dir? "asc"|"desc" (default desc) }.
+const LB_METRICS_DEFAULT = [
   { id: "total_earned",   label: "Cash",       fmt: (n) => "$" + fmt(Number(n) || 0) },
   { id: "level",          label: "Level",      fmt: (n) => "Lv " + n },
   { id: "prestige_count", label: "Promotes",   fmt: (n) => String(n) },
@@ -3786,6 +3824,31 @@ const LB_METRICS = [
   { id: "total_dives",    label: "Drops",      fmt: (n) => fmt(Number(n) || 0) },
   { id: "time_played_ms", label: "Time",       fmt: (n) => fmtDuration(Number(n) || 0) },
 ];
+const LB_METRICS = (function () {
+  const cfg = EVENT && EVENT.lbMetrics;
+  if (!cfg) return LB_METRICS_DEFAULT;
+  // Resolve each entry: shorthand string IDs use defaults; objects carry
+  // overrides. Themed builds can supply a `fmt` key by name (e.g.
+  // "duration") because we can't pass functions through JSON-y configs.
+  const fmtRegistry = {
+    cash:     (n) => "$" + fmt(Number(n) || 0),
+    level:    (n) => "Lv " + n,
+    plain:    (n) => String(n),
+    big:      (n) => fmt(Number(n) || 0),
+    duration: (n) => fmtDuration(Number(n) || 0),
+  };
+  return cfg.map(entry => {
+    if (typeof entry === "string") {
+      return LB_METRICS_DEFAULT.find(m => m.id === entry) || { id: entry, label: entry, fmt: (n) => String(n) };
+    }
+    return {
+      id: entry.id,
+      label: entry.label || entry.id,
+      fmt:   typeof entry.fmt === "function" ? entry.fmt : (fmtRegistry[entry.fmt] || ((n) => String(n))),
+      dir:   entry.dir || "desc",
+    };
+  });
+})();
 // Pick the first .active tab as the initial metric so each page can choose
 // its own default (Spring Bloom defaults to pollen; main game to cash).
 let lbCurrentMetric = (typeof document !== "undefined" && document.querySelector(".lb-tab.active")?.dataset.metric) || "total_earned";
@@ -3835,6 +3898,9 @@ function leaderboardPayload() {
     total_dives: state.totalDives || 0,
     time_played_ms: lbBigNumber(state.timePlayedMs),
     gear_upgrades: totalGearUpgrades(),
+    // Personal best — only set when player completes the run.
+    // Themed ascension build writes to state.fastestRunMs on Lv-cap hit.
+    fastest_run_ms: state.fastestRunMs || null,
   };
 }
 
@@ -3869,9 +3935,14 @@ async function leaderboardSync(force) {
 }
 
 async function leaderboardFetch(metric, limit = 25) {
+  // Resolve sort direction from the metric def (default desc — bigger is
+  // better). "Fastest time" needs ascending so the smallest non-null
+  // value wins; we also drop nulls server-side via not.is.null.
+  const def = LB_METRICS.find(m => m.id === metric);
+  const dir = (def && def.dir === "asc") ? "asc.nullslast" : "desc.nullslast";
   let url = `${SUPABASE_URL}/rest/v1/scores?select=display_name,player_id,${metric}`;
   if (EVENT_KEY) url += `&event_key=eq.${encodeURIComponent(EVENT_KEY)}`;
-  url += `&order=${metric}.desc&limit=${limit}`;
+  url += `&${metric}=not.is.null&order=${metric}.${dir}&limit=${limit}`;
   const res = await fetch(url, {
     headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` },
   });
