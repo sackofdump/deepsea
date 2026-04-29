@@ -18,6 +18,9 @@
   ];
   var FIRST_TRACK  = "sa9.mp3";
   var SECOND_TRACK = "s2.mp3";
+  // All tracks live in /music/. Centralizing the prefix means moving the
+  // folder later is a one-line change.
+  var TRACK_DIR = "music/";
 
   var SETTINGS_KEY = "brickedUp_music_v1";
   var POSITION_KEY = "brickedUp_music_pos_v1";
@@ -75,7 +78,7 @@
   var audio = new Audio();
   audio.preload = "auto";
   audio.volume = settings.vol;
-  audio.src = cycle[idx];
+  audio.src = TRACK_DIR + cycle[idx];
 
   var btn, vol, trackLabel, prevBtn, nextBtn, sfxVol;
 
@@ -101,7 +104,7 @@
     } else {
       idx = next;
     }
-    audio.src = cycle[idx];
+    audio.src = TRACK_DIR + cycle[idx];
     if (settings.on) audio.play().catch(function () {});
     refreshUI();
   }
