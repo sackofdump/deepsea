@@ -48,11 +48,17 @@
 }
 .splash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   width: 100%;
   max-width: 880px;
   margin-bottom: 22px;
+}
+@media (max-width: 720px) {
+  .splash-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .splash-grid { grid-template-columns: 1fr; }
 }
 .splash-card {
   background: linear-gradient(180deg, rgba(20, 50, 80, 0.85) 0%, rgba(8, 24, 44, 0.95) 100%);
@@ -76,12 +82,144 @@
 }
 .splash-card.disabled {
   cursor: not-allowed;
-  opacity: 0.5;
 }
 .splash-card.disabled:hover {
   transform: none;
   border-color: rgba(120, 200, 255, 0.4);
   box-shadow: none;
+}
+
+/* ASCENSION featured card — full row, dark mystic, dramatic. Spans every
+   column so it sits below the 3 top cards as one wide banner. */
+.splash-card.ascension-featured {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  text-align: left;
+  gap: 22px;
+  padding: 28px 32px;
+  background:
+    radial-gradient(ellipse at 18% 50%, rgba(168, 18, 58, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse at 82% 50%, rgba(200, 160, 80, 0.18) 0%, transparent 55%),
+    linear-gradient(135deg, #1a0010 0%, #0a0008 50%, #1a0a00 100%);
+  border: 1px solid rgba(200, 160, 80, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(168, 18, 58, 0.4) inset,
+    0 0 24px rgba(168, 18, 58, 0.45),
+    0 8px 22px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  animation: ascensionPulse 3.6s ease-in-out infinite;
+}
+.splash-card.ascension-featured.disabled { cursor: not-allowed; }
+/* Sigil flourishes — six-point glyphs floating in the corners */
+.splash-card.ascension-featured::before,
+.splash-card.ascension-featured::after {
+  content: "⛧";
+  position: absolute;
+  font-size: 80px;
+  color: rgba(200, 160, 80, 0.08);
+  pointer-events: none;
+  line-height: 1;
+}
+.splash-card.ascension-featured::before { top: -10px; left: 8px; transform: rotate(-12deg); }
+.splash-card.ascension-featured::after  { bottom: -20px; right: 12px; transform: rotate(8deg); font-size: 110px; }
+.splash-card.ascension-featured:hover {
+  transform: translateY(-3px);
+  border-color: #c8a050;
+  box-shadow:
+    0 0 0 1px rgba(168, 18, 58, 0.6) inset,
+    0 0 36px rgba(200, 160, 80, 0.65),
+    0 12px 28px rgba(0, 0, 0, 0.8);
+  animation-play-state: paused;
+}
+.splash-card.ascension-featured.disabled:hover {
+  transform: none;
+  animation-play-state: running;
+}
+.splash-card.ascension-featured .splash-card-icon {
+  font-size: 64px;
+  text-shadow: 0 0 18px rgba(168, 18, 58, 0.7), 0 0 6px rgba(200, 160, 80, 0.6);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+.splash-card.ascension-featured .splash-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+}
+.splash-card.ascension-featured .splash-card-title {
+  font-size: 32px;
+  letter-spacing: 4px;
+  font-weight: 800;
+  color: #e8e0d0;
+  text-shadow:
+    0 0 10px rgba(168, 18, 58, 0.7),
+    0 0 22px rgba(168, 18, 58, 0.35),
+    0 2px 0 #1a0a04;
+  text-transform: uppercase;
+}
+.splash-card.ascension-featured .splash-card-tagline {
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  color: rgba(200, 160, 80, 0.85);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.splash-card.ascension-featured .splash-card-desc {
+  font-size: 13px;
+  color: rgba(232, 224, 208, 0.78);
+  line-height: 1.5;
+  min-height: 0;
+  margin-top: 2px;
+}
+.splash-card.ascension-featured .splash-card-cta {
+  font-size: 13px;
+  letter-spacing: 2px;
+  font-weight: 800;
+  color: #c8a050;
+  text-shadow: 0 0 10px rgba(200, 160, 80, 0.7);
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  position: relative;
+  z-index: 2;
+}
+.splash-card.ascension-featured .splash-card-badge {
+  background: #a8123a;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(168, 18, 58, 0.7);
+}
+@keyframes ascensionPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(168, 18, 58, 0.4) inset,
+      0 0 24px rgba(168, 18, 58, 0.45),
+      0 8px 22px rgba(0, 0, 0, 0.7);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(200, 160, 80, 0.5) inset,
+      0 0 36px rgba(168, 18, 58, 0.7),
+      0 8px 22px rgba(0, 0, 0, 0.7);
+  }
+}
+@media (max-width: 480px) {
+  .splash-card.ascension-featured {
+    flex-direction: column;
+    text-align: center;
+    padding: 22px 20px;
+    gap: 12px;
+  }
+  .splash-card.ascension-featured .splash-card-cta { margin-left: 0; }
+  .splash-card.ascension-featured .splash-card-icon { font-size: 52px; }
+  .splash-card.ascension-featured .splash-card-title { font-size: 24px; letter-spacing: 3px; }
 }
 .splash-card-badge {
   position: absolute;
@@ -167,11 +305,14 @@
       <div class="splash-card-desc">Touch-first build optimized for phones. Same dive loop, smaller UI.</div>
       <div class="splash-card-cta">Play ›</div>
     </a>
-    <a class="splash-card disabled" id="ascensionCard" data-launch-at="2026-04-29T23:59:59" href="comingsoon/" title="Locked until Bricked Up ends">
-      <span class="splash-card-badge soon" id="ascensionCardBadge">Locked</span>
+    <a class="splash-card ascension-featured disabled" id="ascensionCard" href="comingsoon/" title="Locked until Bricked Up ends">
+      <span class="splash-card-badge" id="ascensionCardBadge">Locked</span>
       <div class="splash-card-icon">⛧</div>
-      <div class="splash-card-title">Ascension</div>
-      <div class="splash-card-desc">Dark-mystic descent. Vows, Stars, no shop. Unlocks when Bricked Up ends.</div>
+      <div class="splash-card-meta">
+        <div class="splash-card-tagline">Descend to rise</div>
+        <div class="splash-card-title">Ascension</div>
+        <div class="splash-card-desc">Dark-mystic descent through realms of bone and sigil. Vows, Stars, no shop. Unlocks when Bricked Up ends.</div>
+      </div>
       <div class="splash-card-cta" id="ascensionCardCta">Starts in —</div>
     </a>
   </div>
