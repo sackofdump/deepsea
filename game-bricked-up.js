@@ -1566,14 +1566,19 @@ function creditItem(item, s) {
   }
   const treasureMult = legendaryEncounterActive() ? Math.max(1, legendaryBase * legendaryScale) : 1;
   const v = Math.ceil(item.value * valueMult * treasureMult);
-  // Ascension: scale per-pickup XP so Lv 1 → 2 doesn't happen on the
-  // very first item. Default 0.05 (5% of cash as XP) — picks still
-  // contribute, just modestly. Tunable via ASCENSION.pickupXpFactor.
-  let pickupXpFactor = 1;
   if (ASCENSION && ASCENSION.enabled) {
-    pickupXpFactor = ASCENSION.pickupXpFactor != null ? ASCENSION.pickupXpFactor : 0.05;
+    // Curve-based pickup XP — decoupled from cash so Vow + Star
+    // multipliers don't compound XP into instant level-ups. Each
+    // rarity contributes a fixed % of next-level cost; player levels
+    // at a steady ~100-200 picks/level regardless of multipliers.
+    const PCT = { common: 0.005, uncommon: 0.01, rare: 0.02, epic: 0.05, legend: 0.02 };
+    const pct = PCT[item.rarity] || 0.005;
+    const nextLvlCost = Math.max(1, levelCostCumulative(state.level + 1) - levelCostCumulative(state.level));
+    const xpGain = Math.max(1, Math.ceil(nextLvlCost * pct));
+    state.xp += xpGain * xpBonusMult() * xpEncounterMult();
+  } else {
+    state.xp += v * xpBonusMult() * xpEncounterMult();
   }
-  state.xp += v * xpBonusMult() * xpEncounterMult() * pickupXpFactor;
   checkLevelUp();
   return v;
 }
@@ -1892,10 +1897,22 @@ const upgradeRows = {};
 let buyMode = "1";
 
 // Plan a bulk purchase: how many levels can we actually buy at the given
+// Effective max-level for an upgrade. Static def.maxLevel by default;
+// in Ascension, the cargo (Brick Bin) upgrade's cap also tracks the
+// current rank's level threshold so each ascension lifts the ceiling
+// instead of letting a Lv 1 player buy an endgame cargo.
+function effectiveMaxLevel(def) {
+  let cap = def.maxLevel ?? Infinity;
+  if (ASCENSION && ASCENSION.enabled && def.id === "cargo") {
+    cap = Math.min(cap, nextTierLevel() || cap);
+  }
+  return cap;
+}
+
 // budget, capped at `target` (Infinity for max mode). Returns { count, total }.
 function planBulkBuy(def, startLvl, target, cash) {
   let count = 0, total = 0;
-  const cap = def.maxLevel ?? Infinity;
+  const cap = effectiveMaxLevel(def);
   while (count < target && count < 10000 && (startLvl + count) < cap) {
     const c = upgradeCost(def, startLvl + count);
     if (total + c > cash) break;
@@ -1965,7 +1982,8 @@ function updateUpgrades() {
     const row = upgradeRows[def.id];
     if (!row) continue;
     const lvl = state.upgrades[def.id];
-    const atMax = def.maxLevel !== undefined && lvl >= def.maxLevel;
+    const cap = effectiveMaxLevel(def);
+    const atMax = isFinite(cap) && lvl >= cap;
     const target = buyTarget();
     // Plan the purchase against current cash to figure out cost + count.
     const plan = planBulkBuy(def, lvl, target, state.cash);
@@ -1999,7 +2017,7 @@ function updateUpgrades() {
 
 function planFullCost(def, startLvl, n) {
   let total = 0;
-  const cap = def.maxLevel ?? Infinity;
+  const cap = effectiveMaxLevel(def);
   for (let i = 0; i < n && i < 10000 && (startLvl + i) < cap; i++) total += upgradeCost(def, startLvl + i);
   return total;
 }
@@ -2474,22 +2492,18 @@ function openChest(tier) {
   const useAscensionXp = ASCENSION && ASCENSION.enabled;
 
   // ----- Ascension chest payout (simple, predictable) -----------------
-  // Flat cash + tiny XP per tier, both scaled by (level/cap). Avoids the
-  // biome×rarity×rolls explosion that made the old curve flicker between
-  // 0 and "broken-rich." Cash gets prestigeMult on top so Vows + Stars
-  // make late-game chests genuinely fat without making Lv 1 ones huge.
+  // Flat cash + curve-based XP per tier. Chests are saved rewards
+  // (carry over across ascensions), so they pay out FULL regardless of
+  // your current level — opening one is always meaningful, even right
+  // after ascending. Cash still scales with prestigeMult (Vows × Stars)
+  // for late-game compounding.
   const ASCENSION_CASH_PER_ITEM = { common: 50, rare: 200, epic: 1000, legendary: 5000 };
   const ASCENSION_XP_PCT_PER_ITEM = { common: 0.002, rare: 0.005, epic: 0.012, legendary: 0.025 };
-  let ascensionLevelScale = 1;
   let ascensionCashPerItem = 0;
   let ascensionXpPerItem   = 0;
   if (useAscensionXp) {
-    const cap = nextTierLevel() || 1;
-    // Floor at 0.1 so a Lv-1 chest still pays *something* (avoids the
-    // "round-to-zero" silent-no-op the user kept hitting).
-    ascensionLevelScale = Math.max(0.1, Math.min(1, state.level / cap));
     const baseCashPerItem = ASCENSION_CASH_PER_ITEM[tier] || 50;
-    ascensionCashPerItem = Math.round(baseCashPerItem * ascensionLevelScale * prestigeMult() * valueEncounterMult());
+    ascensionCashPerItem = Math.round(baseCashPerItem * prestigeMult() * valueEncounterMult());
     const nextLevelXp = Math.max(1, levelCostCumulative(state.level + 1) - levelCostCumulative(state.level));
     ascensionXpPerItem = Math.max(1, Math.ceil(nextLevelXp * (ASCENSION_XP_PCT_PER_ITEM[tier] || 0.002)));
   }
@@ -3450,7 +3464,10 @@ function refreshEventCountdown() {
   if (days > 0)        txt = `${days}d ${hours}h ${mins}m`;
   else if (hours > 0)  txt = `${hours}h ${mins}m ${secs}s`;
   else                 txt = `${mins}m ${secs}s`;
-  el.textContent = `🌸 ${EVENT_NAME || "Event"} — ends in ${txt}`;
+  // EVENT.endLabel lets themed configs paint the absolute cutoff time
+  // alongside the countdown (e.g., "9 PM CDT"). Optional.
+  const endLabel = (EVENT && EVENT.endLabel) ? ` · ends ${EVENT.endLabel}` : "";
+  el.textContent = `🌸 ${EVENT_NAME || "Event"} — ends in ${txt}${endLabel}`;
 }
 
 // "WHO'S THE MOST BRICKED?" — end-of-event report. Shows the final
