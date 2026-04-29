@@ -1405,7 +1405,6 @@ function addPickup(item, biome, s) {
   if (!suppressFx) {
     spawnLootFx(item);
     log(`${item.icon} ${item.name}`, item.rarity);
-    if (window.brickedUpSfx) window.brickedUpSfx.pickup(item.rarity);
   }
   // Defer to end of tick — achievement scans get hundreds of times per tick
   // at high sonar otherwise.
@@ -1615,7 +1614,6 @@ function sellCargo(s) {
     name, count: v.count, value: v.value, rarity: v.rarity, icon: v.icon,
   }));
   log(`Sold haul for $${fmt(total)}.`, "good");
-  if (window.brickedUpSfx) window.brickedUpSfx.sell();
   spawnSaleBurst(total);
   if (!suppressFx) spawnSaleItems(state.lastHaul);
   checkAchievements();
