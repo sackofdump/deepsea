@@ -705,7 +705,7 @@ function tick(dtSec) {
     const treasure = legendaryEncounterActive();
     lootCooldown -= dtSec;
     while (lootCooldown <= 0) {
-      lootCooldown += treasure ? 0.15 : (LOOT_INTERVAL_BASE / sonar);
+      lootCooldown += treasure ? 0.10 : (LOOT_INTERVAL_BASE / sonar);
       tryCollect(s);
       if (sub.cargoKg >= effCargoMax || sub.depth >= s.maxDepth) break;
     }

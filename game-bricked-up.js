@@ -315,7 +315,7 @@ const UPGRADE_DEFS = [
 // different system. Level cap keeps the bonuses from trivializing the game,
 // and the rising pearl cost makes spending vs. banking a real tradeoff
 // (banked pearls give +0.5% loot value forever).
-const GEAR_DEFS = [
+const GEAR_DEFS = (EVENT && EVENT.gearDefs) || [
   // Three pricing tiers — basic / meta / apex — each ~3.3-4.5× per level so
   // L1 is reachable by lvl ~50-100 and L10 is a deep-prestige goal. Pearl
   // banking is sqrt(totalEarned/10000), so this scale keeps gear meaningful
@@ -764,7 +764,10 @@ function prestigeMult() {
 }
 
 function pendingPearls() {
-  const base = Math.sqrt(Math.max(0, state.totalEarned) / 10000);
+  // Higher divisor = fewer pearls per promotion. EVENT.pearlDivisor lets
+  // themed builds tune economy harshness without forking the formula.
+  const divisor = (EVENT && EVENT.pearlDivisor) || 10000;
+  const base = Math.sqrt(Math.max(0, state.totalEarned) / divisor);
   return Math.floor(base * pearlBonusMult());
 }
 
@@ -1274,8 +1277,8 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.15s interval so picks come quickly while at depth
-    // (~40 legendaries per encounter — 2× the original 0.30s pace).
+    // we force a fast 0.10s interval so picks come quickly while at depth
+    // (~60 legendaries per encounter — 3× the original 0.30s pace).
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
@@ -1292,7 +1295,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < iterCap) {
-      const interval = treasure ? 0.15 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.10 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;

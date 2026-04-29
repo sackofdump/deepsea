@@ -1052,7 +1052,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < iterCap) {
-      const interval = treasure ? 0.15 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.10 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;
