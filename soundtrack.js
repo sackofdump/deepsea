@@ -29,6 +29,10 @@
   }
 
   var settings = loadSettings();
+  // Always boot on s2 (idx 1) regardless of whichever track was playing
+  // last session — the player can step forward/back during the session.
+  settings.idx = 1;
+  saveSettings(settings);
   var audio = new Audio();
   audio.preload = "auto";
   audio.volume = settings.vol;
@@ -63,8 +67,10 @@
     // hazard-stripe lid up top. Lives in the bottom-right corner so it
     // dodges the gear sign (top-right) and the boost button (bottom-left).
     var css = ""
+      // Anchored to the top-right just left of the gear sign
+      // (.gear-btn is right:20 top:20 width:84 in style.css).
       + ".music-ctrl{"
-      +   "position:fixed;bottom:20px;right:20px;z-index:99998;"
+      +   "position:fixed;top:20px;right:120px;z-index:99998;"
       +   "display:flex;flex-direction:column;align-items:stretch;gap:0;"
       +   "padding:0;border:2px solid #1a1a1a;border-radius:6px;"
       +   "background:linear-gradient(180deg,#8a3a25 0%,#5a2515 100%);"
@@ -107,13 +113,16 @@
       + ".music-ctrl .music-vol-icon{"
       +   "font-size:11px;color:#ffea2a;letter-spacing:.5px;font-weight:700;"
       + "}"
-      // On narrow screens shrink and let the boost button keep its space.
+      // Gear-btn shrinks at the same breakpoints in style.css (720 and
+      // 380), so slide the music widget in to stay flush against it.
       + "@media (max-width:720px){"
-      +   ".music-ctrl{bottom:auto;top:56px;right:8px;min-width:180px;}"
+      +   ".music-ctrl{top:12px;right:96px;min-width:170px;}"
       +   ".music-ctrl button{font-size:11px;padding:2px 6px;}"
       + "}"
-      + "@media (max-width:420px){"
-      +   ".music-ctrl{min-width:160px;}"
+      // Below ~480px the widget would overlap the gear sign before it can
+      // fit at all — drop it to its own row directly under the gear sign.
+      + "@media (max-width:480px){"
+      +   ".music-ctrl{top:auto;bottom:12px;right:12px;min-width:160px;}"
       + "}";
     var s = document.createElement("style");
     s.id = "music-ctrl-style";
