@@ -513,8 +513,16 @@ if (typeof window !== "undefined") {
   window.__GAME_STATE__ = state;
   // Bind helpers lazily — they're declared further down in this file.
   setTimeout(() => {
-    window.__GAME_SAVE__ = (typeof save === "function") ? save : null;
+    window.__GAME_SAVE__    = (typeof save === "function") ? save : null;
     window.__GAME_LB_SYNC__ = (typeof leaderboardSync === "function") ? leaderboardSync : null;
+    // Admin/debug: trigger a real slot spin that lands on a chosen
+    // tier. Player sees the reels animate + settle on the forced
+    // outcome, then the bonus applies via the normal path (cascade
+    // logic, slotHits counter, log, SFX, the works).
+    window.__ADMIN_FIRE_BONUS__ = function (tier) {
+      if (!SLOT_BONUSES[tier]) return;
+      if (typeof spinSlot === "function") spinSlot(tier);
+    };
   }, 0);
 }
 // Defensive defaults — old saves or partial-load states sometimes miss
@@ -2688,32 +2696,7 @@ function applySlotBonus(tier, now, duration, bonus) {
     state.sharkSlowUntil = stackUntil(state.sharkSlowUntil, now, Math.round(duration * hazardDurationMult()));
     return;
   }
-  let ext = bonusDurationMult();
-  // Multi-stage cascade jackpot: each consecutive jackpot within the
-  // cascade window levels up the stage (1 → 2 → 3 → max). Higher stages
-  // get a duration multiplier, so a 3-stage cascade fires for ~3× the
-  // base time. Resets if the player goes too long without a jackpot.
-  // Default off — themed builds opt in via EVENT.cascadeJackpot config.
-  const cascade = (EVENT && EVENT.cascadeJackpot) || null;
-  if (tier === "jackpot" && cascade && cascade.enabled) {
-    const windowMs = cascade.windowMs || 60000;
-    const maxStage = cascade.maxStage || 3;
-    if (!state.cascadeStage || state.cascadeStage < 1) state.cascadeStage = 0;
-    const lastJackpot = state.cascadeLastJackpotAt || 0;
-    if (now - lastJackpot <= windowMs && state.cascadeStage > 0) {
-      state.cascadeStage = Math.min(maxStage, state.cascadeStage + 1);
-    } else {
-      state.cascadeStage = 1;
-    }
-    state.cascadeLastJackpotAt = now;
-    // Stage N → ext × stageMult^(N-1). Default stageMult 1.5: stage 1 = 1×,
-    // stage 2 = 1.5×, stage 3 = 2.25× the base duration.
-    const stageMult = cascade.stageMult || 1.5;
-    ext *= Math.pow(stageMult, state.cascadeStage - 1);
-    if (state.cascadeStage > 1) {
-      log(`🌑 Black Mass cascade · stage ${state.cascadeStage}/${maxStage}!`, "good");
-    }
-  }
+  const ext = bonusDurationMult();
   const dur = Math.round(duration * ext);
   if (tier === "mini")    {
     if (bonus && bonus.chestFrenzy) {
@@ -2806,7 +2789,7 @@ function pickSlotOutcome() {
   return SLOT_OUTCOMES[0];
 }
 
-function spinSlot() {
+function spinSlot(forceTier) {
   const slot = $("slotMachine");
   if (!slot) return;
   if (slot.dataset.state === "spinning") return;
@@ -2820,7 +2803,12 @@ function spinSlot() {
   const reels = Array.from(slot.querySelectorAll(".slot-reel"));
   reels.forEach((r) => r.classList.add("spinning"));
 
-  const outcome = pickSlotOutcome();
+  // Admin/test path: when a forceTier is supplied, skip the random
+  // outcome roll and pick the matching SLOT_OUTCOMES entry instead.
+  // Falls back to the random pick if the forced tier isn't in the table.
+  const outcome = forceTier
+    ? (SLOT_OUTCOMES.find(o => o.tier === forceTier) || pickSlotOutcome())
+    : pickSlotOutcome();
   const symbols = outcome.pick();
 
   // Rapidly cycle each reel's symbol while spinning to sell the rolling effect.
@@ -2854,24 +2842,37 @@ function finishSpin(outcome, symbols) {
   const bonus = SLOT_BONUSES[outcome.tier];
   if (bonus) {
     const now = Date.now();
-    applySlotBonus(outcome.tier, now, bonus.duration, bonus);
-    // Tier-keyed payout fanfare (or hazard bonk).
-    if (window.brickedUpSfx) window.brickedUpSfx.bonus(outcome.tier);
-    const isHazard = bonus.kind === "hazard";
-    // Don't count hazards toward the "slot wins" achievements counter.
-    if (!isHazard) state.bonusCollected = (state.bonusCollected || 0) + 1;
+    // Cascade Black Mass — when a jackpot lands and cascade is enabled,
+    // ALL bonus signals (apply, banner, log, status, slotHits counter,
+    // SFX, screen flash) defer until the cascade resolves. Stage 1
+    // (zero cascade hits) gives NOTHING — the player has to land at
+    // least one cascade to actually claim the bonus.
+    const cascadeCfg = (EVENT && EVENT.cascadeJackpot) || null;
+    const isCascadeJackpot = outcome.tier === "jackpot" && cascadeCfg && cascadeCfg.enabled;
     if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0, shark: 0 };
-    state.slotHits[outcome.tier] = (state.slotHits[outcome.tier] || 0) + 1;
-    slot.classList.add("win", `win-${outcome.tier}`);
-    if (status) status.textContent = `${bonus.icon} ${bonus.name}`;
-    const logKind = isHazard ? "bad" : (outcome.tier === "jackpot" ? "legend" : "good");
-    log(`🎰 ${symbols.join(" ")} → ${bonus.icon} ${bonus.name} — ${bonus.desc}`, logKind);
-    if (!suppressFx) showEncounterBanner(bonus);
-    if (outcome.tier === "major" || outcome.tier === "jackpot") {
-      flashScreen(outcome.tier === "jackpot" ? "legend" : "epic");
+
+    if (isCascadeJackpot) {
+      // Player landed the main jackpot — count it for stats but suppress
+      // all "you got the bonus" feedback until cascade decides.
+      state.slotHits.jackpot = (state.slotHits.jackpot || 0) + 1;
+      slot.classList.add("win", "win-jackpot");
+      if (status) status.textContent = `🌑 PROGRESSIVE JACKPOT…`;
+      runCascadeChain(cascadeCfg, bonus, now);
+      checkAchievements();
+    } else {
+      applySlotBonus(outcome.tier, now, bonus.duration, bonus);
+      if (window.brickedUpSfx) window.brickedUpSfx.bonus(outcome.tier);
+      const isHazard = bonus.kind === "hazard";
+      if (!isHazard) state.bonusCollected = (state.bonusCollected || 0) + 1;
+      state.slotHits[outcome.tier] = (state.slotHits[outcome.tier] || 0) + 1;
+      slot.classList.add("win", `win-${outcome.tier}`);
+      if (status) status.textContent = `${bonus.icon} ${bonus.name}`;
+      const logKind = isHazard ? "bad" : "good";
+      log(`🎰 ${symbols.join(" ")} → ${bonus.icon} ${bonus.name} — ${bonus.desc}`, logKind);
+      if (!suppressFx) showEncounterBanner(bonus);
+      if (outcome.tier === "major") flashScreen("epic");
+      checkAchievements();
     }
-    if (outcome.tier === "jackpot") leaderboardSync(true);
-    checkAchievements();
   } else {
     slot.classList.add("lose");
     if (status) status.textContent = "No match. Next pull soon…";
@@ -2881,6 +2882,306 @@ function finishSpin(outcome, symbols) {
     slot.classList.remove("win", "lose", "win-mini", "win-minor", "win-major", "win-jackpot", "win-shark");
     // Countdown text is restored by updateSlotCountdown on the next refresh.
   }, 4000);
+}
+
+// Cascade Black Mass — after a main-slot jackpot, a "PROGRESSIVE
+// JACKPOT" strip materializes with ALL N mini-slots visible upfront,
+// greyed out. Each mini-slot has 3 reels. They activate one at a time:
+// active = bright, spins, then locks as hit (all 3 = 🌑, glows gold)
+// or miss (cascade ends). Final mini-slot's last reel does the slow
+// dramatic ramp-down.
+function runCascadeChain(cfg, bonus, now) {
+  const slot = $("slotMachine");
+  if (!slot) {
+    applySlotBonus("jackpot", now, bonus.duration, bonus);
+    return;
+  }
+  const reels = slot.querySelector(".slot-reels");
+  if (!reels) {
+    applySlotBonus("jackpot", now, bonus.duration, bonus);
+    return;
+  }
+  const status = slot.querySelector(".slot-status");
+  const jackpotSymbol = SLOT_SYMBOLS[4];
+  const maxExtra      = Math.max(0, (cfg.maxExtraReels || 3));
+  const hitChance     = (cfg.hitChance != null) ? cfg.hitChance : 0.5;
+  const stageDurations = cfg.stageDurations || [20000, 25000, 30000, 40000];
+
+  let stage = 1;
+  let cancelled = false;
+
+  // Build the entire PROGRESSIVE JACKPOT strip upfront — all mini-slots
+  // visible, all greyed out. They activate one at a time as the cascade
+  // chains. Strip is appended to .slot-reels so it flows beside the
+  // main 3 reels.
+  const strip = document.createElement("div");
+  strip.className = "cascade-strip";
+  // → arrow connecting the main slot to the cascade strip
+  const leadArrow = document.createElement("div");
+  leadArrow.className = "cascade-arrow";
+  leadArrow.textContent = "→";
+  strip.appendChild(leadArrow);
+  const stripBody = document.createElement("div");
+  stripBody.className = "cascade-strip-body";
+  const label = document.createElement("div");
+  label.className = "cascade-label";
+  label.textContent = "PROGRESSIVE JACKPOT";
+  stripBody.appendChild(label);
+  const slotsRow = document.createElement("div");
+  slotsRow.className = "cascade-slots-row";
+
+  // Build all maxExtra mini-slots upfront (greyed). Stacked vertically
+  // in CSS — no inter-arrows needed.
+  const minis = [];
+  for (let i = 0; i < maxExtra; i++) {
+    const mini = document.createElement("div");
+    mini.className = "cascade-mini cascade-pending";
+    if (i === maxExtra - 1) mini.classList.add("cascade-mini-final");
+    for (let r = 0; r < 3; r++) {
+      const reel = document.createElement("div");
+      reel.className = "slot-reel cascade-mini-reel";
+      reel.innerHTML = '<div class="slot-strip">·</div>';
+      mini.appendChild(reel);
+    }
+    slotsRow.appendChild(mini);
+    minis.push(mini);
+  }
+  stripBody.appendChild(slotsRow);
+  strip.appendChild(stripBody);
+  reels.appendChild(strip);
+
+  function cleanup() {
+    if (strip) {
+      strip.classList.add("cascade-fade");
+      setTimeout(() => strip.remove(), 600);
+    }
+  }
+
+  // Custom MEGA stack — fires ALL positive bonuses (mini chest frenzy
+  // OR cargo, minor value+xp, cargo, xpburst) for the full MEGA
+  // duration. Explicitly EXCLUDES the legendary-picks (major) tier per
+  // user spec — MEGA shouldn't trivialize the rare Apotheosis tier.
+  function applyMegaStack(megaDur) {
+    const now = Date.now();
+    const ext = bonusDurationMult();
+    const dur = Math.round(megaDur * ext);
+    // mini → chest frenzy or cargo bonus
+    const miniBonus  = SLOT_BONUSES.mini;
+    const minorBonus = SLOT_BONUSES.minor;
+    const cargoBonus = SLOT_BONUSES.cargo;
+    const xpburstBn  = SLOT_BONUSES.xpburst;
+    if (miniBonus) {
+      if (miniBonus.chestFrenzy) {
+        const baseFrenzy = miniBonus.duration || 10000;
+        startChestFrenzy(Math.round(baseFrenzy * ext));
+      } else if (miniBonus.cargoMult) {
+        state.encounterCargoUntil = stackUntil(state.encounterCargoUntil, now, dur);
+        state.encounterCargoAmt   = miniBonus.cargoMult || 2;
+      }
+    }
+    if (minorBonus) {
+      state.encounterValueUntil = stackUntil(state.encounterValueUntil, now, dur);
+      state.encounterValueAmt   = minorBonus.valueMult || 2;
+      if (minorBonus.xpMult && minorBonus.xpMult > 1) {
+        state.encounterXpUntil = stackUntil(state.encounterXpUntil, now, dur);
+        state.encounterXpAmt   = Math.max(state.encounterXpAmt || 1, minorBonus.xpMult);
+      }
+    }
+    if (cargoBonus) {
+      state.encounterCargoUntil = stackUntil(state.encounterCargoUntil, now, dur);
+      state.encounterCargoAmt   = Math.max(state.encounterCargoAmt || 2, cargoBonus.cargoMult || 2);
+    }
+    if (xpburstBn) {
+      state.encounterXpUntil = stackUntil(state.encounterXpUntil, now, dur);
+      state.encounterXpAmt   = Math.max(state.encounterXpAmt || 1, xpburstBn.xpMult || 5);
+    }
+    // NO legendary picks — explicitly excluded so MEGA doesn't dwarf
+    // the standalone Apotheosis tier.
+  }
+
+  function finalize() {
+    // All-or-nothing: bonus only fires when EVERY cascade mini-slot hits.
+    // Anything less and the progressive resolves to zero.
+    const allHit = stage >= maxExtra + 1;
+    if (allHit) {
+      // CELEBRATION — green pulsing glow on all mini-slots, 🌑🌑🌑
+      // symbols stay locked for 2 seconds. Then a brief reel-jumble
+      // flourish (~600ms) before the bonus applies and the strip fades.
+      minis.forEach(m => m.classList.add("cascade-mega-celebrate"));
+      strip.classList.add("cascade-mega-celebrate");
+      if (status) status.textContent = `🌑 MEGA — JACKPOT WIN!`;
+      // Whoop SFX overlay during celebration.
+      if (window.brickedUpSfx && window.brickedUpSfx.bonus) {
+        try { window.brickedUpSfx.bonus("jackpot"); } catch (e) {}
+      }
+      const HOLD_MS    = 2000;
+      const JUMBLE_MS  = 600;
+      setTimeout(() => {
+        // Jumble flourish — every cascade reel rapidly cycles random
+        // symbols, then locks back on 🌑 right as the bonus applies.
+        const allReels = [];
+        minis.forEach(m => {
+          m.querySelectorAll(".slot-strip").forEach(s => allReels.push(s));
+        });
+        const cyclers = allReels.map(strip => setInterval(() => {
+          strip.textContent = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+        }, 60));
+        setTimeout(() => {
+          cyclers.forEach(c => clearInterval(c));
+          allReels.forEach(s => { s.textContent = jackpotSymbol; });
+          // NOW apply the bonus + flash + log + fade.
+          const megaDur = stageDurations[stageDurations.length - 1] || bonus.duration;
+          applySlotBonus("jackpot", Date.now(), megaDur, bonus);
+          state.bonusCollected = (state.bonusCollected || 0) + 1;
+          if (!suppressFx) showEncounterBanner(bonus);
+          flashScreen("legend");
+          if (status) status.textContent = `${bonus.icon} MEGA ${bonus.name} (${Math.round(megaDur/1000)}s)`;
+          log(`🌑 MEGA ${bonus.name} · ALL cascades hit → ${Math.round(megaDur/1000)}s!`, "legend");
+          if (typeof leaderboardSync === "function") leaderboardSync(true);
+          setTimeout(cleanup, 1400);
+        }, JUMBLE_MS);
+      }, HOLD_MS);
+    } else {
+      if (status) status.textContent = `🌑 Progressive failed — no bonus`;
+      log(`🌑 Progressive jackpot failed at ${stage}/${maxExtra + 1} — no bonus.`, "bad");
+      setTimeout(cleanup, 2400);
+    }
+  }
+
+  function spinCascade(idx) {
+    if (cancelled || idx > maxExtra) return finalize();
+
+    // Mini-slots are pre-built upfront and greyed via .cascade-pending.
+    // Activate this one — bring it to full brightness.
+    const mini = minis[idx - 1];
+    if (!mini) return finalize();
+    mini.classList.remove("cascade-pending");
+    mini.classList.add("cascade-active");
+    const isFinal = (idx === maxExtra);
+    const reelEls = Array.from(mini.querySelectorAll(".slot-reel"));
+
+    if (status) {
+      status.textContent = isFinal
+        ? `🌑 FINAL CASCADE — for MEGA…`
+        : `🌑 Cascade ${idx} of ${maxExtra}…`;
+    }
+
+    // Per-reel independent rolls. As soon as one reel misses, we stop
+    // the rest of the reels in this mini and lock the failing symbol
+    // for 2s so the player can see EXACTLY what they lost on.
+    // hitChance is interpreted PER REEL — overall mini-hit rate is
+    // hitChance^3 (e.g., 0.85 per reel → ~61% per mini → ~23% MEGA).
+    const hazardSymbol = SLOT_SYMBOLS[0];
+    const safeSymbols  = SLOT_SYMBOLS.filter(s => s !== jackpotSymbol && s !== hazardSymbol);
+    const pickMissSymbol = () => {
+      const pool = safeSymbols.length ? safeSymbols : SLOT_SYMBOLS.filter(s => s !== jackpotSymbol);
+      return pool[Math.floor(Math.random() * pool.length)];
+    };
+    let hit = true;  // assume hit until any reel misses
+
+    function resolveMini() {
+      if (hit) {
+        mini.classList.add("cascade-hit");
+        stage += 1;
+        // Final cascade hit = MEGA. Go straight to celebration with no
+        // inter-cascade pause so the green pulse starts the instant the
+        // last 🌑 lands. Otherwise quick handoff (350ms) to next mini.
+        if (stage > maxExtra) {
+          finalize();
+        } else {
+          setTimeout(() => spinCascade(idx + 1), 350);
+        }
+      } else {
+        mini.classList.add("cascade-miss");
+        // Shake-and-fade: failed mini-slot rattles briefly, then fades.
+        // Also fade out any remaining pending mini-slots so the player
+        // sees the chain visibly snap shut.
+        for (let j = idx; j < minis.length; j++) {
+          const m = minis[j];
+          if (j === idx - 0) {
+            // Failed slot already has cascade-miss — add the slow fade
+            // after the shake animation completes (~0.45s).
+            setTimeout(() => m.classList.add("cascade-slow-fade"), 450);
+          } else {
+            // Pending slots that never got their turn — slowly fade out.
+            m.classList.add("cascade-slow-fade");
+          }
+        }
+        finalize();
+      }
+    }
+
+    function spinReel(reelIdx) {
+      if (cancelled) return;
+      if (reelIdx >= 3) return resolveMini();
+      const reel  = reelEls[reelIdx];
+      const strip = reel.querySelector(".slot-strip");
+      reel.classList.add("spinning");
+      if (window.brickedUpSfx) window.brickedUpSfx.spin();
+
+      // Independent per-reel roll. Land jackpot symbol on hit; any
+      // other safe symbol on miss. As soon as one reel misses, the
+      // mini-slot fails — hold the losing symbol for 2 seconds so the
+      // player can see exactly what they lost on.
+      const reelHit = Math.random() < hitChance;
+      const landSymbol = reelHit ? jackpotSymbol : pickMissSymbol();
+
+      // Final reel of FINAL cascade gets dramatic ramp — but only when
+      // we've made it to that reel (= previous two reels both hit).
+      const isDramatic = isFinal && reelIdx === 2;
+
+      function lockReel() {
+        reel.classList.remove("spinning");
+        reel.classList.add("settle");
+        strip.textContent = landSymbol;
+        if (reelHit) {
+          // Continue chain: next reel after a short gap, or resolve mini.
+          const gapMs = isFinal ? 160 : 100;
+          setTimeout(() => spinReel(reelIdx + 1), gapMs);
+        } else {
+          // First miss — mark the mini as missed, hold the failing
+          // symbol visible for 2s, then resolve.
+          hit = false;
+          reel.classList.add("cascade-reel-miss");
+          setTimeout(() => resolveMini(), 2000);
+        }
+      }
+
+      if (isDramatic) {
+        let interval = 60, elapsed = 0;
+        const TOTAL = 3600;
+        let nextSfx = 1100;
+        function tick() {
+          if (cancelled) return;
+          strip.textContent = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+          elapsed += interval;
+          if (window.brickedUpSfx && elapsed >= nextSfx) {
+            window.brickedUpSfx.spin();
+            nextSfx = elapsed + 1000;
+          }
+          if (elapsed >= TOTAL) return lockReel();
+          const t = Math.min(1, elapsed / TOTAL);
+          interval = 60 + (520 - 60) * (t * t);
+          setTimeout(tick, interval);
+        }
+        tick();
+        return;
+      }
+
+      const spinMs = isFinal ? 650 : 400;
+      const cycler = setInterval(() => {
+        strip.textContent = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+      }, 60);
+      setTimeout(() => {
+        clearInterval(cycler);
+        lockReel();
+      }, spinMs);
+    }
+
+    spinReel(0);
+  }
+
+  spinCascade(1);
 }
 
 const SLOT_INTERVAL_MS = 15000;
@@ -3376,13 +3677,22 @@ function refreshUI() {
     const nextBiome = BIOMES[nextIdx];
     if (ASCENSION && ASCENSION.enabled) {
       // Biome is rank-locked, not level-locked — surface the trigger,
-      // the ascension number, AND the level required to do it (the
-      // current rank-gate). Past Lv 200 the gate stays at 200.
+      // the ascension number, AND the level required. "FINAL ASCENT"
+      // ONLY fires on the run whose cap IS the maxLevel (Lv 100) AND
+      // we're within 10 levels of it — i.e., literally the final climb
+      // to Lv 100, not every approach to a sub-cap.
       const nextAscNum = (state.prestigeCount || 0) + 1;
       const reqLvl     = nextTierLevel();
-      nb.innerHTML = nextBiome
-        ? `Next: <strong>${nextBiome.name}</strong> at ascension #${nextAscNum} (Lv ${reqLvl})`
-        : `Deepest realm reached`;
+      const maxLvl     = (ASCENSION.maxLevel || 0);
+      const remaining  = Math.max(0, reqLvl - state.level);
+      const isFinalRun = maxLvl > 0 && reqLvl === maxLvl;
+      if (isFinalRun && remaining > 0 && remaining <= 10) {
+        nb.innerHTML = `<span class="final-ascent-callout">🩸 FINAL ASCENT</span> · ${remaining} more level${remaining === 1 ? "" : "s"}`;
+      } else {
+        nb.innerHTML = nextBiome
+          ? `Next: <strong>${nextBiome.name}</strong> at ascension #${nextAscNum} (Lv ${reqLvl})`
+          : `Deepest realm reached`;
+      }
     } else {
       const nextLevel = nextIdx * LEVELS_PER_BIOME;
       nb.innerHTML = nextBiome

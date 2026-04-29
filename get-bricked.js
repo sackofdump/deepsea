@@ -101,17 +101,21 @@
 
   function tick(label, el) {
     var ms = END - Date.now();
-    label.textContent = fmtCountdown(ms);
     if (ms <= 0) {
-      el.classList.add("gb-ended");
-      el.classList.remove("gb-here");
-      if (el.tagName === "A") el.removeAttribute("href");
+      // Event over — remove the banner entirely from every page so the
+      // post-event UI is clean. (Used to just grey it out and leave it
+      // hanging around.)
+      if (el && el.parentNode) el.parentNode.removeChild(el);
       return; // stop the loop
     }
+    label.textContent = fmtCountdown(ms);
     setTimeout(function () { tick(label, el); }, 1000);
   }
 
   function mount() {
+    // Skip mounting entirely if the event is already over by the time
+    // the page loads — saves a flash of "ENDED" before the cleanup.
+    if (Date.now() >= END) return;
     injectStyles();
     var built = build();
     document.body.appendChild(built.el);
