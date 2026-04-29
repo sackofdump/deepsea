@@ -820,6 +820,7 @@ function doPrestige() {
   state.sharkSlowUntil = 0;
   state.boost = { activeUntil: 0, readyAt: 0 };
   log(`⚙ Promoted to ${rankName(currentTier())}!`, "good");
+  if (window.brickedUpSfx) window.brickedUpSfx.promote();
   refreshUI();
   save();
   leaderboardSync(true);
@@ -852,6 +853,7 @@ function buyGear(id) {
   state.pearls -= cost;
   state.gear[id] = lvl + 1;
   log(`🛠 Installed ${def.name} → Lv ${state.gear[id]}.`, "good");
+  if (window.brickedUpSfx) window.brickedUpSfx.buy();
   refreshGearUI();
   refreshSubGear();
   // Pearls drive prestige bonus too — bust the cached prestige signature so
@@ -1114,6 +1116,7 @@ function claimAllAchievements() {
 function showAchievementToast(a) {
   const ocean = $("ocean");
   if (!ocean) return;
+  if (window.brickedUpSfx) window.brickedUpSfx.achievement();
   const toast = document.createElement("div");
   toast.className = "achievement-toast";
   toast.innerHTML = `
@@ -1341,6 +1344,7 @@ function checkLevelUp() {
     log(`⭐ Level up! Now Lv ${state.level}.`, "good");
     const newBiomeIdx = biomeIndex(state.level);
     if (newBiomeIdx !== prevBiomeIdx) log(`🏗 Now bricking ${BIOMES[newBiomeIdx].name}!`, "good");
+    if (window.brickedUpSfx) window.brickedUpSfx.levelUp();
   }
 }
 
@@ -1401,6 +1405,7 @@ function addPickup(item, biome, s) {
   if (!suppressFx) {
     spawnLootFx(item);
     log(`${item.icon} ${item.name}`, item.rarity);
+    if (window.brickedUpSfx) window.brickedUpSfx.pickup(item.rarity);
   }
   // Defer to end of tick — achievement scans get hundreds of times per tick
   // at high sonar otherwise.
@@ -1610,6 +1615,7 @@ function sellCargo(s) {
     name, count: v.count, value: v.value, rarity: v.rarity, icon: v.icon,
   }));
   log(`Sold haul for $${fmt(total)}.`, "good");
+  if (window.brickedUpSfx) window.brickedUpSfx.sell();
   spawnSaleBurst(total);
   if (!suppressFx) spawnSaleItems(state.lastHaul);
   checkAchievements();
@@ -1803,6 +1809,7 @@ function buy(id) {
     state.upgrades[id] += plan.count;
     log(`Upgraded ${def.name} ×${plan.count} → Lv ${state.upgrades[id]} (max).`, "good");
   }
+  if (window.brickedUpSfx) window.brickedUpSfx.buy();
   updateUpgrades();
 }
 
@@ -2088,6 +2095,7 @@ function spawnTreasureChest(forcedTier) {
     clearTimeout(removeTimer);
     state.inventory.push(tier);
     state.chestsCollected = (state.chestsCollected || 0) + 1;
+    if (window.brickedUpSfx) window.brickedUpSfx.chestCollect();
     // Frenzy chests tag the inventory with a "guaranteed 3 legendary picks"
     // promise that's redeemed on the next openChest() call (any tier).
     if (isFrenzy) state.frenzyChestsPending = (state.frenzyChestsPending || 0) + 1;
@@ -2204,6 +2212,7 @@ function openChest(tier) {
   const idx = state.inventory.indexOf(tier);
   if (idx < 0) return;
   state.inventory.splice(idx, 1);
+  if (window.brickedUpSfx) window.brickedUpSfx.chestOpen();
 
   const s = stats();
   // Mermaid's Kiss doubles the chest payout while it's active, same as live picks.
@@ -2860,6 +2869,7 @@ function activateBoost() {
     state.boost.readyAt = state.boost.activeUntil + BOOST_COOLDOWN_MS;
     state.boostsUsed += 1;
     log("⚡ Boost engaged!", "good");
+    if (window.brickedUpSfx) window.brickedUpSfx.boost();
     checkAchievements();
   }
   // Cooldown: clicks ignored.

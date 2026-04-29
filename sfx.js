@@ -50,18 +50,18 @@
   }
   attachUnlock();
 
-  // Read music volume (0..1) directly from soundtrack.js's localStorage
-  // record. SFX rides 70% of the music slider so the two stay balanced
-  // at any setting, including silent.
+  // Read SFX volume (0..1) directly from soundtrack.js's localStorage
+  // record. SFX has its own slider in the music widget; falls back to
+  // 0.5 if no setting has been written yet.
   function sfxVol() {
     try {
       var raw = localStorage.getItem("brickedUp_music_v1");
-      if (!raw) return 0.25 * 0.7;
+      if (!raw) return 0.5;
       var obj = JSON.parse(raw);
-      var v = (typeof obj.vol === "number") ? obj.vol : 0.25;
-      return Math.max(0, Math.min(1, v)) * 0.7;
+      var v = (typeof obj.sfxVol === "number") ? obj.sfxVol : 0.5;
+      return Math.max(0, Math.min(1, v));
     } catch (e) {
-      return 0.25 * 0.7;
+      return 0.5;
     }
   }
 
@@ -216,6 +216,115 @@
           type: "triangle", gain: 0.32, release: 0.35,
         });
       }
+    },
+    // Per-pickup blip; pitch + flourish scale with rarity. Kept very
+    // short and quiet so the constant pickup stream doesn't drown the
+    // music.
+    pickup: function (rarity) {
+      if (rarity === "legend") {
+        // Tiny ascending arp 800/1000/1200
+        [800, 1000, 1300].forEach(function (f, n) {
+          tone({
+            delay: n * 0.04, dur: 0.07, freq: f,
+            type: "triangle", gain: 0.12, release: 0.03,
+          });
+        });
+      } else if (rarity === "epic") {
+        // Two-blip
+        tone({ dur: 0.05, freq: 900, type: "triangle", gain: 0.10, release: 0.02 });
+        tone({ delay: 0.06, dur: 0.06, freq: 1100, type: "triangle", gain: 0.10, release: 0.03 });
+      } else if (rarity === "rare") {
+        // Single ping with slight upglide
+        tone({
+          dur: 0.07, freq: 700, freqEnd: 880,
+          type: "triangle", gain: 0.10, release: 0.03,
+        });
+      } else {
+        // Common / uncommon — single soft tick
+        tone({
+          dur: 0.04, freq: 600,
+          type: "square", gain: 0.06, attack: 0.001, release: 0.01,
+        });
+      }
+    },
+    // Crate appears and the player snags it — a soft thump + chime ping.
+    chestCollect: function () {
+      tone({ dur: 0.08, freq: 180, freqEnd: 100, type: "sine", gain: 0.30, release: 0.04 });
+      tone({ delay: 0.04, dur: 0.20, freq: 1320, type: "triangle", gain: 0.18, release: 0.10 });
+    },
+    // Cracking the lid: rising arpeggio + sparkle.
+    chestOpen: function () {
+      [523.25, 659.25, 783.99, 1046.50].forEach(function (f, n) {
+        tone({
+          delay: n * 0.06, dur: 0.14, freq: f,
+          type: "triangle", gain: 0.22, release: 0.06,
+        });
+      });
+      tone({
+        delay: 0.30, dur: 0.35, freq: 1568, freqEnd: 1318.51,
+        type: "sine", gain: 0.20, release: 0.18,
+      });
+    },
+    // Level up: G4 → C5 → E5 → G5 quick fanfare.
+    levelUp: function () {
+      [392.00, 523.25, 659.25, 783.99].forEach(function (f, n) {
+        tone({
+          delay: n * 0.07, dur: 0.16, freq: f,
+          type: "triangle", gain: 0.28, release: 0.08,
+        });
+      });
+    },
+    // Promotion: bigger fanfare than a level — sustained low note +
+    // ascending triad + high sustained finale.
+    promote: function () {
+      // Low foundation
+      tone({
+        dur: 0.6, freq: 130.81, type: "triangle",
+        gain: 0.18, release: 0.25,
+      });
+      // Ascending C-major triad
+      [261.63, 329.63, 392.00, 523.25].forEach(function (f, n) {
+        tone({
+          delay: 0.05 + n * 0.10, dur: 0.20, freq: f,
+          type: "triangle", gain: 0.26, release: 0.08,
+        });
+      });
+      // High finale
+      tone({
+        delay: 0.55, dur: 0.6, freq: 1046.50,
+        type: "triangle", gain: 0.30, release: 0.30,
+      });
+      tone({
+        delay: 0.55, dur: 0.6, freq: 1318.51,
+        type: "sine", gain: 0.18, release: 0.30,
+      });
+    },
+    // Achievement unlocked: 3-note bright chime (C5 E5 A5).
+    achievement: function () {
+      [523.25, 659.25, 880.00].forEach(function (f, n) {
+        tone({
+          delay: n * 0.07, dur: 0.18, freq: f,
+          type: "sine", gain: 0.30, release: 0.10,
+        });
+      });
+    },
+    // Boost engaged: noise sweep + rising tone (whoosh).
+    boost: function () {
+      noise({ dur: 0.30, gain: 0.30, filter: "bandpass", cutoff: 1500 });
+      tone({
+        dur: 0.30, freq: 220, freqEnd: 880,
+        type: "sawtooth", gain: 0.20, release: 0.10,
+      });
+    },
+    // Sell haul / cash in: cha-ching — high blip + descending confirm.
+    sell: function () {
+      tone({ dur: 0.06, freq: 1568, type: "square", gain: 0.18, release: 0.02 });
+      tone({ delay: 0.05, dur: 0.16, freq: 880, freqEnd: 660, type: "triangle", gain: 0.22, release: 0.08 });
+    },
+    // Buy upgrade / gear: short coin-clink.
+    buy: function () {
+      tone({ dur: 0.05, freq: 1320, type: "square", gain: 0.18, release: 0.02 });
+      tone({ delay: 0.04, dur: 0.08, freq: 1760, type: "triangle", gain: 0.14, release: 0.04 });
     },
   };
 })();

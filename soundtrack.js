@@ -24,19 +24,24 @@
   function loadSettings() {
     try {
       var raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return { on: true, vol: 0.25 };
+      if (!raw) return { on: true, vol: 0.25, sfxVol: 0.5 };
       var obj = JSON.parse(raw);
       return {
-        on:  typeof obj.on  === "boolean" ? obj.on : true,
-        vol: typeof obj.vol === "number"  ? Math.max(0, Math.min(1, obj.vol)) : 0.25,
+        on:     typeof obj.on     === "boolean" ? obj.on : true,
+        vol:    typeof obj.vol    === "number"  ? Math.max(0, Math.min(1, obj.vol))    : 0.25,
+        sfxVol: typeof obj.sfxVol === "number"  ? Math.max(0, Math.min(1, obj.sfxVol)) : 0.5,
       };
     } catch (e) {
-      return { on: true, vol: 0.25 };
+      return { on: true, vol: 0.25, sfxVol: 0.5 };
     }
   }
   function saveSettings(s) {
-    // Only the on/off + volume are persisted. Position resets each load.
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ on: s.on, vol: s.vol })); } catch (e) {}
+    // Only on/off + volumes are persisted. Cycle position resets each load.
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        on: s.on, vol: s.vol, sfxVol: s.sfxVol,
+      }));
+    } catch (e) {}
   }
 
   // Fisher–Yates shuffle in place.
@@ -70,7 +75,7 @@
   audio.volume = settings.vol;
   audio.src = cycle[idx];
 
-  var btn, vol, trackLabel, prevBtn, nextBtn;
+  var btn, vol, trackLabel, prevBtn, nextBtn, sfxVol;
 
   function refreshUI() {
     if (!btn) return;
@@ -200,13 +205,13 @@
     row1.appendChild(btn);
     row1.appendChild(nextBtn);
 
-    // Row 2: 🔊 + volume slider + Track N/25 label
+    // Row 2: 🎶 + music volume slider + Track N/25 label
     var row2 = document.createElement("div");
     row2.className = "music-row";
 
     var volIcon = document.createElement("span");
     volIcon.className = "music-vol-icon";
-    volIcon.textContent = "🔊";
+    volIcon.textContent = "🎶";
 
     vol = document.createElement("input");
     vol.type = "range";
@@ -223,6 +228,33 @@
     row2.appendChild(volIcon);
     row2.appendChild(vol);
     row2.appendChild(trackLabel);
+
+    // Row 3: 🔊 + SFX volume slider. SFX values are read live from
+    // localStorage by sfx.js, so persisting on input is the only wire-up
+    // we need from here.
+    var row3 = document.createElement("div");
+    row3.className = "music-row";
+
+    var sfxIcon = document.createElement("span");
+    sfxIcon.className = "music-vol-icon";
+    sfxIcon.textContent = "🔊";
+
+    sfxVol = document.createElement("input");
+    sfxVol.type = "range";
+    sfxVol.id = "sfxVol";
+    sfxVol.min = "0";
+    sfxVol.max = "100";
+    sfxVol.step = "1";
+    sfxVol.value = String(Math.round(settings.sfxVol * 100));
+    sfxVol.title = "SFX volume";
+
+    var sfxLabel = document.createElement("span");
+    sfxLabel.className = "music-track";
+    sfxLabel.textContent = "SFX";
+
+    row3.appendChild(sfxIcon);
+    row3.appendChild(sfxVol);
+    row3.appendChild(sfxLabel);
 
     btn.addEventListener("click", function () {
       settings.on = !settings.on;
@@ -243,9 +275,20 @@
       audio.volume = settings.vol;
       saveSettings(settings);
     });
+    sfxVol.addEventListener("input", function () {
+      var v = parseInt(sfxVol.value, 10);
+      if (!isFinite(v)) v = 0;
+      settings.sfxVol = Math.max(0, Math.min(1, v / 100));
+      saveSettings(settings);
+      // Quick confirmation blip so the player can hear the level.
+      if (window.brickedUpSfx && window.brickedUpSfx.pickup) {
+        window.brickedUpSfx.pickup("rare");
+      }
+    });
 
     wrap.appendChild(row1);
     wrap.appendChild(row2);
+    wrap.appendChild(row3);
     document.body.appendChild(wrap);
     refreshUI();
   }
