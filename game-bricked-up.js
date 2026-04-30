@@ -285,18 +285,15 @@ const UPGRADE_DEFS = [
     name: "Brick Bin",
     desc: "Brick-haul capacity",
     stat: "cargoMax",
-    // Bigger starting capacity (10 kg → fits a couple of items immediately)
-    // and slightly faster early growth so the bar isn't constantly choking
-    // a new player. Mult stays at 1.04 so late-game still doesn't explode
-    // (L100 ≈ 1.7k kg) — infinite progression, just kinder up front.
-    base: 10, add: 3, mult: 1.05,
-    // Cheap and flat-ramp on purpose. Cap sized to the worst-case endgame
-    // dive: ~1s capped descent + 300 picks/sec boosted at the heaviest
-    // legend weights ≈ 3,000 kg. L80 ≈ 3,409 kg gives a small buffer for
-    // the Lucky-Current 2× cargo bonus. UI shows "MAX" past the cap.
+    // Buffed starting capacity + growth to absorb the Talent Vault's
+    // loot-rate bonuses (Wraithgrasp +200% pickup rate, Tribute +25%
+    // duplicate chance) — cargo used to fill in seconds at higher ranks.
+    // Doubled the per-level add and bumped the mult so endgame cap also
+    // climbs comfortably above the new ceiling without max-level grind.
+    base: 25, add: 6, mult: 1.06,
     baseCost: 8, costMult: 1.4,
     suffix: " kg",
-    maxLevel: 80,
+    maxLevel: 100,
   },
   {
     id: "sonar",
