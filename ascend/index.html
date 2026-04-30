@@ -1454,6 +1454,10 @@ body.ascension .gear-btn {
   bottom: 20px;
   height: 80px;       /* match boost height */
   width: 96px;        /* a touch wider so "ASCENSION MULTIPLIER" reads cleanly */
+  /* Display-only — the legacy Ascend modal it used to open has been
+     retired. Visible as a multiplier readout but non-interactive. */
+  pointer-events: none;
+  cursor: default;
 }
 body.ascension .gear-btn .gear-label {
   font-size: 9px;
