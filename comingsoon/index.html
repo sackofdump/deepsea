@@ -1540,57 +1540,6 @@ body.ascension .vault-btn-float .vault-sub {
   }
 }
 
-/* Dev / admin: +10 Lv shortcut. Floats top-right, dimmed so it doesn't
-   visually compete with gameplay UI but is always one click away. */
-body.ascension #devLvl10Btn.dev-btn-float {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 100;
-  padding: 8px 14px;
-  background: rgba(168, 18, 58, 0.55);
-  color: var(--bone);
-  border: 1px solid rgba(232, 200, 144, 0.55);
-  border-radius: 4px;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  cursor: pointer;
-  text-transform: uppercase;
-  opacity: 0.55;
-  transition: opacity 180ms ease, box-shadow 180ms ease;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-}
-body.ascension #devLvl10Btn.dev-btn-float:hover {
-  opacity: 1;
-  box-shadow: 0 0 16px rgba(168, 18, 58, 0.5);
-}
-/* +90 stacks directly below +10 with the same dim style. */
-body.ascension #devLvl90Btn.dev-btn-float {
-  position: fixed;
-  top: 50px;
-  right: 12px;
-  z-index: 100;
-  padding: 8px 14px;
-  background: rgba(168, 18, 58, 0.55);
-  color: var(--bone);
-  border: 1px solid rgba(232, 200, 144, 0.55);
-  border-radius: 4px;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  cursor: pointer;
-  text-transform: uppercase;
-  opacity: 0.55;
-  transition: opacity 180ms ease, box-shadow 180ms ease;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-}
-body.ascension #devLvl90Btn.dev-btn-float:hover {
-  opacity: 1;
-  box-shadow: 0 0 16px rgba(168, 18, 58, 0.5);
-}
 .ascension-milestone-mult {
   font-size: 16px;
   font-weight: 800;
@@ -1790,8 +1739,6 @@ body.ascension #devLvl90Btn.dev-btn-float:hover {
       <span class="vault-label">TALENTS</span>
       <span class="vault-sub" id="vaultCoinCount">0</span>
     </button>
-    <button id="devLvl10Btn" class="dev-btn-float" type="button" title="Admin: +10 levels">+10 LV</button>
-    <button id="devLvl90Btn" class="dev-btn-float dev-btn-90" type="button" title="Admin: +90 levels (jump to cap)">+90 LV</button>
   </main>
 </div>
 
@@ -2825,20 +2772,6 @@ window.__GAME_PAUSED__ = true;
     window.__GAME_PAUSED__ = splashOpen || atCap;
   }, 250);
 })();
-
-// Dev shortcut: floating "+10 LV" button piggybacks on the engine's
-// existing adminLvlBtn handler (which lives behind a password gate).
-// Clicking the visible dev button just synthesizes a click on the
-// hidden one — same biome-change log + UI refresh, no duplicate logic.
-document.getElementById("devLvl10Btn")?.addEventListener("click", () => {
-  document.getElementById("adminLvlBtn")?.click();
-});
-// +90 just clicks +10 nine times — reuses all the engine bookkeeping
-// (biome-change log, UI refresh, achievement scan) without a new path.
-document.getElementById("devLvl90Btn")?.addEventListener("click", () => {
-  const btn = document.getElementById("adminLvlBtn");
-  for (let i = 0; i < 9; i++) btn?.click();
-});
 
 // Talent vault iframe → parent bridge. The embedded Continue button
 // posts a message; we handle ascend + close here so it survives the
