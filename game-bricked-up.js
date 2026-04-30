@@ -1085,13 +1085,11 @@ function refreshGearUI() {
     const stars     = state.pearls || 0;
     const milestones = ASCENSION.milestones || [];
     const commissionsDone = state.prestigeCount || 0;
-    // Walk the ladder accumulating the multiplier so each row's right-
-    // hand chip shows the TOTAL multiplier you have at that vow,
-    // instead of just the vow's own contribution. (×2 then ×6 then
-    // ×30 then ×300 then ×7,500 reads way clearer than the raw stack.)
-    let cumMult = 1;
+    // No per-row multiplier chip — the TOTAL CASH & XP MULTIPLIER
+    // panel above is the only number that matters. Each row just
+    // describes what the vow contributes; the player sees the live
+    // total at the top.
     const milestoneRows = milestones.map(ms => {
-      cumMult *= (ms.mult || 1);
       const unlocked = tier >= ms.tier;
       // ms.tier is the rank you need to BE at; getting there costs
       // (ms.tier - 1) commissions because you start at Rank 1.
@@ -1106,9 +1104,8 @@ function refreshGearUI() {
           <div class="ascension-milestone-meta">
             <div class="ascension-milestone-name">${ms.label}</div>
             <div class="ascension-milestone-req">${gateText}</div>
-            <div class="ascension-milestone-desc">${ms.desc || `+×${ms.mult} on top of the stack — total ×${fmt(cumMult)} once unlocked`}</div>
+            <div class="ascension-milestone-desc">${ms.desc || `Multiplies your total cash &amp; XP by ×${ms.mult}`}</div>
           </div>
-          <div class="ascension-milestone-mult">×${fmt(cumMult)}</div>
         </div>`;
     }).join("");
     const totalMult = ascensionTotalMult();
@@ -2265,15 +2262,12 @@ function updatePrestigeUI() {
     } catch (e) { vaultCount.textContent = '0'; }
   }
   if (nextEl) {
-    // Ascension surfaces the Star-unlock level instead of the rank-gate,
-    // because canUpgradeSub now ONLY gates on starUnlockLevel.
-    let displayLvl = reqLevel;
-    if (ascending) {
-      displayLvl = ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length);
-    }
+    // Show the actual next-rank gate level (Lv 20 / 40 / 60 / 80 / 100
+    // for Ascension's 5-ascend ladder). Older code surfaced the
+    // legacy "starUnlockLevel" which now reads as a stale Lv 980.
     nextEl.textContent = ready
       ? `${rankName(nextTier)} — ready!`
-      : `${rankName(nextTier)} @ Lv ${displayLvl}`;
+      : `${rankName(nextTier)} @ Lv ${reqLevel}`;
   }
   const badge = $("prestigeBadge");
   if (badge) {
