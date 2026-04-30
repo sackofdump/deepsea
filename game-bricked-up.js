@@ -431,7 +431,7 @@ function slotLuckWeight(tier, baseWeight) {
 }
 
 // ----- Talent Vault (Ascension expansion) -----------------------
-// Coins are earned per ascension and spent in comingsoon/expand/.
+// Coins are earned per ascension and spent in ascend/expand/.
 // Ranks live in localStorage 'ascension_talents_v1' as { ranks: { id: 0-3 } }.
 // The value tables here MUST mirror the talent definitions in the vault.
 //
@@ -4366,7 +4366,10 @@ function leaderboardPayload() {
 
 async function leaderboardSync(force) {
   if (!state.displayName) return;
-  if (eventEnded()) return;
+  // Allow forced syncs even after the event window closes — the player
+  // pressed the Sync button explicitly. Auto-syncs (force=false) still
+  // skip after eventEnded so we don't keep churning post-event traffic.
+  if (!force && eventEnded()) return;
   const payload = leaderboardPayload();
   const sig = JSON.stringify(payload);
   if (!force && sig === lbLastSyncSig) return;

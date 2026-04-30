@@ -1,7 +1,7 @@
 // Sitewide "Ascension launch" banner. Auto-injects a fixed top-center
 // promo button counting down to 9:30 PM CDT on Apr 29 2026 — when
 // Ascension unlocks. Once the launch instant passes the banner flips
-// to a "LIVE NOW" link to /comingsoon/. Pages opt in by including
+// to a "LIVE NOW" link to /ascend/. Pages opt in by including
 // <script src="ascension-launch.js"></script>; the Ascension page
 // itself is auto-detected and skipped.
 //
@@ -14,7 +14,7 @@
   // promo. Set LAUNCH to a positive value if you want to re-enable a
   // countdown later (e.g. Date.UTC(2026, 3, 30, 2, 30, 0) for 9:30 CDT).
   var LAUNCH = 0;
-  var HREF = "/comingsoon/";
+  var HREF = "/ascend/";
 
   function injectStyles() {
     if (document.getElementById("ascension-launch-style")) return;
@@ -59,7 +59,7 @@
   // Skip the banner on the Ascension page itself.
   function onAscensionPage() {
     var p = (location.pathname || "").toLowerCase();
-    return p.indexOf("/comingsoon") !== -1;
+    return p.indexOf("/ascend") !== -1;
   }
 
   function fmtCountdown(ms) {
