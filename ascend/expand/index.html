@@ -538,7 +538,8 @@
   }
 
   // ---------------- Talent definitions ----------------
-  // Each rank costs (rank+1) stars: rank 1 = 1, rank 2 = 2, rank 3 = 3.
+  // Flat cost: every rank is 1 coin (3 coins to fully max one talent,
+  // 24 coins to max all 8 — = 12 full Lv 100 runs at 2 coins/run).
   // Effects are stored as numbers (multipliers / additive %) so the engine
   // can apply them later. For now this page just owns the spend + persist.
   const TALENTS = [
@@ -640,7 +641,7 @@
     },
   ];
 
-  const COST_PER_RANK = [1, 2, 3]; // index by rank-1
+  const COST_PER_RANK = [1, 1, 1]; // flat — 1 coin per rank
   const TALENTS_KEY = 'ascension_talents_v1';
   const COINS_KEY = 'ascension_coins_v1'; // dedicated coin counter, separate from in-game stars
 
