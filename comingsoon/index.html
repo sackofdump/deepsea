@@ -890,6 +890,8 @@ body.ascension .continue-ascend {
   animation: continuePulse 1.6s ease-in-out infinite;
 }
 body.ascension .continue-ascend[hidden] { display: none; }
+/* Continue button is only meaningful once talents have launched. */
+body.ascension:not(.talents-launched) .continue-ascend { display: none !important; }
 body.ascension .continue-ascend:hover {
   transform: translate(-50%, -2px);
   box-shadow:
@@ -1465,10 +1467,10 @@ body.ascension #talentFrame {
 }
 
 /* Talent Vault button — sits to the right of the Ascend (gear) button.
-   Hidden during normal play; only revealed at the FINAL Lv 100 cap
-   (not at earlier rank-gates like Lv 20/30/...). */
+   Hidden during normal play; only revealed at the FINAL Lv 100 cap AND
+   after the talent system's scheduled launch (9:05 PM CDT). */
 body.ascension .vault-btn-float { display: none; }
-body.ascension.ascension-at-final-cap .vault-btn-float { display: flex; }
+body.ascension.ascension-at-final-cap.talents-launched .vault-btn-float { display: flex; }
 body.ascension .vault-btn-float {
   position: absolute;
   left: 288px;        /* gear-btn left (176) + width (96) + gap (16) */
@@ -2485,7 +2487,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=74"></script>
+<script src="../game-bricked-up.js?v=75"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player
@@ -2707,16 +2709,31 @@ window.__GAME_PAUSED__ = true;
   setInterval(tick, 1000);
 })();
 
-// Big center "🪙 TALENT TREE" button — only visible when at-cap (Lv 100).
-// Spending coins is the natural beat between hitting the cap and choosing
-// to ascend, so this slot now opens the vault modal instead of triggering
-// ascend. The Ascend buttons (side panel + bottom-left float) still drive
-// the actual rank-up when the player's ready.
+// Big center button — pre-launch (before 9:05 PM CDT Apr 29 2026) it
+// reverts to "⛧ ASCEND ⛧" and triggers the side-panel ascend. After
+// launch it morphs into "🪙 TALENT VAULT" and opens the vault modal.
+// The flip happens live via setInterval, no page reload required.
 (function () {
   const center = document.getElementById("centerAscendBtn");
-  const vault  = document.getElementById("vaultBtn");
-  if (!center || !vault) return;
-  center.addEventListener("click", function () { vault.click(); });
+  if (!center) return;
+
+  function syncTalentLaunch() {
+    const launched = !!(window.__talentsLaunched__ && window.__talentsLaunched__());
+    document.body.classList.toggle("talents-launched", launched);
+    center.textContent = launched ? "🪙 TALENT VAULT" : "⛧ ASCEND ⛧";
+  }
+  syncTalentLaunch();
+  setInterval(syncTalentLaunch, 1000);
+
+  center.addEventListener("click", function () {
+    const launched = document.body.classList.contains("talents-launched");
+    if (launched) {
+      document.getElementById("vaultBtn")?.click();
+    } else {
+      const p = document.getElementById("prestigeBtn");
+      if (p && !p.disabled) p.click();
+    }
+  });
 })();
 
 // Odds & Scales modal — opened via the sidebar footer button OR any

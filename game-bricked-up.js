@@ -431,9 +431,15 @@ function slotLuckWeight(tier, baseWeight) {
 }
 
 // ----- Talent Vault (Ascension expansion) -----------------------
-// Coins are earned 1 per ascension and spent in comingsoon/expand/.
+// Coins are earned per ascension and spent in comingsoon/expand/.
 // Ranks live in localStorage 'ascension_talents_v1' as { ranks: { id: 0-3 } }.
 // The value tables here MUST mirror the talent definitions in the vault.
+//
+// Scheduled launch: 9:05 PM CDT on Apr 29 2026 = Apr 30 02:05 UTC.
+// Before this timestamp the system is fully dormant — no coin grant, no
+// modifier application — so the engine behaves like vanilla Ascension.
+const TALENT_LAUNCH_TS = Date.UTC(2026, 3, 30, 2, 5, 0);
+function talentsLaunched() { return Date.now() >= TALENT_LAUNCH_TS; }
 const TALENT_VALUES = {
   slot_luck:  [0, 0.15, 0.30, 0.50],
   cash_boost: [0, 0.20, 0.45, 0.80],
@@ -457,6 +463,7 @@ function talentRanks() {
   return __talentRanksCache;
 }
 function talentValue(id) {
+  if (!talentsLaunched()) return 0; // dormant pre-launch
   const r = talentRanks()[id] | 0;
   const tab = TALENT_VALUES[id];
   return (tab && r > 0) ? tab[Math.min(r, 3)] : 0;
@@ -465,6 +472,10 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e && e.key === 'ascension_talents_v1') { __talentRanksCache = null; }
   });
+  // Expose launch gate so page-level UI can show/hide talent affordances
+  // and flip live the moment 9:05 PM CDT lands without a reload.
+  window.__TALENTS_LAUNCH_TS__ = TALENT_LAUNCH_TS;
+  window.__talentsLaunched__   = talentsLaunched;
 }
 
 // ----- State -----------------------------------------------------
@@ -930,7 +941,8 @@ function doPrestige() {
   // rank-gate ascensions (Lv 20, 30, 40, ..., 90) are progression
   // milestones but not "full runs" — they don't pay out. +2 🪙 per
   // 100-level run; separate currency from the ✨ multiplier.
-  if (ASCENSION && ASCENSION.enabled && state.level >= 100 && typeof localStorage !== 'undefined') {
+  // Also gated on talentsLaunched() — pre-9:05 PM CDT no coins drop.
+  if (ASCENSION && ASCENSION.enabled && state.level >= 100 && talentsLaunched() && typeof localStorage !== 'undefined') {
     try {
       const cur = Number(JSON.parse(localStorage.getItem('ascension_coins_v1') || '0'));
       const next = (Number.isFinite(cur) ? cur : 0) + 2;
