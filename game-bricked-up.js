@@ -413,18 +413,26 @@ function xpBonusMult()        { return gearAdd("insight") * (1 + talentValue('xp
 // Slot luck: higher levels shift weight away from sharks and toward majors/jackpots.
 function slotLuckWeight(tier, baseWeight) {
   const lvl = gearLevel("luck");
-  const t = talentValue('slot_luck'); // 0 / 0.05 / 0.10 / 0.15
   let w = baseWeight;
   if (lvl > 0) {
     if (tier === "shark")        w *= Math.max(0.3, 1 - 0.08 * lvl);  // -8%/lvl, floor 30%
     else if (tier === "jackpot") w *= (1 + 0.25 * lvl);               // +25%/lvl
     else if (tier === "major")   w *= (1 + 0.15 * lvl);               // +15%/lvl
   }
-  if (t > 0) {
-    if (tier === "shark")                              w *= Math.max(0.3, 1 - t);
-    else if (tier === "jackpot" || tier === "major")   w *= (1 + t);
+  // Black Communion talent: doubles its rank value into the jackpot
+  // weight specifically (so it boosts BOTH the roll-it chance AND the
+  // hit-it cascade chance — its in-cascade buff lives elsewhere).
+  if (tier === "jackpot") {
+    const bc = talentValue('cascade');
+    if (bc > 0) w *= (1 + bc * 2);
   }
   return w;
+}
+
+// Bone-Reader talent: shortens the slot pull cooldown. +100% at rank 3
+// halves the interval so pulls fire twice as often.
+function slotIntervalMs() {
+  return SLOT_INTERVAL_MS / (1 + talentValue('slot_luck'));
 }
 
 // ----- Talent Vault (Ascension expansion) -----------------------
@@ -439,14 +447,14 @@ function slotLuckWeight(tier, baseWeight) {
 const TALENT_LAUNCH_TS = 0;
 function talentsLaunched() { return true; }
 const TALENT_VALUES = {
-  slot_luck:  [0, 0.15, 0.30, 0.50],
-  cash_boost: [0, 0.20, 0.45, 0.80],
-  xp_boost:   [0, 0.20, 0.45, 0.80],
-  buff_dur:   [0, 0.20, 0.45, 0.80],
-  magnet:     [0, 0.50, 1.00, 2.00],
-  cascade:    [0, 0.05, 0.10, 0.20],
-  rarity:     [0, 0.15, 0.30, 0.50],
-  tribute:    [0, 0.05, 0.12, 0.25],
+  slot_luck:  [0, 0.30, 0.60, 1.00],
+  cash_boost: [0, 0.50, 1.00, 2.00],
+  xp_boost:   [0, 0.50, 1.00, 2.00],
+  buff_dur:   [0, 0.50, 1.00, 2.00],
+  magnet:     [0, 1.00, 2.50, 5.00],
+  cascade:    [0, 0.10, 0.25, 0.50],
+  rarity:     [0, 0.30, 0.60, 1.00],
+  tribute:    [0, 0.15, 0.30, 0.60],
 };
 let __talentRanksCache = null;
 let __talentCacheTime  = 0;
@@ -3306,7 +3314,7 @@ function scheduleSlot() {
       return;
     }
     spinSlot();
-    state.nextSpinAt = Date.now() + SLOT_INTERVAL_MS;
+    state.nextSpinAt = Date.now() + slotIntervalMs();
     scheduleSlot();
   }, delay);
 }

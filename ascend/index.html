@@ -1857,14 +1857,14 @@ body.ascension .vault-btn-float .vault-sub {
         <h3>🪙 Talent Vault — permanent talents</h3>
         <p>Every Lv 1 → 100 run earns you <strong>2 🪙 Coins</strong>. Spend them in the vault on <strong>8 talents</strong>, each <strong>3 ranks</strong>:</p>
         <ul>
-          <li>🎰 <strong>Bone-Reader</strong> — slot match chance (+15 / +30 / +50%)</li>
-          <li>✨ <strong>Sigil-Touched</strong> — pickup value (+20 / +45 / +80%)</li>
-          <li>👁 <strong>Inner Sight</strong> — bonus XP (+20 / +45 / +80%)</li>
-          <li>💀 <strong>Apotheotic</strong> — slot buff duration (+20 / +45 / +80%)</li>
-          <li>🧲 <strong>Wraithgrasp</strong> — pickup rate (+50 / +100 / +200%)</li>
-          <li>🌑 <strong>Black Communion</strong> — mega cascade hit chance (+5 / +10 / +20%)</li>
-          <li>🕯 <strong>Vesper's Favor</strong> — loot rarity uplift (+15 / +30 / +50%)</li>
-          <li>💎 <strong>Tribute</strong> — pickups duplicate (+5 / +12 / +25%)</li>
+          <li>🎰 <strong>Bone-Reader</strong> — faster slot pulls (+30 / +60 / +100% pull rate)</li>
+          <li>✨ <strong>Sigil-Touched</strong> — pickup value (+50 / +100 / +200%)</li>
+          <li>👁 <strong>Inner Sight</strong> — bonus XP (+50 / +100 / +200%)</li>
+          <li>💀 <strong>Apotheotic</strong> — slot buff duration (+50 / +100 / +200%)</li>
+          <li>🧲 <strong>Wraithgrasp</strong> — pickup rate (+100 / +250 / +500%)</li>
+          <li>🌑 <strong>Black Communion</strong> — mega cascade hit chance (+10 / +25 / +50%)</li>
+          <li>🕯 <strong>Vesper's Favor</strong> — loot rarity uplift (+30 / +60 / +100%)</li>
+          <li>💎 <strong>Tribute</strong> — pickups duplicate (+15 / +30 / +60%)</li>
         </ul>
         <p>Costs <strong>1 coin per rank</strong> (3 coins to max one talent · 24 to max all 8 → <strong>12 full Lv 100 runs</strong> at 2 coins per run). Coins are <strong>persistent forever</strong> — they're not wiped by ascending, only by a full reset.</p>
       </section>
@@ -2536,7 +2536,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=87"></script>
+<script src="../game-bricked-up.js?v=88"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player
@@ -2770,10 +2770,10 @@ window.__GAME_PAUSED__ = true;
   setInterval(tick, 1000);
 })();
 
-// Big center button — always reads "🪙 TALENT VAULT" at the final
-// Lv 100 cap and routes through the vault modal. The talents-launched
-// body class is still toggled (engine reads it for coin/effect gates)
-// but the at-cap UI no longer depends on it.
+// Big center button — at Lv 100, ascend FIRST (so the +2 🪙 coins
+// drop into the bank), then open the vault so the player can spend
+// them. Without the pre-ascend the player saw stale coins and had to
+// close → ascend → reopen to see what they'd just earned.
 (function () {
   const center = document.getElementById("centerAscendBtn");
   if (!center) return;
@@ -2786,6 +2786,10 @@ window.__GAME_PAUSED__ = true;
   setInterval(syncTalentLaunch, 1000);
 
   center.addEventListener("click", function () {
+    const prestigeBtn = document.getElementById("prestigeBtn");
+    // Ascend first if we're at the cap. confirm() inside doPrestige
+    // is synchronous, so coins are granted before the next line runs.
+    if (prestigeBtn && !prestigeBtn.disabled) prestigeBtn.click();
     document.getElementById("vaultBtn")?.click();
   });
 })();
