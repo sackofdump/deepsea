@@ -1454,10 +1454,6 @@ body.ascension .gear-btn {
   bottom: 20px;
   height: 80px;       /* match boost height */
   width: 96px;        /* a touch wider so "ASCENSION MULTIPLIER" reads cleanly */
-  /* Display-only — the legacy Ascend modal it used to open has been
-     retired. Visible as a multiplier readout but non-interactive. */
-  pointer-events: none;
-  cursor: default;
 }
 body.ascension .gear-btn .gear-label {
   font-size: 9px;
@@ -1496,6 +1492,87 @@ body.ascension .gear-btn .gear-sub {
    panel button and the top "⛧ Ascend ›" callout. */
 body.ascension.ascension-at-final-cap #prestigeBtn,
 body.ascension.ascension-at-final-cap #ascendCallout { display: none !important; }
+
+/* === Ascension Multiplier ladder popup — small focused modal that
+   spells out the total × at each rank step. Opened from the gear
+   button (bottom-left). === */
+body.ascension #ladderOverlay .howto-modal.ladder-modal {
+  max-width: 460px;
+  width: calc(100% - 40px);
+  background: linear-gradient(180deg, rgba(20,4,28,0.98), rgba(6,0,12,0.98));
+  border: 1px solid rgba(200,160,80,0.5);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 26px rgba(200,160,80,0.18);
+  padding: 22px 22px 20px;
+}
+body.ascension #ladderOverlay h2 {
+  margin: 0 0 6px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 16px;
+  color: var(--bone);
+}
+body.ascension #ladderOverlay .ladder-blurb,
+body.ascension #ladderOverlay .ladder-foot {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--bone-dim);
+  margin: 0 0 14px;
+}
+body.ascension #ladderOverlay .ladder-foot { margin: 14px 0 0; }
+body.ascension #ladderOverlay .ladder-foot strong { color: var(--halo); font-weight: 600; }
+body.ascension .ladder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+body.ascension .ladder-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid rgba(200,160,80,0.25);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(20,4,28,0.6), rgba(6,0,12,0.7));
+  font-size: 12px;
+  color: var(--bone);
+}
+body.ascension .ladder-row.current {
+  border-color: var(--sigil-gold);
+  box-shadow: 0 0 12px rgba(200,160,80,0.35);
+  background: linear-gradient(180deg, rgba(40,20,8,0.7), rgba(20,4,12,0.85));
+}
+body.ascension .ladder-row.locked { opacity: 0.55; }
+body.ascension .ladder-icon {
+  font-size: 18px;
+  line-height: 1;
+  width: 24px;
+  text-align: center;
+}
+body.ascension .ladder-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+body.ascension .ladder-name {
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--bone);
+  font-size: 12px;
+}
+body.ascension .ladder-req {
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: var(--bone-dim);
+}
+body.ascension .ladder-mult {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--sigil-gold);
+  text-shadow: 0 0 8px rgba(200,160,80,0.45);
+  letter-spacing: 0.5px;
+}
+body.ascension .ladder-row.locked .ladder-mult { color: var(--bone-dim); text-shadow: none; }
 
 /* Talent Vault overlay — full-screen modal containing the embedded vault. */
 body.ascension #talentOverlay .howto-modal.talent-modal {
@@ -1813,6 +1890,18 @@ body.ascension .vault-btn-float .vault-sub {
      vault while still at-cap (Lv 100). Triggers the same prestige/ascend
      action as the side-panel button. Hidden again once they ascend. -->
 <button id="continueAscendBtn" class="continue-ascend" type="button" hidden>CONTINUE ›</button>
+
+<!-- Ascension Multiplier ladder popup — opened by clicking the
+     bottom-left gear button. Shows the total ×N at each rank step. -->
+<div id="ladderOverlay" class="howto-overlay" hidden>
+  <div class="howto-modal ladder-modal">
+    <button class="howto-close" id="ladderClose" aria-label="Close">×</button>
+    <h2>⛧ Ascension Multiplier</h2>
+    <p class="ladder-blurb muted">Total ×N at each rank step within a run. Each ascend layers a new Vow on the stack and compounds the multiplier ×1.5.</p>
+    <div id="ladderList" class="ladder-list"></div>
+    <p class="ladder-foot muted">Reaching <strong>Lv 100</strong> ascends one final time, banks <strong>+2 🪙 Coins</strong>, then resets the ladder so the next run starts fresh at ×5.</p>
+  </div>
+</div>
 
 
 <div id="gearOverlay" class="howto-overlay" hidden>
@@ -2776,6 +2865,82 @@ window.__GAME_PAUSED__ = true;
   }
   tick();
   setInterval(tick, 1000);
+})();
+
+// Ascension Multiplier ladder popup — clicking the bottom-left gear
+// button opens a small modal showing the total ×N at every rank step.
+// Replaces the engine's legacy openGear() flow on this page.
+(function () {
+  const btn = document.getElementById("gearBtn");
+  const overlay = document.getElementById("ladderOverlay");
+  const closeBtn = document.getElementById("ladderClose");
+  const list = document.getElementById("ladderList");
+  if (!btn || !overlay || !list) return;
+
+  // Drop the engine's listener so it can't open the legacy modal.
+  // (Cloning the node strips ALL its event listeners cleanly.)
+  const fresh = btn.cloneNode(true);
+  btn.parentNode.replaceChild(fresh, btn);
+
+  function fmt(n) {
+    if (n >= 1000)  return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    if (n >= 100)   return n.toFixed(0);
+    if (n >= 10)    return n.toFixed(1);
+    return n.toFixed(2);
+  }
+
+  function buildList() {
+    const ascCfg = window.EVENT_CONFIG && window.EVENT_CONFIG.ascension;
+    if (!ascCfg) return;
+    const milestones = ascCfg.milestones || [];
+    const perStar = ascCfg.multPerStar || 1.5;
+    const currentRank = (window.__GAME_STATE__?.prestigeCount || 0) + 1;
+
+    // For each tier 1..N+1 walk the cumulative vow stack + star compound.
+    const totalRanks = milestones.length + 1; // +1 for the post-final reset row
+    let stack = 1;
+    const rows = [];
+    for (let r = 1; r <= totalRanks; r++) {
+      // Add any vows that unlock at this rank.
+      for (const ms of milestones) {
+        if (ms.tier === r) stack *= (ms.mult || 1);
+      }
+      const stars = Math.max(0, r - 1);
+      const total = stack * Math.pow(perStar, stars);
+      // The "+1 row" is the post-final-ascend reset, not a real rank.
+      const isResetRow = r > milestones.length;
+      const capLevel = isResetRow ? 100 : (r === 1 ? 1 : (r - 1) * 20);
+      const name = isResetRow ? "Run reset" : (milestones[r - 1]?.label || `Rank ${r}`);
+      const icon = isResetRow ? "🪙" : (milestones[r - 1]?.icon || "⛧");
+      const req = isResetRow
+        ? "Lv 100 ascend → +2 🪙 · multiplier resets"
+        : (r === 1 ? "Active from start" : `Ascend at Lv ${capLevel}`);
+      const mult = isResetRow ? "+2 🪙" : "×" + fmt(total);
+      const cls = isResetRow ? "ladder-row reset"
+                : currentRank === r ? "ladder-row current"
+                : currentRank < r ? "ladder-row locked"
+                : "ladder-row";
+      rows.push(`
+        <div class="${cls}">
+          <div class="ladder-icon">${icon}</div>
+          <div class="ladder-meta">
+            <div class="ladder-name">${name}</div>
+            <div class="ladder-req">${req}</div>
+          </div>
+          <div class="ladder-mult">${mult}</div>
+        </div>`);
+    }
+    list.innerHTML = rows.join("");
+  }
+
+  function open() { buildList(); overlay.hidden = false; }
+  function close() { overlay.hidden = true; }
+  fresh.addEventListener("click", open);
+  closeBtn?.addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !overlay.hidden) close();
+  });
 })();
 
 // Big center button — at Lv 100, ascend FIRST (so the +2 🪙 coins
