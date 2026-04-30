@@ -435,11 +435,17 @@ function slotLuckWeight(tier, baseWeight) {
 // Ranks live in localStorage 'ascension_talents_v1' as { ranks: { id: 0-3 } }.
 // The value tables here MUST mirror the talent definitions in the vault.
 //
-// Scheduled launch: 9:05 PM CDT on Apr 29 2026 = Apr 30 02:05 UTC.
+// Scheduled launch: 9:30 PM CDT on Apr 29 2026 = Apr 30 02:30 UTC.
 // Before this timestamp the system is fully dormant — no coin grant, no
 // modifier application — so the engine behaves like vanilla Ascension.
-const TALENT_LAUNCH_TS = Date.UTC(2026, 3, 30, 2, 5, 0);
-function talentsLaunched() { return Date.now() >= TALENT_LAUNCH_TS; }
+// The splash page can seed `ascension_dev_unlock=1` in localStorage via
+// password prompt to bypass the gate for testing.
+const TALENT_LAUNCH_TS = Date.UTC(2026, 3, 30, 2, 30, 0);
+function talentsLaunched() {
+  if (Date.now() >= TALENT_LAUNCH_TS) return true;
+  try { return localStorage.getItem('ascension_dev_unlock') === '1'; }
+  catch (e) { return false; }
+}
 const TALENT_VALUES = {
   slot_luck:  [0, 0.15, 0.30, 0.50],
   cash_boost: [0, 0.20, 0.45, 0.80],
@@ -473,7 +479,7 @@ if (typeof window !== 'undefined') {
     if (e && e.key === 'ascension_talents_v1') { __talentRanksCache = null; }
   });
   // Expose launch gate so page-level UI can show/hide talent affordances
-  // and flip live the moment 9:05 PM CDT lands without a reload.
+  // and flip live the moment 9:30 PM CDT lands without a reload.
   window.__TALENTS_LAUNCH_TS__ = TALENT_LAUNCH_TS;
   window.__talentsLaunched__   = talentsLaunched;
 }
@@ -935,14 +941,17 @@ function doPrestige() {
     dialog = `Promote to ${nextName}?\n\nBank ${earned} blueprints (+${earnedPct}% brick value)\nTotal: ${newPearls} blueprints (+${totalPct}% brick value)\nForever: +3% rarity upgrade chance per roll (now ${newRarityPct}%)\n\nResets: level, cash, upgrades, drop history.\nKeeps: rank, blueprints, achievements, catalog.`;
   }
   if (!confirm(dialog)) return;
+  // Capture whether THIS ascend completed a full Lv 1→100 run — used
+  // both to grant talent coins and to wipe the multiplier/rank back to
+  // the start of a fresh ladder.
+  const wasFullRun = !!(ASCENSION && ASCENSION.enabled && state.level >= 100);
   state.pearls = newPearls;
   state.prestigeCount = (state.prestigeCount || 0) + 1;
-  // Talent Vault: ONLY ascensions from Lv 100 bank coins. Early
-  // rank-gate ascensions (Lv 20, 30, 40, ..., 90) are progression
-  // milestones but not "full runs" — they don't pay out. +2 🪙 per
-  // 100-level run; separate currency from the ✨ multiplier.
-  // Also gated on talentsLaunched() — pre-9:05 PM CDT no coins drop.
-  if (ASCENSION && ASCENSION.enabled && state.level >= 100 && talentsLaunched() && typeof localStorage !== 'undefined') {
+  // Talent Vault: ONLY full Lv 100 runs bank coins. Early rank-gate
+  // ascensions (Lv 20, 30, ..., 90) are mid-run milestones — no payout.
+  // +2 🪙 per 100-level run; separate currency from the multiplier.
+  // Also gated on talentsLaunched() — pre-9:30 PM CDT no coins drop.
+  if (wasFullRun && talentsLaunched() && typeof localStorage !== 'undefined') {
     try {
       const cur = Number(JSON.parse(localStorage.getItem('ascension_coins_v1') || '0'));
       const next = (Number.isFinite(cur) ? cur : 0) + 2;
@@ -1007,6 +1016,13 @@ function doPrestige() {
   state.cargoBoostNextDive = false;
   state.sharkSlowUntil = 0;
   state.boost = { activeUntil: 0, readyAt: 0 };
+  // Full Lv 100 run completed → wipe the rank ladder and Ascension
+  // Multiplier so the next run starts at rank 1 (cap Lv 20) with ×1.
+  // Talents and 🪙 Coins persist (those are the meta progression).
+  if (wasFullRun) {
+    state.pearls = 0;
+    state.prestigeCount = 0;
+  }
   log(`⚙ Promoted to ${rankName(currentTier())}!`, "good");
   if (window.brickedUpSfx) window.brickedUpSfx.promote();
   refreshUI();

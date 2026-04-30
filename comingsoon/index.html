@@ -892,6 +892,50 @@ body.ascension .continue-ascend {
 body.ascension .continue-ascend[hidden] { display: none; }
 /* Continue button is only meaningful once talents have launched. */
 body.ascension:not(.talents-launched) .continue-ascend { display: none !important; }
+
+/* === Grand-total endgame timer — slim pill stuck to the very bottom.
+   Hidden until the first descent; frozen green once the endgame
+   finishes (all talents maxed + final Lv 100). === */
+body.ascension .grand-total-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px;
+  background: rgba(10,0,16,0.85);
+  border: 1px solid rgba(200, 160, 80, 0.4);
+  border-radius: 999px;
+  font-family: 'Sora', sans-serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--bone-dim);
+  text-transform: uppercase;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+body.ascension .grand-total-bar[hidden] { display: none; }
+body.ascension .grand-total-bar .grand-total-value {
+  color: var(--sigil-gold);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 6px rgba(200,160,80,0.4);
+}
+body.ascension .grand-total-bar.frozen {
+  border-color: rgba(86, 160, 64, 0.75);
+  box-shadow: 0 0 14px rgba(86, 160, 64, 0.4);
+}
+body.ascension .grand-total-bar.frozen .grand-total-value {
+  color: var(--witchfire);
+  text-shadow: 0 0 8px rgba(86, 160, 64, 0.55);
+}
+/* Pre-launch the endgame finish line doesn't exist — keep the bar
+   hidden so it doesn't tease a feature that's not live yet. */
+body.ascension:not(.talents-launched) .grand-total-bar { display: none !important; }
 body.ascension .continue-ascend:hover {
   transform: translate(-50%, -2px);
   box-shadow:
@@ -1468,7 +1512,7 @@ body.ascension #talentFrame {
 
 /* Talent Vault button — sits to the right of the Ascend (gear) button.
    Hidden during normal play; only revealed at the FINAL Lv 100 cap AND
-   after the talent system's scheduled launch (9:05 PM CDT). */
+   after the talent system's scheduled launch (9:30 PM CDT). */
 body.ascension .vault-btn-float { display: none; }
 body.ascension.ascension-at-final-cap.talents-launched .vault-btn-float { display: flex; }
 body.ascension .vault-btn-float {
@@ -1757,6 +1801,14 @@ body.ascension .vault-btn-float .vault-sub {
      vault while still at-cap (Lv 100). Triggers the same prestige/ascend
      action as the side-panel button. Hidden again once they ascend. -->
 <button id="continueAscendBtn" class="continue-ascend" type="button" hidden>CONTINUE ›</button>
+
+<!-- Grand-total endgame timer — sticky pill at the very bottom. Counts
+     from the player's first descent and freezes when they finish their
+     last run (all talents maxed + Lv 100). -->
+<div id="grandTotalBar" class="grand-total-bar" hidden>
+  <span class="grand-total-label">⏱ Total</span>
+  <span class="grand-total-value" id="grandTotalValue">--:--:--</span>
+</div>
 
 <div id="gearOverlay" class="howto-overlay" hidden>
   <div class="howto-modal gear-modal">
@@ -2487,7 +2539,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=75"></script>
+<script src="../game-bricked-up.js?v=77"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player
@@ -2496,6 +2548,11 @@ window.__GAME_PAUSED__ = true;
 (function () {
   const START_KEY  = "ascension_runStartedAt";
   const FINISH_KEY = "ascension_runFinishedAt";
+  // Grand-total clock: spans the entire endgame — set once on the very
+  // first descent, frozen when the player maxes all talents and hits
+  // their final Lv 100 (i.e. when showTimeup actually fires).
+  const GRAND_START_KEY  = "ascension_grandStartedAt";
+  const GRAND_FINISH_KEY = "ascension_grandFinishedAt";
   const TARGET_LEVEL = 100;
 
   const overlay  = document.getElementById("betaIntroOverlay");
@@ -2503,12 +2560,26 @@ window.__GAME_PAUSED__ = true;
   const okBtn    = document.getElementById("betaIntroBtn");
   const timer    = document.getElementById("ascensionTimer");
   const timerVal = document.getElementById("ascensionTimerValue");
+  const grandBar = document.getElementById("grandTotalBar");
+  const grandVal = document.getElementById("grandTotalValue");
   if (!overlay || !timer || !timerVal) return;
 
   function getStart()  { try { return parseInt(localStorage.getItem(START_KEY)  || "0", 10); } catch { return 0; } }
   function getFinish() { try { return parseInt(localStorage.getItem(FINISH_KEY) || "0", 10); } catch { return 0; } }
-  function setStart(v)  { try { localStorage.setItem(START_KEY,  String(v)); } catch {} }
+  function setStart(v)  {
+    try {
+      localStorage.setItem(START_KEY, String(v));
+      // Grand-total starts at the very first descent and never resets
+      // until full-save reset (so multiple ascensions accumulate).
+      if (!parseInt(localStorage.getItem(GRAND_START_KEY) || "0", 10)) {
+        localStorage.setItem(GRAND_START_KEY, String(v));
+      }
+    } catch {}
+  }
   function setFinish(v) { try { localStorage.setItem(FINISH_KEY, String(v)); } catch {} }
+  function getGrandStart()  { try { return parseInt(localStorage.getItem(GRAND_START_KEY)  || "0", 10); } catch { return 0; } }
+  function getGrandFinish() { try { return parseInt(localStorage.getItem(GRAND_FINISH_KEY) || "0", 10); } catch { return 0; } }
+  function setGrandFinish(v){ try { localStorage.setItem(GRAND_FINISH_KEY, String(v)); } catch {} }
 
   function fmtElapsed(ms) {
     const s = Math.max(0, Math.floor(ms / 1000));
@@ -2592,6 +2663,8 @@ window.__GAME_PAUSED__ = true;
     if (timeupShown) return;
     if (!allTalentsMaxed()) return;
     timeupShown = true;
+    // Freeze the grand-total clock on the first true endgame finish.
+    if (!getGrandFinish()) setGrandFinish(Date.now());
     const ov = document.createElement("div");
     ov.className = "ascension-timeup-overlay";
     const mult  = readText("prestigePearls", "×1");
@@ -2639,7 +2712,22 @@ window.__GAME_PAUSED__ = true;
       `<span class="lb-my-run-time">${fmtElapsed(elapsedMs)}</span>`;
   }
 
+  function tickGrandTotal() {
+    if (!grandBar || !grandVal) return;
+    const gStart = getGrandStart();
+    if (!gStart) {
+      grandBar.hidden = true;
+      return;
+    }
+    grandBar.hidden = false;
+    const gFinish = getGrandFinish();
+    const gElapsed = (gFinish || Date.now()) - gStart;
+    grandVal.textContent = fmtElapsed(gElapsed);
+    grandBar.classList.toggle("frozen", !!gFinish);
+  }
+
   function tick() {
+    tickGrandTotal();
     const start  = getStart();
     const finish = getFinish();
     if (!start) {
@@ -2709,7 +2797,7 @@ window.__GAME_PAUSED__ = true;
   setInterval(tick, 1000);
 })();
 
-// Big center button — pre-launch (before 9:05 PM CDT Apr 29 2026) it
+// Big center button — pre-launch (before 9:30 PM CDT Apr 29 2026) it
 // reverts to "⛧ ASCEND ⛧" and triggers the side-panel ascend. After
 // launch it morphs into "🪙 TALENT VAULT" and opens the vault modal.
 // The flip happens live via setInterval, no page reload required.

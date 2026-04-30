@@ -425,8 +425,8 @@
     });
 })();
 
-// Ascension launches 5 min after Bricked Up ends — Apr 29 2026
-// 9:05 PM CDT (= Apr 30 02:05 UTC). Hard-coded UTC so every player
+// Ascension launches 30 min after Bricked Up ends — Apr 29 2026
+// 9:30 PM CDT (= Apr 30 02:30 UTC). Hard-coded UTC so every player
 // sees the same launch instant. Card stays disabled until then; once
 // the timer hits zero it becomes a live link.
 (function () {
@@ -434,7 +434,7 @@
   var cta   = document.getElementById("ascensionCardCta");
   var badge = document.getElementById("ascensionCardBadge");
   if (!card || !cta || !badge) return;
-  var launchAt = Date.UTC(2026, 3, 30, 2, 5, 0);
+  var launchAt = Date.UTC(2026, 3, 30, 2, 30, 0);
 
   function tick() {
     var now = Date.now();
@@ -460,9 +460,19 @@
   }
   // Block navigation while disabled — even though the card is greyed,
   // disabled-class doesn't actually prevent <a> clicks by default.
+  // Dev override: a password prompt lets the page-owner enter early
+  // and seed the comingsoon engine's launch override flag.
+  var DEV_PASSWORD = "ascend";
   card.addEventListener("click", function (ev) {
-    if (card.classList.contains("disabled")) {
-      ev.preventDefault();
+    if (!card.classList.contains("disabled")) return;
+    ev.preventDefault();
+    var pw = window.prompt("Ascension opens 9:30 PM CDT.\nEnter dev password to peek early:");
+    if (pw == null) return; // cancelled
+    if (pw.trim().toLowerCase() === DEV_PASSWORD) {
+      try { localStorage.setItem("ascension_dev_unlock", "1"); } catch (e) {}
+      window.location.href = card.getAttribute("href") || "comingsoon/";
+    } else if (pw.trim()) {
+      window.alert("Wrong password.");
     }
   });
   tick();
