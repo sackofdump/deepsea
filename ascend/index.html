@@ -2469,6 +2469,11 @@ window.__GAME_PAUSED__ = true;
     // (rank-locked), independent of level.
     levelsPerRank:    20,
     tierLevelOffset:  0,
+    // Fast-paced XP curve — way flatter than the default Bricked Up
+    // ladder (20 / 1.55 → ~astronomical at Lv 100). 10 / 1.18 keeps
+    // each level cheap so a full Lv 1→100 run wraps in minutes.
+    levelBaseCost:    10,
+    levelCostMult:    1.18,
     subRanks:    RANKS,
     biomes:      BIOMES,
     loot:        LOOT,
@@ -2539,7 +2544,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=91"></script>
+<script src="../game-bricked-up.js?v=92"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player

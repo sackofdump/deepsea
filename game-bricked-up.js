@@ -30,8 +30,11 @@ const BOOST_EXTEND_MS = 1000;        // each click during boost extends by this
 const BOOST_SPEED_MULT = 3;
 const BOOST_LOOT_MULT = 3;
 const LOOT_INTERVAL_BASE = 6;        // seconds between attempts at sonar=1
-const LEVEL_BASE_COST = 20;
-const LEVEL_COST_MULT = 1.55;
+// Themed builds can flatten the XP curve via EVENT.levelBaseCost +
+// EVENT.levelCostMult — Ascension uses much faster pacing so each
+// 100-level run resolves in minutes rather than hours.
+const LEVEL_BASE_COST = (EVENT && EVENT.levelBaseCost) || 20;
+const LEVEL_COST_MULT = (EVENT && EVENT.levelCostMult) || 1.55;
 const TIER_RARITY_UPGRADE = 0.03;    // +3% per rank chance to bump a roll's rarity tier
 const SUB_RANKS = (EVENT && EVENT.subRanks) || [
   "Apprentice",          // 1
