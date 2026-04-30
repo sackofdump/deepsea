@@ -644,7 +644,7 @@ delete state.encounterValueMult;
 delete state.encounterLegendaryNext;
 if (state.bonusCollected === undefined) state.bonusCollected = 0;
 if (!state.slotHits) state.slotHits = { mini: 0, minor: 0, major: 0, jackpot: 0 };
-if (!state.nextSpinAt) state.nextSpinAt = Date.now() + 15000;
+if (!state.nextSpinAt) state.nextSpinAt = Date.now() + 10000;
 if (!state.inventory) state.inventory = [];
 if (state.chestsCollected === undefined) state.chestsCollected = 0;
 if (state.playerId === undefined) state.playerId = null;
@@ -3289,7 +3289,7 @@ function runCascadeChain(cfg, bonus, now) {
   spinCascade(1);
 }
 
-const SLOT_INTERVAL_MS = 15000;
+const SLOT_INTERVAL_MS = 10000;
 
 function scheduleSlot() {
   if (eventEnded()) return;
