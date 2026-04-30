@@ -2550,11 +2550,11 @@ function runChestFrenzy() {
 
 function scheduleTreasure() {
   if (eventEnded()) return;
-  // Reliquary Codex talent: half the talent value also feeds in here as
-  // a chest spawn-rate boost (rank 1/2/3 = +25/+50/+100% rate). The
-  // base 20–45s interval shrinks proportionally — at max rank chests
-  // spawn roughly twice as often.
-  const spawnRateBoost = talentValue('cascade') * 0.5;
+  // Reliquary Codex talent: applies to the regular random-chest spawn
+  // schedule (rank 1/2/3 = +50/+100/+200% rate). The base 20–45s
+  // interval shrinks proportionally — at max rank chests spawn 3×
+  // as often.
+  const spawnRateBoost = talentValue('cascade');
   const delay = (20000 + Math.random() * 25000) / (1 + spawnRateBoost);
   setTimeout(() => {
     if (eventEnded()) return;
