@@ -810,6 +810,10 @@ function stats() {
   for (const def of UPGRADE_DEFS) {
     s[def.stat] = statValue(def, u[def.id]);
   }
+  // Ascension mode: infinite cargo. Talents stack pickup rate +500%,
+  // duplicate chance +100%, chest spawn +200% — any finite cap fills
+  // in seconds. 1e15 acts as "effectively infinite" for the UI math.
+  if (ASCENSION && ASCENSION.enabled) s.cargoMax = 1e15;
   _statsCache = s;
   _statsCacheKey = key;
   return s;
@@ -2081,6 +2085,9 @@ function buildUpgrades() {
   root.appendChild(modeRow);
 
   for (const def of UPGRADE_DEFS) {
+    // Ascension: cargo cap is effectively infinite, so the Brick Bin
+    // upgrade is irrelevant — drop it from the equipment panel.
+    if (def.id === "cargo" && ASCENSION && ASCENSION.enabled) continue;
     const btn = document.createElement("button");
     btn.className = "upgrade";
     btn.type = "button";
@@ -3781,7 +3788,9 @@ function refreshUI() {
   $("depth").textContent = Math.floor(state.sub.depth);
   $("maxDepth").textContent = Math.floor(s.maxDepth);
   $("cargo").textContent = state.sub.cargoKg.toFixed(1);
-  $("cargoMax").textContent = s.cargoMax.toFixed(0);
+  // Ascension's effectively-infinite cap renders as "∞" instead of
+  // a 16-digit number that doesn't fit in the panel.
+  $("cargoMax").textContent = (s.cargoMax >= 1e12) ? "∞" : s.cargoMax.toFixed(0);
   $("status").textContent =
     state.sub.mode === "descending" ? "Lowering"
     : state.sub.mode === "ascending" ? "Hoisting"
