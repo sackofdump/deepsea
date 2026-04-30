@@ -427,13 +427,6 @@ function slotLuckWeight(tier, baseWeight) {
     else if (tier === "jackpot") w *= (1 + 0.25 * lvl);               // +25%/lvl
     else if (tier === "major")   w *= (1 + 0.15 * lvl);               // +15%/lvl
   }
-  // Black Communion talent: doubles its rank value into the jackpot
-  // weight specifically (so it boosts BOTH the roll-it chance AND the
-  // hit-it cascade chance — its in-cascade buff lives elsewhere).
-  if (tier === "jackpot") {
-    const bc = talentValue('cascade');
-    if (bc > 0) w *= (1 + bc * 2);
-  }
   return w;
 }
 
@@ -460,7 +453,7 @@ const TALENT_VALUES = {
   xp_boost:   [0, 0.50, 1.00, 2.00],
   buff_dur:   [0, 0.50, 1.00, 2.00],
   magnet:     [0, 1.00, 2.50, 5.00],
-  cascade:    [0, 0.10, 0.25, 0.50],
+  cascade:    [0, 0.50, 1.00, 2.00],
   rarity:     [0, 0.30, 0.60, 1.00],
   tribute:    [0, 0.30, 0.50, 1.00],
 };
@@ -1092,7 +1085,13 @@ function refreshGearUI() {
     const stars     = state.pearls || 0;
     const milestones = ASCENSION.milestones || [];
     const commissionsDone = state.prestigeCount || 0;
+    // Walk the ladder accumulating the multiplier so each row's right-
+    // hand chip shows the TOTAL multiplier you have at that vow,
+    // instead of just the vow's own contribution. (×2 then ×6 then
+    // ×30 then ×300 then ×7,500 reads way clearer than the raw stack.)
+    let cumMult = 1;
     const milestoneRows = milestones.map(ms => {
+      cumMult *= (ms.mult || 1);
       const unlocked = tier >= ms.tier;
       // ms.tier is the rank you need to BE at; getting there costs
       // (ms.tier - 1) commissions because you start at Rank 1.
@@ -1107,9 +1106,9 @@ function refreshGearUI() {
           <div class="ascension-milestone-meta">
             <div class="ascension-milestone-name">${ms.label}</div>
             <div class="ascension-milestone-req">${gateText}</div>
-            <div class="ascension-milestone-desc">${ms.desc || `Permanent ×${ms.mult} on all cash &amp; XP earned`}</div>
+            <div class="ascension-milestone-desc">${ms.desc || `+×${ms.mult} on top of the stack — total ×${fmt(cumMult)} once unlocked`}</div>
           </div>
-          <div class="ascension-milestone-mult">×${ms.mult}</div>
+          <div class="ascension-milestone-mult">×${fmt(cumMult)}</div>
         </div>`;
     }).join("");
     const totalMult = ascensionTotalMult();
@@ -2677,7 +2676,8 @@ function openChest(tier) {
     state.cash += value;
     state.totalEarned += value;
     const baseXp = useAscensionXp ? ascensionXpPerItem : (value * xpMult);
-    const xpGain = Math.round(baseXp * xpBonusMult() * xpEncounterMult());
+    // Black Communion talent: bonus XP from chest loot specifically.
+    const xpGain = Math.round(baseXp * xpBonusMult() * xpEncounterMult() * (1 + talentValue('cascade')));
     state.xp += xpGain;
     totalXp  += xpGain;
     state.totalItems += 1;
@@ -3023,7 +3023,7 @@ function runCascadeChain(cfg, bonus, now) {
   const status = slot.querySelector(".slot-status");
   const jackpotSymbol = SLOT_SYMBOLS[4];
   const maxExtra      = Math.max(0, (cfg.maxExtraReels || 3));
-  const hitChance     = Math.min(0.99, ((cfg.hitChance != null) ? cfg.hitChance : 0.5) + talentValue('cascade'));
+  const hitChance     = (cfg.hitChance != null) ? cfg.hitChance : 0.5;
   const stageDurations = cfg.stageDurations || [20000, 25000, 30000, 40000];
 
   let stage = 1;

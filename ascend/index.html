@@ -1670,7 +1670,7 @@ body.ascension .vault-btn-float .vault-sub {
       <div class="stat"><span>Ascension Multiplier</span><span id="prestigeMult">×1</span></div>
       <div class="stat"><span>Next rank</span><span id="nextTierInfo">Acolyte @ Lv 10</span></div>
       <button id="prestigeBtn" class="prestige-btn" disabled>Ascend</button>
-      <div class="muted prestige-hint">Each ascension multiplies your <strong>Ascension Multiplier</strong> by ×1.5 (compounding, no cap) <strong>and banks +2 🪙 Coins</strong> for the Talent Vault. Advances your Rank and switches you to a new realm. The level cap escalates <strong>Lv 20 → 30 → 40 → … → 100</strong>, then stays at 100 forever. Must ascend to continue past the cap. Vows auto-unlock at ranks 2/4/6/8/10 (×2 → ×25, stacking to ×7,500 at rank 10).</div>
+      <div class="muted prestige-hint">Each ascension multiplies your <strong>Ascension Multiplier</strong> by ×1.5 (compounding, no cap) <strong>and banks +2 🪙 Coins</strong> for the Talent Vault. Advances your Rank and switches you to a new realm. The level cap escalates <strong>Lv 20 → 40 → 60 → 80 → 100</strong>, then stays at 100 forever. Must ascend to continue past the cap. Vows auto-unlock at every ascend (×2 → ×25, stacking to ×7,500 by Lv 100).</div>
     </section>
 
     <section class="panel" data-key="log">
@@ -1824,7 +1824,7 @@ body.ascension .vault-btn-float .vault-sub {
       </ol>
       <p class="ascend-loop-foot">
         Every ascension also multiplies your cash &amp; XP <strong>×1.5</strong> (compounding, no cap).
-        <strong>Vows</strong> auto-unlock at ranks <strong>2 / 4 / 6 / 8 / 10</strong> (×2 → ×25, stacking to <strong>×7,500</strong>).
+        <strong>Vows</strong> auto-unlock at every ascend (×2 → ×25, stacking to <strong>×7,500</strong> by Lv 100).
         Vows × Multiplier × Talents = absurd compounding.
       </p>
     </div>
@@ -1839,7 +1839,7 @@ body.ascension .vault-btn-float .vault-sub {
     <div class="howto-body">
       <section>
         <h3>🕯 Ascension</h3>
-        <p>A prototype with a <strong>dark-mystic descent</strong> theme and a wholly-different progression system. There is no gear shop. Each ascension hits a level cap that escalates (Lv 20, 30, 40, ...) — you MUST ascend to continue. Every ascension multiplies your <strong>Ascension Multiplier</strong> ×1.5 and banks +2 🪙 Coins for the Talent Vault.</p>
+        <p>A prototype with a <strong>dark-mystic descent</strong> theme and a wholly-different progression system. There is no gear shop. Each run is five ascensions — caps at <strong>Lv 20 / 40 / 60 / 80 / 100</strong>. You MUST ascend to continue. Every ascension multiplies your <strong>Ascension Multiplier</strong> ×1.5 and the full Lv 100 finish banks +2 🪙 Coins for the Talent Vault.</p>
       </section>
       <section>
         <h3>🕯 Descent cycle</h3>
@@ -1862,7 +1862,7 @@ body.ascension .vault-btn-float .vault-sub {
           <li>👁 <strong>Inner Sight</strong> — bonus XP (+50 / +100 / +200%)</li>
           <li>💀 <strong>Apotheotic</strong> — slot buff duration (+50 / +100 / +200%) <em>and</em> Stigmata 10s → 5s / 3s / 2s</li>
           <li>🧲 <strong>Wraithgrasp</strong> — pickup rate (+100 / +250 / +500%)</li>
-          <li>🌑 <strong>Black Communion</strong> — mega cascade hit chance (+10 / +25 / +50%)</li>
+          <li>🌑 <strong>Black Communion</strong> — chest-loot XP (+50 / +100 / +200%)</li>
           <li>🕯 <strong>Vesper's Favor</strong> — loot rarity uplift (+30 / +60 / +100%)</li>
           <li>💎 <strong>Tribute</strong> — pickups duplicate (+30 / +50 / +100%, guaranteed at max)</li>
         </ul>
@@ -1887,7 +1887,7 @@ body.ascension .vault-btn-float .vault-sub {
       </section>
       <section>
         <h3>⛧ The Run Loop</h3>
-        <p>First cap is <strong>Lv 20</strong>, each ascension's cap climbs by 10 up to <strong>Lv 100</strong> (and stays there forever). Each ascension resets level/cash/upgrades but <strong>keeps</strong>: rank, Ascension Multiplier (×1.5 compounding), 🪙 Coins, talents, and Vow milestones. Vows unlock at ranks 2/4/6/8/10. Total power = <strong>Vows × Ascension Multiplier × Talents</strong>.</p>
+        <p>Five ascensions per run at <strong>Lv 20 / 40 / 60 / 80 / 100</strong>. Each ascension resets level/cash/upgrades but the multiplier compounds (×1.5/ascend) and a Vow auto-unlocks. After the full Lv 100 ascend the run resets entirely — ranks, multiplier, vows back to zero — but you bank <strong>+2 🪙 Coins</strong> and keep your Talent Vault progress. Total power within a run = <strong>Vows × Ascension Multiplier × Talents</strong>.</p>
       </section>
       <section>
         <h3>📊 Want the full numbers?</h3>
@@ -2436,15 +2436,14 @@ window.__GAME_PAUSED__ = true;
   ];
 
   // Ascension milestones — auto-unlock at fixed ranks. Multiplicative.
-  // Race to Lv 100: rank 10 is the highest rank whose rank-gate is
-  // still ≤ Lv 100, so Vows compressed to 2/4/6/8/10 — Final Vow lands
-  // exactly at the cap (Lv 100, rank 10).
+  // 5 ascensions per run (caps Lv 20 / 40 / 60 / 80 / 100), so each
+  // ascend lands a Vow. Final Vow coincides with Lv 100 = tier 6.
   const ASCENSION_MILESTONES = [
     { tier: 2,  mult: 2,  label: "First Vow",  icon: "🩸" },
-    { tier: 4,  mult: 3,  label: "Second Vow", icon: "🦴" },
-    { tier: 6,  mult: 5,  label: "Third Vow",  icon: "🕯" },
-    { tier: 8,  mult: 10, label: "Fourth Vow", icon: "💀" },
-    { tier: 10, mult: 25, label: "Final Vow",  icon: "⛧" },
+    { tier: 3,  mult: 3,  label: "Second Vow", icon: "🦴" },
+    { tier: 4,  mult: 5,  label: "Third Vow",  icon: "🕯" },
+    { tier: 5,  mult: 10, label: "Fourth Vow", icon: "💀" },
+    { tier: 6,  mult: 25, label: "Final Vow",  icon: "⛧" },
   ];
 
   window.EVENT_CONFIG = {
@@ -2460,12 +2459,12 @@ window.__GAME_PAUSED__ = true;
     // visually greyed by the body.ascension CSS. Keeps the sidebar
     // structure intact without the cash/XP shortcut.
     achievements: [],
-    // Ascension ladder — first ascend at Lv 20, then 30, 40, 50, ...
-    // (levelsPerRank=10, tierLevelOffset=10). Hard cap forces ascending
-    // before continuing past the threshold. Biome auto-advances each
-    // ascend (rank-locked), independent of level.
-    levelsPerRank:    10,
-    tierLevelOffset:  10,
+    // Ascension ladder — five ascensions per run at Lv 20 / 40 / 60 /
+    // 80 / 100 (levelsPerRank=20, tierLevelOffset=0). Hard cap forces
+    // ascending before continuing. Biome auto-advances each ascend
+    // (rank-locked), independent of level.
+    levelsPerRank:    20,
+    tierLevelOffset:  0,
     subRanks:    RANKS,
     biomes:      BIOMES,
     loot:        LOOT,
@@ -2536,7 +2535,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=89"></script>
+<script src="../game-bricked-up.js?v=90"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player
