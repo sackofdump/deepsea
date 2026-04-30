@@ -1657,9 +1657,7 @@ body.ascension .vault-btn-float .vault-sub {
       <h2>⛧ Ascend</h2>
       <div class="stat"><span>Rank</span><span id="subTier">Penitent</span></div>
       <div class="stat"><span>Rarity upgrade</span><span id="prestigeRarity">+0%</span></div>
-      <div class="stat"><span>Total multiplier</span><span id="prestigeMult">×1</span></div>
-      <div class="stat"><span>Ascend Multiplier</span><span id="prestigePearls">×1</span></div>
-      <div class="stat"><span>After next ascend</span><span id="prestigePending">×1</span></div>
+      <div class="stat"><span>Ascension Multiplier</span><span id="prestigeMult">×1</span></div>
       <div class="stat"><span>Next rank</span><span id="nextTierInfo">Acolyte @ Lv 10</span></div>
       <button id="prestigeBtn" class="prestige-btn" disabled>Ascend</button>
       <div class="muted prestige-hint">Each ascension multiplies your <strong>Ascension Multiplier</strong> by ×1.5 (compounding, no cap) <strong>and banks +2 🪙 Coins</strong> for the Talent Vault. Advances your Rank and switches you to a new realm. The level cap escalates <strong>Lv 20 → 30 → 40 → … → 100</strong>, then stays at 100 forever. Must ascend to continue past the cap. Vows auto-unlock at ranks 2/4/6/8/10 (×2 → ×25, stacking to ×7,500 at rank 10).</div>
@@ -2535,7 +2533,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=79"></script>
+<script src="../game-bricked-up.js?v=80"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player
@@ -2663,7 +2661,7 @@ window.__GAME_PAUSED__ = true;
     if (!getGrandFinish()) setGrandFinish(Date.now());
     const ov = document.createElement("div");
     ov.className = "ascension-timeup-overlay";
-    const mult  = readText("prestigePearls", "×1");
+    const mult  = readText("prestigeMult", "×1");
     const rank  = readText("subTier", "—");
     const cash  = readText("lifeEarned", "0");
     ov.innerHTML = `

@@ -2246,7 +2246,7 @@ function updatePrestigeUI() {
   const pearlsEl = $("prestigePearls");
   if (pearlsEl) pearlsEl.textContent = `×${fmt(Math.pow(1.5, banked))}`;
   const gearOwned = $("gearOwnedPearls");
-  if (gearOwned) gearOwned.textContent = `×${fmt(Math.pow(1.5, banked))}`;
+  if (gearOwned) gearOwned.textContent = ascending ? `×${fmt(mult)}` : `×${fmt(Math.pow(1.5, banked))}`;
   const pendingEl = $("prestigePending");
   if (pendingEl) pendingEl.textContent = `×${fmt(Math.pow(1.5, banked + pending))}`;
   // Live coin balance on the floating Talent Vault button.
