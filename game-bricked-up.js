@@ -1693,7 +1693,11 @@ function creditItem(item, s) {
     const flat = FLAT[item.rarity] || 6;
     const nextLvlCost = Math.max(1, levelCostCumulative(state.level + 1) - levelCostCumulative(state.level));
     const xpGain = Math.max(flat, Math.ceil(nextLvlCost * pct));
-    state.xp += xpGain * xpBonusMult() * xpEncounterMult();
+    // Apotheosis (legendary encounter): every forced-legendary pick
+    // grants 2× XP on top of the regular bonuses, so the burst window
+    // is a genuine level-rocket and not just a cash dump.
+    const apotheosisMult = legendaryEncounterActive() ? 2 : 1;
+    state.xp += xpGain * xpBonusMult() * xpEncounterMult() * apotheosisMult;
   } else {
     state.xp += v * xpBonusMult() * xpEncounterMult();
   }
