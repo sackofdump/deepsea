@@ -50,6 +50,9 @@ input, textarea, [contenteditable="true"] {
   overflow-y: auto;
   overflow-x: hidden;
   min-width: 0;
+  /* Reserve the scrollbar gutter so content width doesn't flicker
+     when the bar pops in/out as panels resize on upgrade purchases. */
+  scrollbar-gutter: stable;
 }
 #sidebar > .panel { min-width: 0; }
 
