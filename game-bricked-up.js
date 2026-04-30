@@ -406,7 +406,15 @@ function gearNextCost(id) {
 }
 function gearMult(id) { return 1 - gearLevel(id) * (gearDef(id)?.perLevel || 0); } // for "less" effects
 function gearAdd(id)  { return 1 + gearLevel(id) * (gearDef(id)?.perLevel || 0); } // for "more" effects
-function hazardDurationMult() { return Math.max(0.2, gearMult("hull")); }
+function hazardDurationMult() {
+  let m = gearMult("hull");
+  // Apotheotic talent: also slashes hazard durations (Stigmata etc.).
+  // Hardcoded per-rank reduction so the cuts hit clean numbers — base
+  // 10s Stigmata becomes 5s / 3s / 2s at ranks 1 / 2 / 3.
+  const r = talentRanks().buff_dur | 0;
+  if (r > 0) m *= [1, 0.5, 0.3, 0.2][Math.min(r, 3)];
+  return Math.max(0.1, m);
+}
 function bonusDurationMult()  { return gearAdd("stabilizer") * (1 + talentValue('buff_dur')); }
 function pearlBonusMult()     { return gearAdd("compressor"); }
 function xpBonusMult()        { return gearAdd("insight") * (1 + talentValue('xp_boost')); }
@@ -454,7 +462,7 @@ const TALENT_VALUES = {
   magnet:     [0, 1.00, 2.50, 5.00],
   cascade:    [0, 0.10, 0.25, 0.50],
   rarity:     [0, 0.30, 0.60, 1.00],
-  tribute:    [0, 0.15, 0.30, 0.60],
+  tribute:    [0, 0.30, 0.50, 1.00],
 };
 let __talentRanksCache = null;
 let __talentCacheTime  = 0;
