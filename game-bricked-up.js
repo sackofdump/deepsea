@@ -1574,8 +1574,8 @@ function tick(dtSec) {
 
     const effCargoMax = s.cargoMax;
     // Loot collection — slow base rate, scaled by sonar. During Treasure Map
-    // we force a fast 0.10s interval so picks come quickly while at depth
-    // (~60 legendaries per encounter — 3× the original 0.30s pace).
+    // we force a fast 0.05s interval so picks come quickly while at depth
+    // (~120 legendaries per encounter — 6× the original 0.30s pace).
     // Hard-cap iterations: at extreme sonar the interval can shrink below the
     // 100ms tick and the loop would otherwise run thousands of times per tick.
     // 50 picks per 100ms tick = 500/sec — plenty to keep cargo filling fast.
@@ -1592,7 +1592,7 @@ function tick(dtSec) {
     let iterations = 0;
     lootCooldown -= dtSec;
     while (lootCooldown <= 0 && iterations < iterCap) {
-      const interval = treasure ? 0.10 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
+      const interval = treasure ? 0.05 : Math.max(intervalFloor, LOOT_INTERVAL_BASE / sonar);
       lootCooldown += interval;
       tryCollect(s);
       iterations++;
