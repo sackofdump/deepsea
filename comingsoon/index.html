@@ -1765,7 +1765,7 @@ body.ascension .vault-btn-float .vault-sub {
     </div>
     <div id="log"></div>
     <div id="ascensionTimer" class="ascension-timer" hidden>
-      <span class="ascension-timer-label">⏱ RACE TO LV 100</span>
+      <span class="ascension-timer-label">⏱ Run Timer (Full Talent Build)</span>
       <span class="ascension-timer-value" id="ascensionTimerValue">--:--:--</span>
     </div>
     <div class="boost-hint">+200% speed &amp; pickup rate</div>
@@ -1800,13 +1800,6 @@ body.ascension .vault-btn-float .vault-sub {
      action as the side-panel button. Hidden again once they ascend. -->
 <button id="continueAscendBtn" class="continue-ascend" type="button" hidden>CONTINUE ›</button>
 
-<!-- Grand-total endgame timer — sticky pill at the very bottom. Counts
-     from the player's first descent and freezes when they finish their
-     last run (all talents maxed + Lv 100). -->
-<div id="grandTotalBar" class="grand-total-bar" hidden>
-  <span class="grand-total-label">⏱ Run Timer (Full Talent Build)</span>
-  <span class="grand-total-value" id="grandTotalValue">--:--:--</span>
-</div>
 
 <div id="gearOverlay" class="howto-overlay" hidden>
   <div class="howto-modal gear-modal">
@@ -2533,7 +2526,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=80"></script>
+<script src="../game-bricked-up.js?v=81"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player
@@ -2721,46 +2714,28 @@ window.__GAME_PAUSED__ = true;
   }
 
   function tick() {
-    tickGrandTotal();
-    const start  = getStart();
-    const finish = getFinish();
-    if (!start) {
-      // Pre-start: hide timer (intro modal handles UX).
+    // The on-screen timer is now the GRAND-TOTAL clock — counts from
+    // first descent and freezes only when the player completes the
+    // endgame run (all talents maxed + Lv 100). Per-run timing is gone.
+    const gStart  = getGrandStart();
+    const gFinish = getGrandFinish();
+    if (!gStart) {
       timer.hidden = true;
       const el = document.getElementById("lbMyRun");
       if (el) el.hidden = true;
       return;
     }
-    // If a finish is set but the player has since ascended past Lv 100
-    // (level reset to 1 by doPrestige), the previous run is over —
-    // wipe the keys and start a fresh race for the next ascension cycle.
-    if (finish && currentLevel() < TARGET_LEVEL) {
-      setFinish(0);
-      setStart(Date.now());
-      timer.classList.remove("warn");
-      timeupShown = false;
-      // Remove any leftover overlay from a prior cycle.
-      document.querySelectorAll(".ascension-timeup-overlay").forEach(el => el.remove());
-      return;
-    }
     timer.hidden = false;
-    // Frozen — show final.
-    if (finish) {
-      const finalMs = finish - start;
-      timerVal.textContent = fmtElapsed(finalMs);
-      timer.classList.add("warn");
-      paintLbMyRun(finalMs, true);
-      showTimeup(finalMs);
-      return;
-    }
-    // Live count-up. Freeze the moment the player crosses the target level.
-    if (currentLevel() >= TARGET_LEVEL) {
+    const elapsed = (gFinish || Date.now()) - gStart;
+    timerVal.textContent = fmtElapsed(elapsed);
+    timer.classList.toggle("warn", !!gFinish);
+    paintLbMyRun(elapsed, !!gFinish);
+    // Endgame check: when at Lv 100 with all talents maxed, freeze the
+    // grand-total clock and show the ASCENDED overlay.
+    if (!gFinish && currentLevel() >= TARGET_LEVEL && allTalentsMaxed()) {
       const now = Date.now();
-      const finalMs = now - start;
-      setFinish(now);
-      // Persist personal best to the engine's save state (exposed via
-      // window.__GAME_STATE__) so leaderboard sync picks it up. Only
-      // overwrite if this run is faster than the previous best.
+      const finalMs = now - gStart;
+      setGrandFinish(now);
       try {
         const gs = window.__GAME_STATE__;
         if (gs && (!gs.fastestRunMs || finalMs < gs.fastestRunMs)) {
@@ -2769,14 +2744,8 @@ window.__GAME_PAUSED__ = true;
           if (window.__GAME_LB_SYNC__) window.__GAME_LB_SYNC__(true);
         }
       } catch (e) {}
-      timerVal.textContent = fmtElapsed(finalMs);
-      timer.classList.add("warn");
       showTimeup(finalMs);
-      return;
     }
-    const elapsed = Date.now() - start;
-    timerVal.textContent = fmtElapsed(elapsed);
-    paintLbMyRun(elapsed, false);
   }
 
   // Returning player (run already started in a previous session) — skip
