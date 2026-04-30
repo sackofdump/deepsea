@@ -677,5 +677,26 @@ window.EVENT_CONFIG = {
 })();
 </script>
 <script src="get-bricked.js?v=3"></script>
+<script>
+// Post-event kick-out — players already inside the event when it ends
+// get a 5-minute grace window to read final results, then we bounce
+// them to the main splash so they don't keep poking at a dead build.
+(function () {
+  var END         = Date.UTC(2026, 3, 30, 2, 0, 0); // 9 PM CDT Apr 29
+  var GRACE_MS    = 5 * 60 * 1000;
+  var KICK_AT     = END + GRACE_MS;
+  function check() {
+    if (Date.now() >= KICK_AT) {
+      location.replace("../index.html?splash=1");
+      return;
+    }
+    var ms = KICK_AT - Date.now();
+    setTimeout(check, Math.min(ms + 250, 30000));
+  }
+  // If they loaded the page already past the kick window, bounce now.
+  // Otherwise schedule.
+  check();
+})();
+</script>
 </body>
 </html>

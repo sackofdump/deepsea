@@ -410,17 +410,61 @@ function gearNextCost(id) {
 function gearMult(id) { return 1 - gearLevel(id) * (gearDef(id)?.perLevel || 0); } // for "less" effects
 function gearAdd(id)  { return 1 + gearLevel(id) * (gearDef(id)?.perLevel || 0); } // for "more" effects
 function hazardDurationMult() { return Math.max(0.2, gearMult("hull")); }
-function bonusDurationMult()  { return gearAdd("stabilizer"); }
+function bonusDurationMult()  { return gearAdd("stabilizer") * (1 + talentValue('buff_dur')); }
 function pearlBonusMult()     { return gearAdd("compressor"); }
-function xpBonusMult()        { return gearAdd("insight"); }
+function xpBonusMult()        { return gearAdd("insight") * (1 + talentValue('xp_boost')); }
 // Slot luck: higher levels shift weight away from sharks and toward majors/jackpots.
 function slotLuckWeight(tier, baseWeight) {
   const lvl = gearLevel("luck");
-  if (lvl <= 0) return baseWeight;
-  if (tier === "shark")   return baseWeight * Math.max(0.3, 1 - 0.08 * lvl);  // -8%/lvl, floor 30%
-  if (tier === "jackpot") return baseWeight * (1 + 0.25 * lvl);               // +25%/lvl
-  if (tier === "major")   return baseWeight * (1 + 0.15 * lvl);               // +15%/lvl
-  return baseWeight;
+  const t = talentValue('slot_luck'); // 0 / 0.05 / 0.10 / 0.15
+  let w = baseWeight;
+  if (lvl > 0) {
+    if (tier === "shark")        w *= Math.max(0.3, 1 - 0.08 * lvl);  // -8%/lvl, floor 30%
+    else if (tier === "jackpot") w *= (1 + 0.25 * lvl);               // +25%/lvl
+    else if (tier === "major")   w *= (1 + 0.15 * lvl);               // +15%/lvl
+  }
+  if (t > 0) {
+    if (tier === "shark")                              w *= Math.max(0.3, 1 - t);
+    else if (tier === "jackpot" || tier === "major")   w *= (1 + t);
+  }
+  return w;
+}
+
+// ----- Talent Vault (Ascension expansion) -----------------------
+// Coins are earned 1 per ascension and spent in comingsoon/expand/.
+// Ranks live in localStorage 'ascension_talents_v1' as { ranks: { id: 0-3 } }.
+// The value tables here MUST mirror the talent definitions in the vault.
+const TALENT_VALUES = {
+  slot_luck:  [0, 0.15, 0.30, 0.50],
+  cash_boost: [0, 0.20, 0.45, 0.80],
+  xp_boost:   [0, 0.20, 0.45, 0.80],
+  buff_dur:   [0, 0.20, 0.45, 0.80],
+  magnet:     [0, 0.50, 1.00, 2.00],
+  cascade:    [0, 0.05, 0.10, 0.20],
+  rarity:     [0, 0.15, 0.30, 0.50],
+  tribute:    [0, 0.05, 0.12, 0.25],
+};
+let __talentRanksCache = null;
+let __talentCacheTime  = 0;
+function talentRanks() {
+  const now = Date.now();
+  if (__talentRanksCache && (now - __talentCacheTime) < 500) return __talentRanksCache;
+  try {
+    const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem('ascension_talents_v1') : null;
+    __talentRanksCache = raw ? (JSON.parse(raw)?.ranks || {}) : {};
+  } catch (e) { __talentRanksCache = {}; }
+  __talentCacheTime = now;
+  return __talentRanksCache;
+}
+function talentValue(id) {
+  const r = talentRanks()[id] | 0;
+  const tab = TALENT_VALUES[id];
+  return (tab && r > 0) ? tab[Math.min(r, 3)] : 0;
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e && e.key === 'ascension_talents_v1') { __talentRanksCache = null; }
+  });
 }
 
 // ----- State -----------------------------------------------------
@@ -855,7 +899,7 @@ function pendingPearls() {
 }
 
 function rarityUpgradeChance() {
-  return (state.prestigeCount || 0) * TIER_RARITY_UPGRADE;
+  return (state.prestigeCount || 0) * TIER_RARITY_UPGRADE + talentValue('rarity');
 }
 
 function doPrestige() {
@@ -882,6 +926,17 @@ function doPrestige() {
   if (!confirm(dialog)) return;
   state.pearls = newPearls;
   state.prestigeCount = (state.prestigeCount || 0) + 1;
+  // Talent Vault: ONLY ascensions from Lv 100 bank coins. Early
+  // rank-gate ascensions (Lv 20, 30, 40, ..., 90) are progression
+  // milestones but not "full runs" — they don't pay out. +2 🪙 per
+  // 100-level run; separate currency from the ✨ multiplier.
+  if (ASCENSION && ASCENSION.enabled && state.level >= 100 && typeof localStorage !== 'undefined') {
+    try {
+      const cur = Number(JSON.parse(localStorage.getItem('ascension_coins_v1') || '0'));
+      const next = (Number.isFinite(cur) ? cur : 0) + 2;
+      localStorage.setItem('ascension_coins_v1', JSON.stringify(next));
+    } catch (e) {}
+  }
   // Reset progression
   state.cash = 0;
   state.totalEarned = 0;
@@ -901,6 +956,12 @@ function doPrestige() {
   // previous run — sweep everything so the new biome starts clean.
   document.querySelectorAll("#ocean .treasure-chest").forEach(el => el.remove());
   document.querySelectorAll("#ocean .item-reveal").forEach(el => el.remove());
+  // Ascension also wipes the chest tray inventory so each ascension is
+  // a true clean slate — players can't bank chests across runs.
+  if (ASCENSION && ASCENSION.enabled) {
+    state.inventory = [];
+    state.frenzyChestsPending = 0;
+  }
   // Belt + suspenders — the state.sub replacement above already resets
   // cargo, but make absolutely sure the level/xp/cash floor is honored
   // after every other reset has run so any straggler increment lands on
@@ -983,9 +1044,9 @@ function refreshGearUI() {
   const list = $("gearList");
   if (!list) return;
   const pearlEl = $("gearPearls");
-  if (pearlEl) pearlEl.textContent = fmt(state.pearls || 0);
+  if (pearlEl) pearlEl.textContent = `×${fmt(Math.pow(1.5, state.pearls || 0))}`;
   const ownedEl = $("gearOwnedPearls");
-  if (ownedEl) ownedEl.textContent = fmt(state.pearls || 0);
+  if (ownedEl) ownedEl.textContent = `×${fmt(Math.pow(1.5, state.pearls || 0))}`;
 
   // Ascension mode: replace gear cards with milestone ladder + star meter.
   // Milestones auto-unlock by rank; stars accumulate from max-rank commissions.
@@ -1456,7 +1517,9 @@ function tick(dtSec) {
   // visually teleport between top and bottom every frame ("skipping").
   const maxAllowedSpeed = s.maxDepth / 1.0;
   const speed = Math.min(rawSpeed, maxAllowedSpeed);
-  const sonar = s.sonar * (boosting ? BOOST_LOOT_MULT : 1);
+  // Wraithgrasp talent: pickup rate folds into the sonar multiplier
+  // — a stronger grasp finds and pulls more relics per second.
+  const sonar = s.sonar * (boosting ? BOOST_LOOT_MULT : 1) * (1 + talentValue('magnet'));
 
   // Auto-start: if idle and we have any progress, dive again.
   if (sub.mode === "idle") {
@@ -1570,7 +1633,7 @@ function checkLevelUp() {
 function creditItem(item, s) {
   // The item's value is granted as XP immediately (the level bar fills as you
   // collect) and returned for the eventual cash credit at the surface.
-  const valueMult = s.valueMult * prestigeMult() * valueEncounterMult();
+  const valueMult = s.valueMult * prestigeMult() * valueEncounterMult() * (1 + talentValue('cash_boost'));
   // Apotheosis (legendary encounter): each forced-legendary pick is
   // worth Nx on top of all other multipliers. Bricked Up uses 350×;
   // Ascension uses ASCENSION.legendaryBaseMult (default 5×, much
@@ -1586,14 +1649,16 @@ function creditItem(item, s) {
   const treasureMult = legendaryEncounterActive() ? Math.max(1, legendaryBase * legendaryScale) : 1;
   const v = Math.ceil(item.value * valueMult * treasureMult);
   if (ASCENSION && ASCENSION.enabled) {
-    // Curve-based pickup XP — decoupled from cash so Vow + Star
-    // multipliers don't compound XP into instant level-ups. Each
-    // rarity contributes a fixed % of next-level cost; player levels
-    // at a steady ~100-200 picks/level regardless of multipliers.
-    const PCT = { common: 0.005, uncommon: 0.01, rare: 0.02, epic: 0.05, legend: 0.02 };
-    const pct = PCT[item.rarity] || 0.005;
+    // Hybrid pickup XP — flat per-rarity floor so early levels move at
+    // a satisfying pace (Lv 1→2 in ~4 commons instead of ~20), then a
+    // curve-based portion takes over at high levels where the level
+    // cost explodes. xpGain = max(flat, curve) per item.
+    const PCT  = { common: 0.005, uncommon: 0.01, rare: 0.02, epic: 0.05, legend: 0.02 };
+    const FLAT = { common: 6,     uncommon: 16,   rare: 40,   epic: 100,  legend: 70   };
+    const pct  = PCT[item.rarity]  || 0.005;
+    const flat = FLAT[item.rarity] || 6;
     const nextLvlCost = Math.max(1, levelCostCumulative(state.level + 1) - levelCostCumulative(state.level));
-    const xpGain = Math.max(1, Math.ceil(nextLvlCost * pct));
+    const xpGain = Math.max(flat, Math.ceil(nextLvlCost * pct));
     state.xp += xpGain * xpBonusMult() * xpEncounterMult();
   } else {
     state.xp += v * xpBonusMult() * xpEncounterMult();
@@ -1631,11 +1696,21 @@ function addPickup(item, biome, s) {
   sub.cargoKg += weight;
   const stored = { ...item, biome: biome.name };
   stored.soldValue = creditItem(item, s);
+  // Tribute talent: small chance the void duplicates the relic. Counts
+  // as +1 in the cargo group (so the haul shows the doubling) and adds
+  // a second value credit + weight, but skips a second cargoItems entry
+  // to keep the haul list tidy.
+  const tributeChance = talentValue('tribute');
+  const tributed = tributeChance > 0 && Math.random() < tributeChance;
+  if (tributed) {
+    sub.cargoKg += weight;
+    stored.soldValue += creditItem(item, s);
+  }
   sub.cargoItems.push(stored);
   // Incremental aggregator — render reads from this instead of re-grouping
   // the entire cargoItems array on every redraw.
   const g = sub.cargoGrouped[item.name] || { count: 0, totalValue: 0, rarity: item.rarity, icon: item.icon };
-  g.count += 1;
+  g.count += tributed ? 2 : 1;
   g.totalValue += stored.soldValue;
   sub.cargoGrouped[item.name] = g;
   sub.cargoTotalValue = (sub.cargoTotalValue || 0) + stored.soldValue;
@@ -1923,7 +1998,12 @@ let buyMode = "1";
 function effectiveMaxLevel(def) {
   let cap = def.maxLevel ?? Infinity;
   if (ASCENSION && ASCENSION.enabled && def.id === "cargo") {
-    cap = Math.min(cap, nextTierLevel() || cap);
+    // +1 buffer so the player can always buy ONE cargo level above
+    // the current rank-gate. Keeps Brick Bin from feeling stingy
+    // right at the cap, where the rank-gate level usually maxes the
+    // upgrade out exactly.
+    const ascCap = (nextTierLevel() || cap) + 1;
+    cap = Math.min(cap, ascCap);
   }
   return cap;
 }
@@ -2141,11 +2221,19 @@ function updatePrestigeUI() {
   const banked = state.pearls || 0;
   const pending = pendingPearls();
   const pearlsEl = $("prestigePearls");
-  if (pearlsEl) pearlsEl.textContent = fmt(banked);
+  if (pearlsEl) pearlsEl.textContent = `×${fmt(Math.pow(1.5, banked))}`;
   const gearOwned = $("gearOwnedPearls");
-  if (gearOwned) gearOwned.textContent = fmt(banked);
+  if (gearOwned) gearOwned.textContent = `×${fmt(Math.pow(1.5, banked))}`;
   const pendingEl = $("prestigePending");
-  if (pendingEl) pendingEl.textContent = pending > 0 ? `+${fmt(pending)}` : "0";
+  if (pendingEl) pendingEl.textContent = `×${fmt(Math.pow(1.5, banked + pending))}`;
+  // Live coin balance on the floating Talent Vault button.
+  const vaultCount = $("vaultCoinCount");
+  if (vaultCount) {
+    try {
+      const n = Number(JSON.parse(localStorage.getItem('ascension_coins_v1') || '0'));
+      vaultCount.textContent = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+    } catch (e) { vaultCount.textContent = '0'; }
+  }
   if (nextEl) {
     // Ascension surfaces the Star-unlock level instead of the rank-gate,
     // because canUpgradeSub now ONLY gates on starUnlockLevel.
@@ -2904,7 +2992,7 @@ function runCascadeChain(cfg, bonus, now) {
   const status = slot.querySelector(".slot-status");
   const jackpotSymbol = SLOT_SYMBOLS[4];
   const maxExtra      = Math.max(0, (cfg.maxExtraReels || 3));
-  const hitChance     = (cfg.hitChance != null) ? cfg.hitChance : 0.5;
+  const hitChance     = Math.min(0.99, ((cfg.hitChance != null) ? cfg.hitChance : 0.5) + talentValue('cascade'));
   const stageDurations = cfg.stageDurations || [20000, 25000, 30000, 40000];
 
   let stage = 1;
@@ -2957,28 +3045,29 @@ function runCascadeChain(cfg, bonus, now) {
     }
   }
 
-  // Custom MEGA stack — fires ALL positive bonuses (mini chest frenzy
-  // OR cargo, minor value+xp, cargo, xpburst) for the full MEGA
-  // duration. Explicitly EXCLUDES the legendary-picks (major) tier per
-  // user spec — MEGA shouldn't trivialize the rare Apotheosis tier.
+  // Custom MEGA stack — fires VESPERS FRENZY + COMMUNION + SERPENT'S
+  // COIL + INNER EYE for the full MEGA duration (40s). Explicitly
+  // EXCLUDES legendary picks (Apotheosis) and Stigmata (hazard).
   function applyMegaStack(megaDur) {
     const now = Date.now();
     const ext = bonusDurationMult();
-    const dur = Math.round(megaDur * ext);
-    // mini → chest frenzy or cargo bonus
+    const dur = Math.round(megaDur * ext);  // 40s (× any Stabilizer)
     const miniBonus  = SLOT_BONUSES.mini;
     const minorBonus = SLOT_BONUSES.minor;
     const cargoBonus = SLOT_BONUSES.cargo;
     const xpburstBn  = SLOT_BONUSES.xpburst;
+    // Vespers Frenzy — chest frenzy for the FULL MEGA duration (was
+    // capped at the mini's own 12s — overridden here so the player
+    // gets the whole 40s of crate spam).
     if (miniBonus) {
       if (miniBonus.chestFrenzy) {
-        const baseFrenzy = miniBonus.duration || 10000;
-        startChestFrenzy(Math.round(baseFrenzy * ext));
+        startChestFrenzy(dur);
       } else if (miniBonus.cargoMult) {
         state.encounterCargoUntil = stackUntil(state.encounterCargoUntil, now, dur);
         state.encounterCargoAmt   = miniBonus.cargoMult || 2;
       }
     }
+    // Communion — value + XP for 40s.
     if (minorBonus) {
       state.encounterValueUntil = stackUntil(state.encounterValueUntil, now, dur);
       state.encounterValueAmt   = minorBonus.valueMult || 2;
@@ -2987,16 +3076,17 @@ function runCascadeChain(cfg, bonus, now) {
         state.encounterXpAmt   = Math.max(state.encounterXpAmt || 1, minorBonus.xpMult);
       }
     }
+    // Serpent's Coil — cargo bonus for 40s (stacks max with mini cargo).
     if (cargoBonus) {
       state.encounterCargoUntil = stackUntil(state.encounterCargoUntil, now, dur);
       state.encounterCargoAmt   = Math.max(state.encounterCargoAmt || 2, cargoBonus.cargoMult || 2);
     }
+    // Inner Eye — XP burst for 40s (stacks max with Communion XP).
     if (xpburstBn) {
       state.encounterXpUntil = stackUntil(state.encounterXpUntil, now, dur);
       state.encounterXpAmt   = Math.max(state.encounterXpAmt || 1, xpburstBn.xpMult || 5);
     }
-    // NO legendary picks — explicitly excluded so MEGA doesn't dwarf
-    // the standalone Apotheosis tier.
+    // NO Apotheosis (legendary picks). NO Stigmata (hazard).
   }
 
   function finalize() {
@@ -3685,9 +3775,19 @@ function refreshUI() {
       const reqLvl     = nextTierLevel();
       const maxLvl     = (ASCENSION.maxLevel || 0);
       const remaining  = Math.max(0, reqLvl - state.level);
-      const isFinalRun = maxLvl > 0 && reqLvl === maxLvl;
+      // The "last ascension" is the single climb that crosses from a
+      // sub-cap rank-gate to the maxLevel ceiling — after it, every
+      // future ascension just sits at maxLevel forever.
+      const isLastClimb = maxLvl > 0
+        && reqLvl === maxLvl
+        && tierLevelRequired(currentTier()) < maxLvl;
+      const isFinalRun  = maxLvl > 0 && reqLvl === maxLvl;
       if (isFinalRun && remaining > 0 && remaining <= 10) {
         nb.innerHTML = `<span class="final-ascent-callout">🩸 FINAL ASCENT</span> · ${remaining} more level${remaining === 1 ? "" : "s"}`;
+      } else if (isLastClimb) {
+        nb.innerHTML = nextBiome
+          ? `<span class="final-ascent-callout">🩸 LAST ASCENSION</span> · <strong>${nextBiome.name}</strong> @ Lv ${reqLvl}`
+          : `<span class="final-ascent-callout">🩸 LAST ASCENSION</span> @ Lv ${reqLvl}`;
       } else {
         nb.innerHTML = nextBiome
           ? `Next: <strong>${nextBiome.name}</strong> at ascension #${nextAscNum} (Lv ${reqLvl})`
@@ -3785,6 +3885,22 @@ function injectEventCountdown() {
   header.appendChild(el);
 }
 
+// Big screen-center countdown flash — fires at 60s/30s/10..1s before
+// event end. Each trigger is fire-once-only via _countdownFired set.
+const _countdownFired = new Set();
+function showCountdownFlash(text, big) {
+  const ocean = document.getElementById("ocean") || document.body;
+  if (!ocean) return;
+  const el = document.createElement("div");
+  el.className = "event-countdown-flash" + (big ? " big" : "");
+  el.textContent = text;
+  ocean.appendChild(el);
+  setTimeout(() => el.remove(), big ? 2200 : 950);
+  if (window.brickedUpSfx && window.brickedUpSfx.bonus) {
+    try { window.brickedUpSfx.bonus(big ? "jackpot" : "shark"); } catch (e) {}
+  }
+}
+
 function refreshEventCountdown() {
   if (EVENT_END <= 0) return;
   const el = document.getElementById("eventCountdown");
@@ -3802,6 +3918,20 @@ function refreshEventCountdown() {
     return;
   }
   const remaining = EVENT_END - now;
+  const totalSecLeft = Math.ceil(remaining / 1000);
+
+  // Final-minute countdown flashes — 60s, 30s, then 10..1.
+  if (totalSecLeft === 60 && !_countdownFired.has(60)) {
+    _countdownFired.add(60);
+    showCountdownFlash("⚠ 1 MINUTE LEFT", true);
+  } else if (totalSecLeft === 30 && !_countdownFired.has(30)) {
+    _countdownFired.add(30);
+    showCountdownFlash("⚠ 30 SECONDS LEFT", true);
+  } else if (totalSecLeft <= 10 && totalSecLeft >= 1 && !_countdownFired.has(totalSecLeft)) {
+    _countdownFired.add(totalSecLeft);
+    showCountdownFlash(String(totalSecLeft), false);
+  }
+
   const days  = Math.floor(remaining / 86400000);
   const hours = Math.floor((remaining % 86400000) / 3600000);
   const mins  = Math.floor((remaining % 3600000) / 60000);
@@ -4146,6 +4276,8 @@ const LB_METRICS = (function () {
     plain:    (n) => String(n),
     big:      (n) => fmt(Number(n) || 0),
     duration: (n) => fmtDuration(Number(n) || 0),
+    // Ascension Multiplier: pearls count → ×N.NN compounding multiplier.
+    multiplier: (n) => "×" + fmt(Math.pow(1.5, Number(n) || 0)),
   };
   return cfg.map(entry => {
     if (typeof entry === "string") {
@@ -4794,6 +4926,36 @@ $("gearClose")?.addEventListener("click", closeGear);
 gearOverlay?.addEventListener("click", (ev) => {
   if (ev.target === gearOverlay) closeGear();
 });
+
+// Talent Vault modal — embeds expand/index.html in an iframe so the
+// player can spend coins without leaving the run.
+const talentOverlay = $("talentOverlay");
+const talentFrame = $("talentFrame");
+function openTalentVault() {
+  if (!talentOverlay || !talentFrame) return;
+  // Lazy-load the iframe each open with a cache buster so the coin
+  // balance is always fresh. ?embed=1 tells the vault to hide its own
+  // header/back-button since it's running inside the modal.
+  // Explicit filename — file:// protocol doesn't auto-resolve directory → index.html.
+  talentFrame.src = "./expand/index.html?embed=1&t=" + Date.now();
+  talentOverlay.hidden = false;
+}
+function closeTalentVault() {
+  if (!talentOverlay) return;
+  talentOverlay.hidden = true;
+  // Drop the iframe src on close so the next open starts fresh and the
+  // engine's talent cache picks up any newly bound ranks immediately.
+  if (talentFrame) talentFrame.src = "about:blank";
+  __talentRanksCache = null;
+}
+$("vaultBtn")?.addEventListener("click", openTalentVault);
+$("talentClose")?.addEventListener("click", closeTalentVault);
+talentOverlay?.addEventListener("click", (ev) => {
+  if (ev.target === talentOverlay) closeTalentVault();
+});
+window.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && talentOverlay && !talentOverlay.hidden) closeTalentVault();
+});
 $("gearList")?.addEventListener("click", (ev) => {
   const btn = ev.target.closest("button.gear-buy");
   if (!btn || btn.disabled) return;
@@ -4857,7 +5019,13 @@ const PANEL_KEY = (EVENT && EVENT.panelKey) || "deepSeaPanels_v2";
 const POP_KEY   = PANEL_KEY + "_popped";
 const panelState  = (() => { try { return JSON.parse(localStorage.getItem(PANEL_KEY) || "{}"); } catch { return {}; } })();
 const poppedState = (() => { try { return JSON.parse(localStorage.getItem(POP_KEY)   || "{}"); } catch { return {}; } })();
-const PANEL_DEFAULT_OPEN = new Set(["submersible", "ondeck", "lastrun", "outfitting"]);
+// Themed builds can override which panels are open on first load via
+// EVENT.defaultOpenPanels. Default (Bricked Up) keeps four panels open.
+const PANEL_DEFAULT_OPEN = new Set(
+  (EVENT && Array.isArray(EVENT.defaultOpenPanels))
+    ? EVENT.defaultOpenPanels
+    : ["submersible", "ondeck", "lastrun", "outfitting"]
+);
 
 function savePoppedState() {
   try { localStorage.setItem(POP_KEY, JSON.stringify(poppedState)); } catch {}

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ascension Demo — Talent Tree Test</title>
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --void:        #060008;
+    --abyss:       #0a0010;
+    --bone:        #e8e0d0;
+    --bone-dim:    #8a8070;
+    --crimson:     #a8123a;
+    --crimson-dim: #5a0a20;
+    --sigil-gold:  #c8a050;
+    --witchfire:   #56a040;
+    --halo:        #d8c890;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    min-height: 100vh;
+    background: var(--void);
+    color: var(--bone);
+    font-family: 'Sora', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(1px 1px at 18% 22%, rgba(200,160,80,0.5) 50%, transparent 60%),
+      radial-gradient(1px 1px at 72% 38%, rgba(168,18,58,0.45) 50%, transparent 60%),
+      radial-gradient(1.5px 1.5px at 32% 80%, rgba(232,224,208,0.4) 50%, transparent 60%),
+      radial-gradient(1px 1px at 84% 76%, rgba(200,160,80,0.45) 50%, transparent 60%),
+      repeating-linear-gradient(to bottom, transparent 0, transparent 64px, rgba(200,160,80,0.05) 64px, rgba(200,160,80,0.05) 65px),
+      repeating-linear-gradient(to right, transparent 0, transparent 64px, rgba(200,160,80,0.05) 64px, rgba(200,160,80,0.05) 65px),
+      linear-gradient(180deg, #0a0010 0%, #02000a 100%);
+    background-attachment: fixed;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  header.demo-head {
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid rgba(168,18,58,0.4);
+    background: linear-gradient(180deg, rgba(6,0,8,0.92) 0%, rgba(6,0,8,0.7) 100%);
+  }
+  .crest { display: flex; align-items: center; gap: 14px; }
+  .crest-mark {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--crimson) 0%, var(--crimson-dim) 60%, #1a0008 100%);
+    box-shadow: 0 0 0 1px rgba(232,224,208,0.25) inset, 0 0 22px rgba(168,18,58,0.55);
+    position: relative;
+  }
+  .crest-mark::after {
+    content: ""; position: absolute; inset: 6px;
+    border-radius: 50%;
+    border: 1px dashed rgba(200,160,80,0.6);
+    opacity: 0.6;
+  }
+  .crest h1 {
+    margin: 0;
+    font-weight: 700; font-size: 19px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--bone);
+  }
+  .crest h1 small {
+    display: block;
+    font-size: 11px; letter-spacing: 0.32em;
+    color: var(--bone-dim); font-weight: 400;
+    margin-top: 2px;
+  }
+  .coin-pill {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px;
+    border: 1px solid rgba(200,160,80,0.35);
+    border-radius: 999px;
+    background: rgba(10,0,16,0.55);
+    box-shadow: 0 0 18px rgba(200,160,80,0.08) inset;
+  }
+  .coin-pill .num {
+    font-weight: 700; font-size: 18px;
+    color: var(--sigil-gold);
+    text-shadow: 0 0 8px rgba(200,160,80,0.45);
+  }
+  .coin-pill .label {
+    font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--bone-dim);
+  }
+
+  /* Main area */
+  main.demo-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 28px;
+    text-align: center;
+    gap: 28px;
+  }
+  .rank-tag {
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--bone-dim);
+  }
+  .level-display {
+    font-weight: 200;
+    font-size: 110px;
+    letter-spacing: 0.05em;
+    line-height: 0.95;
+    color: var(--bone);
+    text-shadow: 0 0 30px rgba(200,160,80,0.3);
+  }
+  .level-display.maxed {
+    color: var(--crimson);
+    text-shadow: 0 0 36px rgba(168,18,58,0.55);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { text-shadow: 0 0 36px rgba(168,18,58,0.55); }
+    50% { text-shadow: 0 0 56px rgba(168,18,58,0.85); }
+  }
+  .level-label {
+    font-size: 11px; letter-spacing: 0.32em;
+    text-transform: uppercase; color: var(--bone-dim);
+    margin-top: -6px;
+  }
+  .xp-bar-wrap {
+    width: min(420px, 90%);
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(232,224,208,0.08);
+    border: 1px solid rgba(232,224,208,0.12);
+    overflow: hidden;
+  }
+  .xp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--sigil-gold), var(--halo));
+    box-shadow: 0 0 14px rgba(200,160,80,0.45);
+    transition: width 0.25s ease;
+  }
+  .xp-text {
+    margin-top: 8px;
+    font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--bone-dim);
+  }
+  .info-row {
+    display: flex; gap: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 6px;
+  }
+  .info-cell {
+    display: flex; flex-direction: column;
+    align-items: center; line-height: 1.2;
+  }
+  .info-cell .v {
+    font-weight: 600; font-size: 18px;
+    color: var(--bone);
+  }
+  .info-cell.gold .v { color: var(--sigil-gold); text-shadow: 0 0 10px rgba(200,160,80,0.4); }
+  .info-cell.crimson .v { color: var(--crimson); text-shadow: 0 0 10px rgba(168,18,58,0.4); }
+  .info-cell .l {
+    font-size: 9px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--bone-dim);
+    margin-top: 5px;
+  }
+
+  .talent-mods {
+    max-width: 600px;
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px 18px;
+    border: 1px dashed rgba(200,160,80,0.22);
+    border-radius: 8px;
+    background: rgba(10,0,16,0.4);
+  }
+  .talent-mods.empty { display: none; }
+  .talent-mods .h {
+    font-size: 9px; letter-spacing: 0.32em;
+    text-transform: uppercase; color: var(--bone-dim);
+    margin-bottom: 8px;
+  }
+  .talent-mods ul {
+    list-style: none; margin: 0; padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 6px 18px;
+  }
+  .talent-mods li {
+    font-size: 12px;
+    color: var(--halo);
+  }
+  .talent-mods li b { color: var(--sigil-gold); font-weight: 600; }
+
+  /* Footer / action bar */
+  footer.demo-foot {
+    padding: 22px 28px 32px;
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    border-top: 1px solid rgba(168,18,58,0.25);
+    background: linear-gradient(0deg, rgba(6,0,8,0.92) 0%, rgba(6,0,8,0.6) 100%);
+  }
+  .action {
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 14px 26px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid rgba(200,160,80,0.45);
+    background: linear-gradient(180deg, rgba(20,4,28,0.85), rgba(6,0,12,0.95));
+    color: var(--bone);
+    transition: all 0.15s ease;
+    min-width: 220px;
+  }
+  .action:hover {
+    border-color: var(--sigil-gold);
+    box-shadow: 0 0 22px rgba(200,160,80,0.25);
+  }
+  .action.primary {
+    border-color: var(--crimson);
+    background: linear-gradient(180deg, rgba(168,18,58,0.45), rgba(90,10,32,0.7));
+  }
+  .action.primary:hover {
+    background: linear-gradient(180deg, rgba(168,18,58,0.7), rgba(120,15,42,0.85));
+    box-shadow: 0 0 26px rgba(168,18,58,0.5);
+  }
+  .action.ascend {
+    border-color: var(--sigil-gold);
+    background: linear-gradient(180deg, rgba(200,160,80,0.35), rgba(120,90,32,0.55));
+    color: var(--bone);
+    animation: ascend-glow 1.6s ease-in-out infinite;
+  }
+  @keyframes ascend-glow {
+    0%, 100% { box-shadow: 0 0 18px rgba(200,160,80,0.35); }
+    50% { box-shadow: 0 0 32px rgba(200,160,80,0.6); }
+  }
+  .action .mult {
+    display: inline-block;
+    margin-left: 10px;
+    color: var(--sigil-gold);
+    font-weight: 700;
+  }
+  .action.primary .mult { color: var(--halo); }
+  .action.ghost {
+    border-color: rgba(232,224,208,0.18);
+    background: rgba(10,0,16,0.55);
+  }
+  .action.ghost:hover {
+    border-color: rgba(232,224,208,0.5);
+    background: rgba(232,224,208,0.05);
+    box-shadow: none;
+  }
+  .action.tiny {
+    min-width: auto;
+    font-size: 11px;
+    padding: 11px 18px;
+    letter-spacing: 0.18em;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 110px;
+    transform: translateX(-50%) translateY(20px);
+    padding: 12px 22px;
+    border-radius: 999px;
+    background: rgba(10,0,16,0.95);
+    border: 1px solid rgba(200,160,80,0.5);
+    color: var(--bone);
+    font-size: 12px; letter-spacing: 0.16em;
+    text-transform: uppercase;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.7), 0 0 22px rgba(200,160,80,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 50;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 600px) {
+    .level-display { font-size: 84px; }
+    .action { min-width: 180px; padding: 12px 18px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+  <header class="demo-head">
+    <div class="crest">
+      <div class="crest-mark"></div>
+      <h1>
+        Ascension Demo
+        <small>Talent tree test rig</small>
+      </h1>
+    </div>
+    <div class="coin-pill">
+      <span class="num" id="coinCount">0</span>
+      <span class="label">🪙 Coins</span>
+    </div>
+  </header>
+
+  <main class="demo-main">
+    <div class="rank-tag" id="rankTag">Mortal · No Ascensions</div>
+    <div class="level-display" id="levelDisplay">1</div>
+    <div class="level-label">Level / 100</div>
+    <div class="xp-bar-wrap">
+      <div class="xp-bar" id="xpBar" style="width:0%"></div>
+    </div>
+    <div class="xp-text" id="xpText">0 / 50 xp</div>
+
+    <div class="info-row">
+      <div class="info-cell gold">
+        <span class="v" id="multStat">×1.00</span>
+        <span class="l">Multiplier</span>
+      </div>
+      <div class="info-cell crimson">
+        <span class="v" id="ascendCountStat">0</span>
+        <span class="l">Ascensions</span>
+      </div>
+      <div class="info-cell">
+        <span class="v" id="lvlStat">1</span>
+        <span class="l">Level</span>
+      </div>
+    </div>
+
+    <div class="talent-mods empty" id="talentMods">
+      <div class="h">Active Talent Modifiers</div>
+      <ul id="modsList"></ul>
+    </div>
+  </main>
+
+  <footer class="demo-foot">
+    <button class="action primary" id="actionBtn">Descend (+1 lvl)</button>
+    <button class="action tiny ghost" id="vaultBtn" onclick="location.href='./'">🪙 Talent Vault</button>
+  </footer>
+
+  <div id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const DEMO_KEY = 'ascension_demo_v1';
+  const COINS_KEY = 'ascension_coins_v1';
+  const TALENTS_KEY = 'ascension_talents_v1';
+  const MAX_LEVEL = 100;
+  const XP_PER_LEVEL = 50;
+
+  // ---------------- Talent definitions (mirror of vault) ----------------
+  // Just for displaying active modifiers on the demo. The real engine would
+  // own its own copy of the catalog or read from the vault page on load.
+  const TALENT_CATALOG = {
+    slot_luck:  { name: 'Bone-Reader',     icon: '🎰', ranks: [0.05, 0.10, 0.15], unit: '% slot match' },
+    cash_boost: { name: 'Sigil-Touched',   icon: '✨', ranks: [0.03, 0.06, 0.10], unit: '% pickup value' },
+    xp_boost:   { name: 'Inner Sight',     icon: '👁', ranks: [0.03, 0.06, 0.10], unit: '% XP' },
+    buff_dur:   { name: 'Apotheotic',      icon: '💀', ranks: [0.05, 0.10, 0.15], unit: '% buff dur' },
+    magnet:     { name: 'Wraithgrasp',     icon: '🧲', ranks: [0.15, 0.30, 0.45], unit: '% pickup radius' },
+    cascade:    { name: 'Black Communion', icon: '🌑', ranks: [0.02, 0.04, 0.06], unit: '% cascade' },
+    rarity:     { name: "Vesper's Favor",  icon: '🕯', ranks: [0.05, 0.10, 0.15], unit: '% rarity' },
+    tribute:    { name: 'Tribute',         icon: '💎', ranks: [0.02, 0.04, 0.06], unit: '% duplicate' },
+  };
+
+  // ---------------- State ----------------
+  function loadDemo() {
+    try {
+      const raw = localStorage.getItem(DEMO_KEY);
+      if (!raw) return { level: 1, xp: 0, ascensions: 0 };
+      const p = JSON.parse(raw);
+      return {
+        level: Math.max(1, Math.min(MAX_LEVEL, p.level | 0 || 1)),
+        xp: Math.max(0, p.xp | 0),
+        ascensions: Math.max(0, p.ascensions | 0),
+      };
+    } catch (e) {
+      return { level: 1, xp: 0, ascensions: 0 };
+    }
+  }
+  function saveDemo() {
+    try { localStorage.setItem(DEMO_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function loadCoins() {
+    try {
+      const raw = localStorage.getItem(COINS_KEY);
+      if (raw == null) return 0;
+      const n = Number(JSON.parse(raw));
+      return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+    } catch (e) { return 0; }
+  }
+  function setCoins(n) {
+    try { localStorage.setItem(COINS_KEY, JSON.stringify(Math.max(0, Math.floor(n)))); } catch (e) {}
+  }
+  function loadTalentRanks() {
+    try {
+      const raw = localStorage.getItem(TALENTS_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw)?.ranks || {};
+    } catch (e) { return {}; }
+  }
+
+  let state = loadDemo();
+
+  // ---------------- Derived stats ----------------
+  function multiplier() {
+    // ×1.5 per ascension, compounding (mirrors the live ascension formula).
+    return Math.pow(1.5, state.ascensions);
+  }
+  function rankName() {
+    const a = state.ascensions;
+    if (a >= 10) return 'Beyond';
+    if (a >= 8)  return 'Hierophant';
+    if (a >= 6)  return 'Ordained';
+    if (a >= 4)  return 'Anointed';
+    if (a >= 2)  return 'Acolyte';
+    if (a >= 1)  return 'Initiate';
+    return 'Mortal';
+  }
+
+  // ---------------- Render ----------------
+  const $coin     = document.getElementById('coinCount');
+  const $level    = document.getElementById('levelDisplay');
+  const $rankTag  = document.getElementById('rankTag');
+  const $xpBar    = document.getElementById('xpBar');
+  const $xpText   = document.getElementById('xpText');
+  const $multStat = document.getElementById('multStat');
+  const $aCount   = document.getElementById('ascendCountStat');
+  const $lvlStat  = document.getElementById('lvlStat');
+  const $action   = document.getElementById('actionBtn');
+  const $modsBox  = document.getElementById('talentMods');
+  const $modsList = document.getElementById('modsList');
+
+  function fmtMult(m) {
+    if (m >= 1000) return '×' + m.toFixed(0);
+    if (m >= 100)  return '×' + m.toFixed(1);
+    return '×' + m.toFixed(2);
+  }
+
+  function render() {
+    const atCap = state.level >= MAX_LEVEL;
+    const m = multiplier();
+
+    $coin.textContent = loadCoins();
+    $level.textContent = state.level;
+    $level.classList.toggle('maxed', atCap);
+    $rankTag.textContent = `${rankName()} · ${state.ascensions} ascension${state.ascensions === 1 ? '' : 's'}`;
+
+    const xpPct = atCap ? 100 : (state.xp / XP_PER_LEVEL) * 100;
+    $xpBar.style.width = xpPct + '%';
+    $xpText.textContent = atCap ? 'Threshold breached' : `${state.xp} / ${XP_PER_LEVEL} xp`;
+
+    $multStat.textContent = fmtMult(m);
+    $aCount.textContent = state.ascensions;
+    $lvlStat.textContent = state.level;
+
+    if (atCap) {
+      const next = m * 1.5;
+      $action.className = 'action ascend';
+      $action.innerHTML = `Ascend <span class="mult">${fmtMult(next)}</span>`;
+    } else {
+      $action.className = 'action primary';
+      $action.innerHTML = `Descend <span class="mult">${fmtMult(m)}</span>`;
+    }
+
+    renderMods();
+  }
+
+  function renderMods() {
+    const ranks = loadTalentRanks();
+    const items = [];
+    for (const [id, def] of Object.entries(TALENT_CATALOG)) {
+      const r = ranks[id] | 0;
+      if (r > 0) {
+        const v = def.ranks[r - 1];
+        const pct = (def.unit.startsWith('% ') || def.unit.startsWith('%'))
+          ? `+${(v * 100).toFixed(0)}${def.unit}`
+          : `+${v}${def.unit}`;
+        items.push(`<li>${def.icon} <b>${def.name}</b> — ${pct}</li>`);
+      }
+    }
+    if (items.length === 0) {
+      $modsBox.classList.add('empty');
+      $modsList.innerHTML = '';
+    } else {
+      $modsBox.classList.remove('empty');
+      $modsList.innerHTML = items.join('');
+    }
+  }
+
+  // ---------------- Actions ----------------
+  function descend() {
+    if (state.level >= MAX_LEVEL) { ascend(); return; }
+    // 1 click = 1 level for the demo. XP fills then resets each click.
+    state.xp = XP_PER_LEVEL;
+    render();
+    // Animate the bar full, then snap to next level on the next frame.
+    setTimeout(() => {
+      state.level = Math.min(MAX_LEVEL, state.level + 1);
+      state.xp = 0;
+      saveDemo();
+      render();
+      if (state.level >= MAX_LEVEL) toast('Threshold breached — ascend to claim 1🪙');
+    }, 140);
+  }
+
+  function ascend() {
+    if (state.level < MAX_LEVEL) return;
+    state.ascensions += 1;
+    state.level = 1;
+    state.xp = 0;
+    saveDemo();
+    setCoins(loadCoins() + 1);
+    toast(`Ascension #${state.ascensions} — +1🪙 earned`);
+    render();
+  }
+
+  $action.addEventListener('click', () => {
+    if (state.level >= MAX_LEVEL) ascend();
+    else descend();
+  });
+
+  // ---------------- Toast ----------------
+  let toastTimer = null;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+
+  // ---------------- Live updates ----------------
+  // If the talent vault was open in another tab and ranks changed, refresh.
+  window.addEventListener('focus', render);
+  window.addEventListener('storage', (e) => {
+    if (e.key === COINS_KEY || e.key === TALENTS_KEY) render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

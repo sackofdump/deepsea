@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ascension — Talent Vault</title>
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --void:        #060008;
+    --abyss:       #0a0010;
+    --bone:        #e8e0d0;
+    --bone-dim:    #8a8070;
+    --crimson:     #a8123a;
+    --crimson-dim: #5a0a20;
+    --sigil-gold:  #c8a050;
+    --witchfire:   #56a040;
+    --halo:        #d8c890;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: var(--void);
+    color: var(--bone);
+    font-family: 'Sora', system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(1px 1px at 18% 22%, rgba(200,160,80,0.5) 50%, transparent 60%),
+      radial-gradient(1px 1px at 72% 38%, rgba(168,18,58,0.45) 50%, transparent 60%),
+      radial-gradient(1.5px 1.5px at 32% 80%, rgba(232,224,208,0.4) 50%, transparent 60%),
+      radial-gradient(1px 1px at 84% 76%, rgba(200,160,80,0.45) 50%, transparent 60%),
+      radial-gradient(1px 1px at 46% 14%, rgba(168,18,58,0.35) 50%, transparent 60%),
+      repeating-linear-gradient(to bottom, transparent 0, transparent 64px, rgba(200,160,80,0.05) 64px, rgba(200,160,80,0.05) 65px),
+      repeating-linear-gradient(to right, transparent 0, transparent 64px, rgba(200,160,80,0.05) 64px, rgba(200,160,80,0.05) 65px),
+      linear-gradient(180deg, #0a0010 0%, #02000a 100%);
+    background-attachment: fixed;
+  }
+
+  /* ---------- Header / star counter ---------- */
+  header.vault-head {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+    background: linear-gradient(180deg, rgba(6,0,8,0.92) 0%, rgba(6,0,8,0.7) 100%);
+    border-bottom: 1px solid rgba(168,18,58,0.4);
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .crest {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .crest-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--crimson) 0%, var(--crimson-dim) 60%, #1a0008 100%);
+    box-shadow:
+      0 0 0 1px rgba(232,224,208,0.25) inset,
+      0 0 22px rgba(168,18,58,0.55);
+    position: relative;
+  }
+  .crest-mark::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    border: 1px dashed rgba(200,160,80,0.6);
+    opacity: 0.6;
+  }
+  .crest h1 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bone);
+  }
+  .crest h1 small {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: var(--bone-dim);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+  .coin-bank {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 10px 18px;
+    border: 1px solid rgba(200,160,80,0.35);
+    border-radius: 999px;
+    background: rgba(10,0,16,0.55);
+    box-shadow: 0 0 18px rgba(200,160,80,0.08) inset;
+  }
+  .bank-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+  }
+  .bank-cell .num {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--sigil-gold);
+    text-shadow: 0 0 8px rgba(200,160,80,0.45);
+  }
+  .bank-cell.spent .num { color: var(--bone-dim); text-shadow: none; }
+  .bank-cell.lifetime .num { color: var(--bone); text-shadow: none; }
+  .bank-cell .label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--bone-dim);
+    margin-top: 5px;
+  }
+  .bank-sep {
+    width: 1px;
+    align-self: stretch;
+    background: rgba(200,160,80,0.18);
+  }
+  header .actions { display: flex; gap: 10px; }
+  .btn {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 9px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid rgba(168,18,58,0.5);
+    background: rgba(10,0,16,0.7);
+    color: var(--bone);
+    transition: all 0.15s ease;
+  }
+  .btn:hover {
+    border-color: var(--crimson);
+    background: rgba(168,18,58,0.18);
+    box-shadow: 0 0 14px rgba(168,18,58,0.3);
+  }
+  .btn.ghost { border-color: rgba(232,224,208,0.18); }
+  .btn.ghost:hover { border-color: rgba(232,224,208,0.5); background: rgba(232,224,208,0.05); box-shadow: none; }
+
+  /* ---------- Lead-in copy ---------- */
+  .lead {
+    max-width: 920px;
+    margin: 36px auto 24px;
+    padding: 0 28px;
+    text-align: center;
+  }
+  .lead h2 {
+    margin: 0 0 8px;
+    font-weight: 300;
+    font-size: 28px;
+    letter-spacing: 0.06em;
+    color: var(--bone);
+  }
+  .lead h2 em {
+    font-style: normal;
+    color: var(--crimson);
+    font-weight: 600;
+    text-shadow: 0 0 14px rgba(168,18,58,0.5);
+  }
+  .lead p {
+    margin: 0;
+    color: var(--bone-dim);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    line-height: 1.7;
+  }
+
+  /* ---------- Talent grid ---------- */
+  .vault {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 18px 28px 80px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 18px;
+  }
+  .talent {
+    position: relative;
+    border: 1px solid rgba(200,160,80,0.22);
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at 80% -10%, rgba(168,18,58,0.18) 0%, transparent 55%),
+      linear-gradient(180deg, rgba(20,4,28,0.85) 0%, rgba(6,0,12,0.95) 100%);
+    padding: 18px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 230px;
+    transition: all 0.18s ease;
+    overflow: hidden;
+  }
+  .talent::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 10px;
+    box-shadow: 0 0 0 1px rgba(232,224,208,0.04) inset;
+  }
+  .talent:hover {
+    border-color: rgba(200,160,80,0.55);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.55), 0 0 22px rgba(200,160,80,0.08);
+  }
+  .talent.maxed {
+    border-color: rgba(86,160,64,0.5);
+    background:
+      radial-gradient(circle at 80% -10%, rgba(86,160,64,0.18) 0%, transparent 55%),
+      linear-gradient(180deg, rgba(8,20,8,0.85) 0%, rgba(2,8,4,0.95) 100%);
+  }
+  .talent.locked { opacity: 0.55; }
+  .t-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .t-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(168,18,58,0.4), rgba(10,0,16,1) 75%);
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    box-shadow: 0 0 0 1px rgba(200,160,80,0.4) inset, 0 0 18px rgba(168,18,58,0.3);
+    flex-shrink: 0;
+  }
+  .talent.maxed .t-icon {
+    box-shadow: 0 0 0 1px rgba(86,160,64,0.6) inset, 0 0 22px rgba(86,160,64,0.4);
+  }
+  .t-name {
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--bone);
+    line-height: 1.2;
+  }
+  .t-tag {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--bone-dim);
+    margin-top: 3px;
+  }
+  .t-desc {
+    font-size: 12px;
+    color: var(--bone-dim);
+    line-height: 1.55;
+    flex-grow: 1;
+    margin: 6px 0 12px;
+  }
+  .t-desc strong { color: var(--halo); font-weight: 500; }
+
+  /* Rank pips */
+  .pips {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .pip {
+    flex: 1;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(232,224,208,0.08);
+    border: 1px solid rgba(232,224,208,0.12);
+  }
+  .pip.on {
+    background: linear-gradient(90deg, var(--sigil-gold), var(--halo));
+    border-color: rgba(200,160,80,0.6);
+    box-shadow: 0 0 10px rgba(200,160,80,0.45);
+  }
+  .talent.maxed .pip.on {
+    background: linear-gradient(90deg, var(--witchfire), #8ed26a);
+    border-color: rgba(86,160,64,0.7);
+    box-shadow: 0 0 12px rgba(86,160,64,0.5);
+  }
+
+  /* Footer of card: cost + buy */
+  .t-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .t-cost {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--bone-dim);
+  }
+  .t-cost b {
+    color: var(--sigil-gold);
+    font-weight: 600;
+  }
+  .t-buy {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--crimson);
+    background: linear-gradient(180deg, rgba(168,18,58,0.4), rgba(90,10,32,0.6));
+    color: var(--bone);
+    transition: all 0.15s ease;
+  }
+  .t-buy:hover:not(:disabled) {
+    background: linear-gradient(180deg, rgba(168,18,58,0.7), rgba(120,15,42,0.8));
+    box-shadow: 0 0 18px rgba(168,18,58,0.45);
+  }
+  .t-buy:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: rgba(232,224,208,0.18);
+    background: rgba(20,4,28,0.6);
+  }
+  .t-buy.maxed-btn {
+    border-color: rgba(86,160,64,0.6);
+    background: rgba(86,160,64,0.18);
+    cursor: default;
+    color: var(--witchfire);
+  }
+
+  /* ---------- Toast ---------- */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 36px;
+    transform: translateX(-50%) translateY(20px);
+    padding: 12px 22px;
+    border-radius: 999px;
+    background: rgba(10,0,16,0.95);
+    border: 1px solid rgba(200,160,80,0.5);
+    color: var(--bone);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.7), 0 0 22px rgba(200,160,80,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 50;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  #toast.bad { border-color: rgba(168,18,58,0.7); box-shadow: 0 12px 30px rgba(0,0,0,0.7), 0 0 22px rgba(168,18,58,0.25); }
+
+  /* ---------- Modal (respec confirm) ---------- */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    max-width: 420px;
+    width: calc(100% - 40px);
+    background: linear-gradient(180deg, rgba(20,4,28,0.98), rgba(6,0,12,0.98));
+    border: 1px solid var(--crimson);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 30px rgba(168,18,58,0.3);
+    text-align: center;
+  }
+  .modal h3 {
+    margin: 0 0 10px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--crimson);
+    font-size: 15px;
+  }
+  .modal p {
+    margin: 0 0 20px;
+    color: var(--bone-dim);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .modal .row { display: flex; gap: 10px; justify-content: center; }
+
+  @media (max-width: 600px) {
+    header.vault-head { padding: 14px 16px; }
+    .crest h1 { font-size: 16px; }
+    .coin-bank { padding: 8px 12px; gap: 12px; }
+    .vault { padding: 14px 16px 60px; gap: 14px; }
+    .lead { padding: 0 16px; margin-top: 24px; }
+    .lead h2 { font-size: 22px; }
+  }
+
+  /* Embedded mode (iframed inside the live ascension page). The parent
+     modal supplies its own close button, so the back-button is hidden
+     and the sticky header is collapsed to a slim coin-bank strip. */
+  body.embed header.vault-head { padding: 12px 16px; border-bottom: 1px solid rgba(168,18,58,0.3); }
+  body.embed .crest h1 { font-size: 14px; }
+  body.embed .crest h1 small { display: none; }
+  body.embed header .actions #backBtn { display: none; }
+  body.embed .lead { margin: 16px auto 8px; }
+  body.embed .lead h2 { font-size: 20px; }
+  body.embed .lead p { font-size: 12px; }
+  /* Reserve room at the bottom so the sticky Continue bar doesn't cover
+     the last row of talent cards. */
+  body.embed .vault { padding-top: 8px; padding-bottom: 110px; }
+
+  /* Continue bar — sticky footer when embedded, hidden otherwise. */
+  .embed-continue { display: none; }
+  body.embed .embed-continue {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    justify-content: center;
+    padding: 18px 16px 22px;
+    background: linear-gradient(0deg, rgba(6,0,8,0.95) 40%, rgba(6,0,8,0) 100%);
+    pointer-events: none;
+  }
+  body.embed #embedContinueBtn {
+    pointer-events: auto;
+    padding: 16px 44px;
+    background: linear-gradient(180deg, #56a040 0%, #2f6028 100%);
+    color: #fff;
+    border: 2px solid #d8c890;
+    border-radius: 8px;
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 3.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-shadow: 0 0 8px rgba(216, 200, 144, 0.55), 0 2px 0 #1a3010;
+    box-shadow: 0 0 26px rgba(86, 160, 64, 0.7), 0 6px 0 #1a3010;
+    animation: embedContinuePulse 1.6s ease-in-out infinite;
+    transition: filter 120ms ease;
+  }
+  body.embed #embedContinueBtn:hover { filter: brightness(1.12); }
+  body.embed #embedContinueBtn:active { transform: translateY(2px); box-shadow: 0 0 18px rgba(86,160,64,0.6), 0 2px 0 #1a3010; }
+  @keyframes embedContinuePulse {
+    0%, 100% { box-shadow: 0 0 26px rgba(86, 160, 64, 0.7), 0 6px 0 #1a3010; }
+    50%      { box-shadow: 0 0 40px rgba(86, 160, 64, 0.98), 0 6px 0 #1a3010; }
+  }
+</style>
+</head>
+<body>
+  <header class="vault-head">
+    <div class="crest">
+      <div class="crest-mark"></div>
+      <h1>
+        Talent Vault
+        <small>Spend coins · shape descent</small>
+      </h1>
+    </div>
+    <div class="coin-bank">
+      <div class="bank-cell">
+        <span class="num" id="coinsAvail">0</span>
+        <span class="label">🪙 Available</span>
+      </div>
+      <div class="bank-sep"></div>
+      <div class="bank-cell spent">
+        <span class="num" id="coinsSpent">0</span>
+        <span class="label">Spent</span>
+      </div>
+      <div class="bank-sep"></div>
+      <div class="bank-cell lifetime">
+        <span class="num" id="coinsLifetime">0</span>
+        <span class="label">Lifetime</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="respecBtn">Respec</button>
+      <button class="btn ghost" id="backBtn" onclick="location.href='./demo.html'">← Demo</button>
+    </div>
+  </header>
+
+  <div class="lead">
+    <h2>Each <em>100 levels</em> yields two coins.</h2>
+    <p>Bind them here. Eight branches, three ranks each. The vault remembers what the run forgets.</p>
+  </div>
+
+  <div class="vault" id="talentGrid"></div>
+
+  <div id="toast"></div>
+
+  <!-- Continue bar — only visible in embed mode (iframed inside the live
+       ascension page). Clicking closes the modal and triggers ascend on
+       the parent. -->
+  <div id="embedContinue" class="embed-continue">
+    <button type="button" id="embedContinueBtn">CONTINUE ›</button>
+  </div>
+
+  <div class="modal-bg" id="respecModal">
+    <div class="modal">
+      <h3>Unbind all talents?</h3>
+      <p>Every coin you've spent will return to your bank. Talent ranks reset to zero.</p>
+      <div class="row">
+        <button class="btn" id="respecConfirm">Yes, unbind</button>
+        <button class="btn ghost" id="respecCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  // Detect embed mode (running inside the ascension page's iframe modal).
+  // Parent supplies the close button, so we hide the page's own chrome.
+  if (typeof location !== 'undefined' && /[?&]embed=1\b/.test(location.search)) {
+    document.body.classList.add('embed');
+  }
+
+  // ---------------- Talent definitions ----------------
+  // Each rank costs (rank+1) stars: rank 1 = 1, rank 2 = 2, rank 3 = 3.
+  // Effects are stored as numbers (multipliers / additive %) so the engine
+  // can apply them later. For now this page just owns the spend + persist.
+  const TALENTS = [
+    {
+      id: 'slot_luck',
+      icon: '🎰',
+      name: 'Bone-Reader',
+      tag: 'Oracle slots',
+      desc: 'The bones whisper kinder odds. Slot match chance grows.',
+      ranks: [
+        { val: 0.15, label: '+15% slot match chance' },
+        { val: 0.30, label: '+30% slot match chance' },
+        { val: 0.50, label: '+50% slot match chance' },
+      ],
+    },
+    {
+      id: 'cash_boost',
+      icon: '✨',
+      name: 'Sigil-Touched',
+      tag: 'Reliquary value',
+      desc: 'Every relic recalls a richer past. Pickup value rises sharply.',
+      ranks: [
+        { val: 0.20, label: '+20% pickup value' },
+        { val: 0.45, label: '+45% pickup value' },
+        { val: 0.80, label: '+80% pickup value' },
+      ],
+    },
+    {
+      id: 'xp_boost',
+      icon: '👁',
+      name: 'Inner Sight',
+      tag: 'Experience',
+      desc: 'You see through the dark. Each descent teaches far more.',
+      ranks: [
+        { val: 0.20, label: '+20% bonus XP' },
+        { val: 0.45, label: '+45% bonus XP' },
+        { val: 0.80, label: '+80% bonus XP' },
+      ],
+    },
+    {
+      id: 'buff_dur',
+      icon: '💀',
+      name: 'Apotheotic',
+      tag: 'Buff duration',
+      desc: 'Slot blessings linger far longer in the marrow.',
+      ranks: [
+        { val: 0.20, label: '+20% slot buff duration' },
+        { val: 0.45, label: '+45% slot buff duration' },
+        { val: 0.80, label: '+80% slot buff duration' },
+      ],
+    },
+    {
+      id: 'magnet',
+      icon: '🧲',
+      name: 'Wraithgrasp',
+      tag: 'Pickup rate',
+      desc: 'The chain drags relics into the censer faster. More pickups per second.',
+      ranks: [
+        { val: 0.50, label: '+50% pickup rate' },
+        { val: 1.00, label: '+100% pickup rate' },
+        { val: 2.00, label: '+200% pickup rate' },
+      ],
+    },
+    {
+      id: 'cascade',
+      icon: '🌑',
+      name: 'Black Communion',
+      tag: 'Mega Jackpot',
+      desc: 'The black mass favors the faithful. Cascade odds rise.',
+      ranks: [
+        { val: 0.05, label: '+5% cascade hit chance' },
+        { val: 0.10, label: '+10% cascade hit chance' },
+        { val: 0.20, label: '+20% cascade hit chance' },
+      ],
+    },
+    {
+      id: 'rarity',
+      icon: '🕯',
+      name: "Vesper's Favor",
+      tag: 'Loot rarity',
+      desc: 'The candle picks the rare from the common.',
+      ranks: [
+        { val: 0.15, label: '+15% rarity uplift' },
+        { val: 0.30, label: '+30% rarity uplift' },
+        { val: 0.50, label: '+50% rarity uplift' },
+      ],
+    },
+    {
+      id: 'tribute',
+      icon: '💎',
+      name: 'Tribute',
+      tag: 'Duplicate pickups',
+      desc: 'The void pays its tithe twice. Pickups have a chance to duplicate.',
+      ranks: [
+        { val: 0.05, label: '+5% duplicate chance' },
+        { val: 0.12, label: '+12% duplicate chance' },
+        { val: 0.25, label: '+25% duplicate chance' },
+      ],
+    },
+  ];
+
+  const COST_PER_RANK = [1, 2, 3]; // index by rank-1
+  const TALENTS_KEY = 'ascension_talents_v1';
+  const COINS_KEY = 'ascension_coins_v1'; // dedicated coin counter, separate from in-game stars
+
+  // ---------------- Save / load ----------------
+  function loadTalents() {
+    try {
+      const raw = localStorage.getItem(TALENTS_KEY);
+      if (!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+      // sanity-fill any new talents added later
+      const ranks = {};
+      for (const t of TALENTS) ranks[t.id] = Math.max(0, Math.min(3, parsed.ranks?.[t.id] | 0));
+      return { ranks };
+    } catch (e) {
+      return defaultState();
+    }
+  }
+  function defaultState() {
+    const ranks = {};
+    for (const t of TALENTS) ranks[t.id] = 0;
+    return { ranks };
+  }
+  function saveTalents(state) {
+    try { localStorage.setItem(TALENTS_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // ---------------- Coin bank ----------------
+  // Available = lifetime coins earned (1 per 100 levels) - coins bound to talents.
+  // Coins are a separate currency from in-game stars; the engine bumps the
+  // counter on each ascension via window.AscensionTalents.grantCoins(n).
+  function lifetimeCoins() {
+    try {
+      const raw = localStorage.getItem(COINS_KEY);
+      if (raw == null) return 0;
+      const n = Number(JSON.parse(raw));
+      return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+    } catch (e) { return 0; }
+  }
+  function setLifetimeCoins(n) {
+    try { localStorage.setItem(COINS_KEY, JSON.stringify(Math.max(0, Math.floor(n)))); } catch (e) {}
+  }
+  function spentCoins(state) {
+    let total = 0;
+    for (const t of TALENTS) {
+      const r = state.ranks[t.id] | 0;
+      for (let i = 0; i < r; i++) total += COST_PER_RANK[i];
+    }
+    return total;
+  }
+  function availableCoins(state) {
+    return Math.max(0, lifetimeCoins() - spentCoins(state));
+  }
+
+  // ---------------- Render ----------------
+  let state = loadTalents();
+  const grid = document.getElementById('talentGrid');
+  const $avail = document.getElementById('coinsAvail');
+  const $spent = document.getElementById('coinsSpent');
+  const $life = document.getElementById('coinsLifetime');
+
+  function rankCostNext(rank) { return rank >= 3 ? null : COST_PER_RANK[rank]; }
+
+  function renderBank() {
+    $avail.textContent = availableCoins(state);
+    $spent.textContent = spentCoins(state);
+    $life.textContent = lifetimeCoins();
+  }
+
+  function renderGrid() {
+    grid.innerHTML = '';
+    const avail = availableCoins(state);
+    for (const t of TALENTS) {
+      const rank = state.ranks[t.id] | 0;
+      const next = rankCostNext(rank);
+      const maxed = rank >= 3;
+      const card = document.createElement('div');
+      card.className = 'talent' + (maxed ? ' maxed' : '');
+      const currentEffect = rank > 0 ? t.ranks[rank - 1].label : '—';
+      const nextEffect = !maxed ? t.ranks[rank].label : 'Bound at full';
+      card.innerHTML = `
+        <div class="t-head">
+          <div class="t-icon">${t.icon}</div>
+          <div>
+            <div class="t-name">${t.name}</div>
+            <div class="t-tag">${t.tag}</div>
+          </div>
+        </div>
+        <div class="t-desc">
+          ${t.desc}<br>
+          <strong>Current:</strong> ${currentEffect}<br>
+          <strong>${maxed ? 'Maxed' : 'Next'}:</strong> ${nextEffect}
+        </div>
+        <div class="pips">
+          ${[0,1,2].map(i => `<div class="pip${i < rank ? ' on' : ''}"></div>`).join('')}
+        </div>
+        <div class="t-foot">
+          <div class="t-cost">${maxed ? 'Rank 3 / 3' : `Cost <b>${next}🪙</b>`}</div>
+          ${maxed
+            ? `<button class="t-buy maxed-btn" disabled>Bound</button>`
+            : `<button class="t-buy" data-id="${t.id}" ${avail < next ? 'disabled' : ''}>Bind</button>`
+          }
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+    grid.querySelectorAll('.t-buy[data-id]').forEach(btn => {
+      btn.addEventListener('click', () => bind(btn.dataset.id));
+    });
+  }
+
+  function bind(id) {
+    const t = TALENTS.find(x => x.id === id);
+    if (!t) return;
+    const rank = state.ranks[id] | 0;
+    if (rank >= 3) return;
+    const cost = COST_PER_RANK[rank];
+    if (availableCoins(state) < cost) {
+      toast(`Need ${cost}🪙 — descend further.`, true);
+      return;
+    }
+    state.ranks[id] = rank + 1;
+    saveTalents(state);
+    renderBank();
+    renderGrid();
+    toast(`${t.name} → rank ${rank + 1}`);
+  }
+
+  // ---------------- Respec ----------------
+  const respecModal = document.getElementById('respecModal');
+  document.getElementById('respecBtn').addEventListener('click', () => {
+    if (spentCoins(state) === 0) { toast('Nothing bound yet.', true); return; }
+    respecModal.classList.add('show');
+  });
+  document.getElementById('respecCancel').addEventListener('click', () => respecModal.classList.remove('show'));
+  document.getElementById('respecConfirm').addEventListener('click', () => {
+    state = defaultState();
+    saveTalents(state);
+    respecModal.classList.remove('show');
+    renderBank();
+    renderGrid();
+    toast('All coins unbound.');
+  });
+  respecModal.addEventListener('click', (e) => { if (e.target === respecModal) respecModal.classList.remove('show'); });
+
+  // ---------------- Toast ----------------
+  let toastTimer = null;
+  function toast(msg, bad = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('bad', bad);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+
+  // ---------------- Public hook for the engine ----------------
+  // Other code (the ascension page / engine) can call this to read the
+  // resolved modifiers without parsing the talent file. Returns
+  // { slot_luck: 0.10, cash_boost: 0.06, ... } — values are the ACTIVE
+  // rank's value, or 0 / null if the talent is at rank 0.
+  window.AscensionTalents = {
+    getModifiers() {
+      const out = {};
+      for (const t of TALENTS) {
+        const r = state.ranks[t.id] | 0;
+        out[t.id] = r > 0 ? t.ranks[r - 1].val : 0;
+      }
+      return out;
+    },
+    getRanks() { return { ...state.ranks }; },
+  };
+
+  // ---------------- Live updates ----------------
+  // If the player has the ascension page open in another tab and earns a
+  // star, refresh the bank when this tab regains focus.
+  window.addEventListener('focus', () => { renderBank(); renderGrid(); });
+  window.addEventListener('storage', (e) => {
+    if (e.key === COINS_KEY || e.key === TALENTS_KEY) {
+      state = loadTalents();
+      renderBank();
+      renderGrid();
+    }
+  });
+
+  // Embedded Continue button: ask the parent to handle ascend+close via
+  // postMessage. Direct cross-frame DOM access (.click() on the parent's
+  // buttons) was unreliable — closing the modal nukes the iframe's
+  // script context mid-execution. postMessage runs the handler in the
+  // parent's own context, so it survives the iframe teardown.
+  document.getElementById('embedContinueBtn')?.addEventListener('click', () => {
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'ascension-talent-continue' }, '*');
+      }
+    } catch (e) {}
+  });
+
+  renderBank();
+  renderGrid();
+})();
+</script>
+</body>
+</html>
