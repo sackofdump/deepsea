@@ -288,15 +288,15 @@ const UPGRADE_DEFS = [
     name: "Brick Bin",
     desc: "Brick-haul capacity",
     stat: "cargoMax",
-    // Buffed starting capacity + growth to absorb the Talent Vault's
-    // loot-rate bonuses (Wraithgrasp +200% pickup rate, Tribute +25%
-    // duplicate chance) — cargo used to fill in seconds at higher ranks.
-    // Doubled the per-level add and bumped the mult so endgame cap also
-    // climbs comfortably above the new ceiling without max-level grind.
-    base: 25, add: 6, mult: 1.06,
-    baseCost: 8, costMult: 1.4,
+    // Each upgrade triples the cap (mult: 3.0 = "+200% more per level").
+    // The Talent Vault stacks Wraithgrasp +500% pickup rate, Tribute
+    // +100% duplicate chance, and chest-spawn buffs that drown the old
+    // cargo cap in seconds. With this scaling the capacity always
+    // outruns realistic per-dive loot output.
+    base: 25, add: 0, mult: 3.0,
+    baseCost: 8, costMult: 1.6,
     suffix: " kg",
-    maxLevel: 100,
+    maxLevel: 50,
   },
   {
     id: "sonar",
