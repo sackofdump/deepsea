@@ -1109,23 +1109,18 @@ function refreshGearUI() {
     const starEmoji = (EVENT && EVENT.pearlEmoji) || "✨";
     list.innerHTML = `
       <div class="ascension-summary">
-        <div class="ascension-stars-row">
-          <span class="ascension-star-count">${starEmoji} ${fmt(stars)}</span>
-          <span class="ascension-star-label">Ascension ${stars === 1 ? "Star" : "Stars"}</span>
-        </div>
         <div class="ascension-total">
           <span class="ascension-total-mult">×${fmt(totalMult)}</span>
           <span class="ascension-total-label">total cash &amp; XP multiplier</span>
         </div>
       </div>
       <p class="ascension-explainer muted">
-        Each commission raises your <strong>Rank</strong> by 1. Reach <strong>Lv ${ASCENSION.starUnlockLevel || tierLevelRequired(SUB_RANKS.length)}+</strong> before commissioning to also bank an ✨ Star.
-        Vows auto-unlock at specific ranks and stack multiplicatively — all five = <strong>×7,500</strong> on top of Stars.
+        Each ascension raises your <strong>Rank</strong> by 1 and multiplies your <strong>Ascension Multiplier</strong> by <strong>×${ASCENSION.multPerStar}</strong> within this run.
+        Vows auto-unlock at specific ranks and stack multiplicatively — all five = <strong>×7,500</strong>.
       </p>
       <div class="ascension-milestones">${milestoneRows}</div>
       <p class="ascension-footer muted">
-        Each ${starEmoji} compounds at <strong>×${ASCENSION.multPerStar}</strong>, no cap.
-        Ten Stars ≈ ×57. Twenty-five ≈ ×25,000. On top of Vows.
+        Finish a full Lv 1→100 run to bank <strong>+2 🪙 Coins</strong> for the Talent Vault — then the multiplier resets and you start over.
       </p>
     `;
     return;
