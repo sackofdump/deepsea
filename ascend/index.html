@@ -866,6 +866,11 @@ body.ascension .center-ascend {
   animation: centerAscendPulse 1.4s ease-in-out infinite;
 }
 body.ascension.ascension-at-final-cap .center-ascend { display: block; }
+/* Endgame: every talent maxed → no point opening the vault. Hide the
+   center button + floating talents pill so the ASCENDED finale screen
+   is the only thing the player sees. */
+body.ascension.ascension-endgame .center-ascend,
+body.ascension.ascension-endgame .vault-btn-float { display: none !important; }
 
 /* === Continue button — appears at the bottom-center after the player
    has visited the talent vault while at-cap. Click triggers the actual
@@ -2611,7 +2616,7 @@ window.__GAME_PAUSED__ = true;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../sfx.js?v=4"></script>
-<script src="../game-bricked-up.js?v=96"></script>
+<script src="../game-bricked-up.js?v=97"></script>
 <script src="soundtrack.js?v=9"></script>
 <script>
 // Run timer + first-visit intro. Stopwatch model: starts when the player
@@ -2993,6 +2998,17 @@ window.__GAME_PAUSED__ = true;
     // class which the talent UI scopes against.
     const finalCap = atCap && (window.__GAME_STATE__?.level >= 100);
     document.body.classList.toggle("ascension-at-final-cap", finalCap && !splashOpen);
+    // Endgame state — once every talent rank is bound, the player has
+    // nothing to spend coins on and the TALENT VAULT button at Lv 100
+    // makes no sense. The class hides those affordances and lets the
+    // ASCENDED finale overlay take over.
+    let allMaxed = false;
+    try {
+      const TIDS = ["slot_luck","cash_boost","xp_boost","buff_dur","magnet","cascade","rarity","tribute"];
+      const r = JSON.parse(localStorage.getItem("ascension_talents_v1") || "{}").ranks || {};
+      allMaxed = TIDS.every(id => (r[id] | 0) >= 3);
+    } catch (e) {}
+    document.body.classList.toggle("ascension-endgame", allMaxed);
     // Pause if EITHER the splash is up OR we're at the level cap.
     // Splash → first-load freeze. At-cap → forces ascension.
     window.__GAME_PAUSED__ = splashOpen || atCap;
