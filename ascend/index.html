@@ -1971,7 +1971,7 @@ body.ascension .vault-btn-float .vault-sub {
           <li>💀 <strong>Apotheosis</strong> — forced legendary picks for 15s.</li>
           <li>🐍 <strong>Serpent's Coil</strong> — reliquary capacity ×2 for 12s.</li>
           <li>👁 <strong>Inner Eye</strong> — 3× XP for 12s (no value bonus).</li>
-          <li>🌑 <strong>BLACK MASS</strong> — every positive bonus stacked. <strong>Progressive jackpot:</strong> after the main slot lands, 3 side mini-slots chain in. Each must land 3-of-3 🌑 (50% per cascade). <strong>All four must hit</strong> or you bank zero. All four = <strong>40s MEGA</strong>.</li>
+          <li>🌑 <strong>BLACK MASS</strong> — every positive bonus stacked for 20s.</li>
         </ul>
       </section>
       <section>
@@ -2024,26 +2024,11 @@ body.ascension .vault-btn-float .vault-sub {
             <tr><td>🔔 Vespers Frenzy</td><td>Rapid crate spawns, ≥2 black-box</td><td>12s</td></tr>
             <tr><td>🕯 Communion</td><td>3× value · 2× XP</td><td>18s</td></tr>
             <tr><td>💀 Apotheosis</td><td>Forced legendary picks (see below)</td><td>15s</td></tr>
-            <tr><td>🌑 Black Mass</td><td>Progressive jackpot — all-or-nothing, see below</td><td>40s if won, 0 if not</td></tr>
+            <tr><td>🌑 Black Mass</td><td>Every positive bonus stacked</td><td>20s</td></tr>
             <tr><td>🐍 Serpent's Coil</td><td>2× cargo capacity</td><td>12s</td></tr>
             <tr><td>👁 Inner Eye</td><td>3× XP only</td><td>12s</td></tr>
           </tbody>
         </table>
-      </section>
-
-      <section>
-        <h3>🌑 Progressive Black Mass</h3>
-        <p>When the main slot lands a jackpot, a <strong>PROGRESSIVE JACKPOT</strong> strip materializes with 3 mini-slots stacked vertically. Each mini-slot spins all 3 reels and must land 3-of-3 🌑 (<strong>75% per cascade</strong>). <strong>All four mini-slots must hit</strong> or the progressive resolves to zero.</p>
-        <table class="odds-table">
-          <thead><tr><th>Result</th><th>Bonus</th><th>Probability</th></tr></thead>
-          <tbody>
-            <tr><td>Cascade 1 misses</td><td>—</td><td>25%</td></tr>
-            <tr><td>Cascade 2 misses</td><td>—</td><td>~19%</td></tr>
-            <tr><td>Cascade 3 misses</td><td>—</td><td>~14%</td></tr>
-            <tr><td><strong>All cascades hit (MEGA)</strong></td><td><strong>40s Black Mass</strong></td><td><strong>~42%</strong></td></tr>
-          </tbody>
-        </table>
-        <p class="muted">~42% MEGA rate per progressive — when you hit jackpot, you've got a real shot at the big payout.</p>
       </section>
 
       <section>
@@ -2598,16 +2583,9 @@ window.__GAME_PAUSED__ = true;
     //   stage 2 (main + 1 cascade hit) = 25s
     //   stage 3 (main + 2)             = 30s
     //   stage 4 (main + ALL 3)         = 40s MEGA
-    cascadeJackpot: {
-      enabled:        true,
-      maxExtraReels:  3,
-      // PER-REEL hit chance now (0.85). Each reel of each mini rolls
-      // independently. Per-mini hit ≈ 0.85^3 = 0.61. Per full MEGA ≈
-      // 0.61^3 = ~23%. As soon as one reel misses, that cascade fails
-      // and the failing symbol holds visible for 2s.
-      hitChance:      0.85,
-      stageDurations: [20000, 25000, 30000, 40000],
-    },
+    // Progressive cascade disabled — landing 🌑🌑🌑 grants the regular
+    // BLACK MASS bonus immediately, no chained mini-slots.
+    cascadeJackpot: { enabled: false },
     ascension: {
       enabled:     true,
       multPerStar: 1.5,
