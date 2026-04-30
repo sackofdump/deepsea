@@ -311,15 +311,15 @@
       <div class="splash-card-desc">Touch-first build optimized for phones. Same dive loop, smaller UI.</div>
       <div class="splash-card-cta">Play ›</div>
     </a>
-    <a class="splash-card ascension-featured disabled" id="ascensionCard" href="comingsoon/" title="Locked until Bricked Up ends">
-      <span class="splash-card-badge" id="ascensionCardBadge">Locked</span>
+    <a class="splash-card ascension-featured" id="ascensionCard" href="comingsoon/" title="Play Ascension">
+      <span class="splash-card-badge" id="ascensionCardBadge">New</span>
       <div class="splash-card-icon">⛧</div>
       <div class="splash-card-meta">
-        <div class="splash-card-tagline">Race to Lv 100 · 🏆 Best time wins</div>
+        <div class="splash-card-tagline">Race to Lv 100 · 🏆 Fill the Talent Vault</div>
         <div class="splash-card-title">Ascension</div>
-        <div class="splash-card-desc">A speedrun through dark-mystic realms. Bank Vows + Stars by ascending; <strong>fastest time to Lv 100 takes the leaderboard</strong>. Unlocks when Bricked Up ends.</div>
+        <div class="splash-card-desc">A speedrun through dark-mystic realms. Climb Lv 1 → 100, bank 🪙 Coins for permanent talents, and lock your final time once the vault is maxed.</div>
       </div>
-      <div class="splash-card-cta" id="ascensionCardCta">Starts in —</div>
+      <div class="splash-card-cta" id="ascensionCardCta">Play ›</div>
     </a>
   </div>
   <div class="splash-skip-row">
@@ -425,62 +425,12 @@
     });
 })();
 
-// Ascension launches 30 min after Bricked Up ends — Apr 29 2026
-// 9:30 PM CDT (= Apr 30 02:30 UTC). Hard-coded UTC so every player
-// sees the same launch instant. Card stays disabled until then; once
-// the timer hits zero it becomes a live link.
-(function () {
-  var card  = document.getElementById("ascensionCard");
-  var cta   = document.getElementById("ascensionCardCta");
-  var badge = document.getElementById("ascensionCardBadge");
-  if (!card || !cta || !badge) return;
-  var launchAt = Date.UTC(2026, 3, 30, 2, 30, 0);
-
-  function tick() {
-    var now = Date.now();
-    var ms  = launchAt - now;
-    if (ms <= 0) {
-      card.classList.remove("disabled");
-      card.removeAttribute("title");
-      badge.textContent = "New";
-      cta.textContent = "Play ›";
-      return; // stop ticking
-    }
-    var s = Math.floor(ms / 1000);
-    var d = Math.floor(s / 86400);
-    var h = Math.floor((s % 86400) / 3600);
-    var m = Math.floor((s % 3600) / 60);
-    var sec = s % 60;
-    var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
-    var txt = d > 0 ? (d + "d " + h + "h " + m + "m")
-            : h > 0 ? (h + ":" + pad(m) + ":" + pad(sec))
-            :         (m + ":" + pad(sec));
-    cta.textContent = "Starts in " + txt;
-    setTimeout(tick, 1000);
-  }
-  // Block navigation while disabled — even though the card is greyed,
-  // disabled-class doesn't actually prevent <a> clicks by default.
-  // Dev override: a password prompt lets the page-owner enter early
-  // and seed the comingsoon engine's launch override flag.
-  var DEV_PASSWORD = "ascend";
-  card.addEventListener("click", function (ev) {
-    if (!card.classList.contains("disabled")) return;
-    ev.preventDefault();
-    var pw = window.prompt("Ascension opens 9:30 PM CDT.\nEnter dev password to peek early:");
-    if (pw == null) return; // cancelled
-    if (pw.trim().toLowerCase() === DEV_PASSWORD) {
-      try { localStorage.setItem("ascension_dev_unlock", "1"); } catch (e) {}
-      window.location.href = card.getAttribute("href") || "comingsoon/";
-    } else if (pw.trim()) {
-      window.alert("Wrong password.");
-    }
-  });
-  tick();
-})();
+// Ascension is live — card is plain link, no countdown / no password.
 </script>
 <div id="app">
   <aside id="sidebar">
     <header>
+      <a href="?splash=1" class="event-link-banner back-banner">&lsaquo; Back to Menu</a>
       <h1>Deep Sea Salvage</h1>
       <span id="accountBadge" class="account-badge" hidden></span>
       <div class="cash-wrap">
@@ -708,6 +658,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="game.js?v=66"></script>
 <script src="get-bricked.js?v=3"></script>
-<script src="ascension-launch.js?v=1"></script>
+<script src="ascension-launch.js?v=2"></script>
 </body>
 </html>

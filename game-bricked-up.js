@@ -435,17 +435,12 @@ function slotLuckWeight(tier, baseWeight) {
 // Ranks live in localStorage 'ascension_talents_v1' as { ranks: { id: 0-3 } }.
 // The value tables here MUST mirror the talent definitions in the vault.
 //
-// Scheduled launch: 9:30 PM CDT on Apr 29 2026 = Apr 30 02:30 UTC.
-// Before this timestamp the system is fully dormant — no coin grant, no
-// modifier application — so the engine behaves like vanilla Ascension.
-// The splash page can seed `ascension_dev_unlock=1` in localStorage via
-// password prompt to bypass the gate for testing.
-const TALENT_LAUNCH_TS = Date.UTC(2026, 3, 30, 2, 30, 0);
-function talentsLaunched() {
-  if (Date.now() >= TALENT_LAUNCH_TS) return true;
-  try { return localStorage.getItem('ascension_dev_unlock') === '1'; }
-  catch (e) { return false; }
-}
+// Launch gate is OFF — Talent Vault is active for everyone, all the
+// time. The constant + helper are kept (returning true) so any callers
+// that still reference them keep working; flipping the gate back on
+// later is a one-line change to talentsLaunched().
+const TALENT_LAUNCH_TS = 0;
+function talentsLaunched() { return true; }
 const TALENT_VALUES = {
   slot_luck:  [0, 0.15, 0.30, 0.50],
   cash_boost: [0, 0.20, 0.45, 0.80],

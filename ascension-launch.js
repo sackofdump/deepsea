@@ -10,7 +10,10 @@
 (function () {
   "use strict";
 
-  var LAUNCH = Date.UTC(2026, 3, 30, 2, 30, 0); // 9:30 PM CDT Apr 29 2026
+  // Launch gate killed — banner is now a permanent "play Ascension"
+  // promo. Set LAUNCH to a positive value if you want to re-enable a
+  // countdown later (e.g. Date.UTC(2026, 3, 30, 2, 30, 0) for 9:30 CDT).
+  var LAUNCH = 0;
   var HREF = "/comingsoon/";
 
   function injectStyles() {
