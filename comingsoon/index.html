@@ -1486,35 +1486,6 @@ body.ascension .gear-btn .gear-sub {
   }
 }
 
-/* Dev admin: floating "+10 LV" button (top-right, dimmed). Stripped
-   before the public live push if you want — the engine handler is
-   already registered behind a password gate, this is just a visible
-   shortcut for testing. */
-body.ascension #devLvl10Btn.dev-btn-float {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 100;
-  padding: 8px 14px;
-  background: rgba(168, 18, 58, 0.55);
-  color: var(--bone);
-  border: 1px solid rgba(232, 200, 144, 0.55);
-  border-radius: 4px;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  cursor: pointer;
-  text-transform: uppercase;
-  opacity: 0.55;
-  transition: opacity 180ms ease, box-shadow 180ms ease;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-}
-body.ascension #devLvl10Btn.dev-btn-float:hover {
-  opacity: 1;
-  box-shadow: 0 0 16px rgba(168, 18, 58, 0.5);
-}
-
 /* At the FINAL Lv 100 cap, hide every Ascend affordance — the only
    path forward is the big center "🪙 TALENT VAULT" CTA (which routes
    through the vault → CONTINUE → ascend). Suppresses both the side-
@@ -1822,7 +1793,6 @@ body.ascension .vault-btn-float .vault-sub {
       <span class="vault-label">TALENTS</span>
       <span class="vault-sub" id="vaultCoinCount">0</span>
     </button>
-    <button id="devLvl10Btn" class="dev-btn-float" type="button" title="Admin: +10 levels">+10 LV</button>
   </main>
 </div>
 
@@ -2885,13 +2855,6 @@ window.addEventListener("message", (ev) => {
     prestigeBtn.click();          // triggers confirm + ascend
   }
   talentClose?.click();             // close the modal
-});
-
-// Dev shortcut: floating "+10 LV" button piggybacks on the engine's
-// existing adminLvlBtn handler. Test-only; remove this script tag
-// before the public release if you want it gone for non-dev builds.
-document.getElementById("devLvl10Btn")?.addEventListener("click", () => {
-  document.getElementById("adminLvlBtn")?.click();
 });
 
 // Continue button: shows up at the bottom once the player closes the
