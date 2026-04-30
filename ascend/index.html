@@ -1872,7 +1872,7 @@ body.ascension .vault-btn-float .vault-sub {
         <h3>⛧ Oracle Bones</h3>
         <p>The bones are read every 15s. Triple matches:</p>
         <ul>
-          <li>🩸 <strong>Stigmata</strong> — pickups halt for 10s.</li>
+          <li>🩸 <strong>Stigmata</strong> — pickups halt for 15s (full slot interval).</li>
           <li>🔔 <strong>Vespers Frenzy</strong> — relic-crate burst for 12s, ≥2 black-box reliquaries guaranteed.</li>
           <li>🕯 <strong>Communion</strong> — 3× value &amp; 2× XP for 18s.</li>
           <li>💀 <strong>Apotheosis</strong> — forced legendary picks for 15s.</li>
@@ -1927,7 +1927,7 @@ body.ascension .vault-btn-float .vault-sub {
         <table class="odds-table">
           <thead><tr><th>Bonus</th><th>Effect</th><th>Duration</th></tr></thead>
           <tbody>
-            <tr><td>🩸 Stigmata</td><td>Pickups halt</td><td>10s</td></tr>
+            <tr><td>🩸 Stigmata</td><td>Pickups halt</td><td>15s</td></tr>
             <tr><td>🔔 Vespers Frenzy</td><td>Rapid crate spawns, ≥2 black-box</td><td>12s</td></tr>
             <tr><td>🕯 Communion</td><td>3× value · 2× XP</td><td>18s</td></tr>
             <tr><td>💀 Apotheosis</td><td>Forced legendary picks (see below)</td><td>15s</td></tr>
@@ -2411,7 +2411,7 @@ window.__GAME_PAUSED__ = true;
   // Slot bonuses — 7 anomalies. Five standard + two extras (cargo, xpburst)
   // wired into the engine's extended applySlotBonus paths.
   const SLOT_BONUSES = {
-    shark:   { icon: "🩸", name: "Stigmata!",         desc: "Pickups halt for 10s — bear it.", duration: 10000, kind: "hazard" },
+    shark:   { icon: "🩸", name: "Stigmata!",         desc: "Pickups halt for 15s — bear it.", duration: 15000, kind: "hazard" },
     mini:    { icon: "🔔", name: "Vespers Frenzy",    desc: "Relic-crate burst for 12s — ≥2 black-box reliquaries!", chestFrenzy: true, duration: 12000 },
     minor:   { icon: "🕯", name: "Communion",         desc: "3× value & 2× XP for 18s.", valueMult: 3, xpMult: 2, duration: 18000 },
     major:   { icon: "💀", name: "Apotheosis",        desc: "Forced legendary picks for 15s!", duration: 15000 },
