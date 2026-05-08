@@ -1,5 +1,5 @@
 // Sitewide "GET BRICKED" event banner. Auto-injects a fixed top-center
-// promo button with a live countdown to the 24h Bricked Up event end.
+// promo button with a live countdown to the Bricked Dongs event end.
 // Pages opt in by including <script src="get-bricked.js"></script>.
 //
 // Single source of truth for the event end time — keep this in sync with
@@ -7,10 +7,10 @@
 (function () {
   "use strict";
 
-  // Bricked Up ends Apr 29 2026 9:00 PM CDT (= Apr 30 02:00 UTC).
+  // Bricked Dongs ends May 8 2026 9:00 PM CDT (= May 9 02:00 UTC).
   // Hard-coded UTC so all players see the same cutoff. Keep in sync
   // with EVENT_CONFIG.endAt in bricked-up.html.
-  var END = Date.UTC(2026, 3, 30, 2, 0, 0);
+  var END = Date.UTC(2026, 4, 9, 2, 0, 0);
   // Absolute path so this works from /, /mobile/, or any other subpath.
   var HREF = "/bricked-up.html";
 
@@ -78,20 +78,20 @@
     a.className = "gb-banner" + (here ? " gb-here" : "");
     if (!here) {
       a.href = HREF;
-      a.title = "Try the 24-hour Bricked Up event";
+      a.title = "Try the Bricked Dongs event";
     } else {
-      a.title = "You're in the Bricked Up event";
+      a.title = "You're in the Bricked Dongs event";
     }
     var stripe = document.createElement("span");
     stripe.className = "gb-stripe";
     var title = document.createElement("span");
     title.className = "gb-title";
-    title.textContent = "🧱 GET BRICKED";
+    title.textContent = "🍆 GET BRICKED";
     var sub = document.createElement("span");
     sub.className = "gb-sub";
     var label = document.createElement("span");
     label.id = "gb-countdown";
-    sub.appendChild(document.createTextNode(here ? "LIVE · " : "24h · "));
+    sub.appendChild(document.createTextNode(here ? "LIVE · " : "ENDS · "));
     sub.appendChild(label);
     a.appendChild(stripe);
     a.appendChild(title);

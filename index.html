@@ -299,9 +299,9 @@
     </div>
     <a class="splash-card" id="brickedUpCard" href="bricked-up.html">
       <span class="splash-card-badge event" id="brickedUpBadge">Event</span>
-      <div class="splash-card-icon">🏗</div>
-      <div class="splash-card-title">Bricked Up</div>
-      <div class="splash-card-desc" id="brickedUpDesc">Construction-themed sister game with the experimental Gear system.</div>
+      <div class="splash-card-icon">🍆</div>
+      <div class="splash-card-title">Bricked Dongs</div>
+      <div class="splash-card-desc" id="brickedUpDesc">🍆🍑😘🧱 — pilot a giant eggplant through the brick shaft. Softer hazards, fatter jackpots, full Gear system.</div>
       <div class="splash-card-cta" id="brickedUpCta">Play ›</div>
     </a>
     <a class="splash-card" href="mobile/index.html">
@@ -361,16 +361,16 @@
   });
 })();
 
-// Bricked Up post-event card — once the event ends, gray out the
-// Bricked Up splash card, swap the badge to "ENDED", and fetch the
-// player's final rank by blueprints from Supabase. Card stays visible
-// for 2 days so players can see their final rank, then hides entirely.
+// Bricked Dongs post-event card — once the event ends, gray out the
+// splash card, swap the badge to "ENDED", and fetch the player's final
+// rank by blueprints from Supabase. Card stays visible for 2 days so
+// players can see their final rank, then hides entirely.
 (function () {
-  var BRICKED_END  = Date.UTC(2026, 3, 30, 2, 0, 0); // 9 PM CDT Apr 29
+  var BRICKED_END  = Date.UTC(2026, 4, 9, 2, 0, 0); // 9 PM CDT May 8
   var HIDE_AFTER   = BRICKED_END + 2 * 86400 * 1000; // 2 days post-event
   var SUPABASE_URL = "https://tppirwsigzjhbmrixetf.supabase.co";
   var SUPABASE_KEY = "sb_publishable_wI2pKiS0TznsBVUq8hKIOA_iIXXfhEF";
-  var EVENT_KEY    = "brickedup";
+  var EVENT_KEY    = "brickeddongs";
   var card  = document.getElementById("brickedUpCard");
   var badge = document.getElementById("brickedUpBadge");
   var cta   = document.getElementById("brickedUpCta");
@@ -388,11 +388,11 @@
     badge.classList.add("soon");
   }
   if (cta) cta.textContent = "Event over";
-  // Player_id lives inside the brickedUp_v1 save state JSON, not its
+  // Player_id lives inside the brickedDongs_v1 save state JSON, not its
   // own key. Pluck it out so we can look up the player's final rank.
   var playerId = null;
   try {
-    var raw = localStorage.getItem("brickedUp_v1");
+    var raw = localStorage.getItem("brickedDongs_v1");
     if (raw) {
       var parsed = JSON.parse(raw);
       playerId = parsed && parsed.playerId;

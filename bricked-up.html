@@ -3,17 +3,18 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bricked Up — Construction Tower</title>
+<title>Bricked Dongs — Smooch Tower</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css?v=5" />
 <style>
-/* ----- Bricked Up theme overrides ------------------------------ */
+/* ----- Bricked Dongs theme overrides ------------------------------ */
 /* Replaces the deep-sea blue sub + water visuals with a construction
-   shaft: brick walls, mortar lines, a hardhat-yellow grapple bucket
-   on a steel cable. Keeps every #id the engine reads/writes. */
+   shaft: brick walls, mortar lines, and a giant 🍆 eggplant on a chain
+   in place of the hardhat bucket. Keeps every #id the engine reads.
+   Body class stays `bricked-up` so all the existing CSS still hooks. */
 body.bricked-up {
   --brick-red:    #8a3a25;
   --brick-dark:   #5a2515;
@@ -22,6 +23,8 @@ body.bricked-up {
   --girder:       #3a3a3a;
   --hardhat:      #ffc830;
   --caution:      #ffea2a;
+  --smooch:       #ff5fa6;
+  --peach:        #ffb6a3;
 }
 body.bricked-up #ocean {
   /* The mortar grid is drawn as semi-transparent overlays on top of the
@@ -136,6 +139,40 @@ body.bricked-up .sub-light {
 body.bricked-up .sub-gear {
   /* Gear icons hang off the bucket like attached tools. */
   filter: drop-shadow(0 1px 0 #000);
+}
+/* ----- Bricked Dongs: re-skin the sub as a giant 🍆 ----------------
+   Hides the hardhat-bucket sub-* paint above and renders the entire
+   sub as an eggplant emoji centered in the existing #sub hitbox. The
+   cable on #sub::before still hangs above; gear icons still attach. */
+body.bricked-up #sub {
+  width: 70px;
+  height: 80px;
+}
+body.bricked-up .sub-body,
+body.bricked-up .sub-window,
+body.bricked-up .sub-stripe,
+body.bricked-up .sub-fin,
+body.bricked-up .sub-prop {
+  display: none !important;
+}
+body.bricked-up #sub::after {
+  content: "🍆";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 5px rgba(0,0,0,0.55));
+  pointer-events: none;
+  /* Cheeky idle wobble — slow, subtle, looped. */
+  transform-origin: 50% 0%;
+  animation: brickedDongsWobble 3.4s ease-in-out infinite;
+}
+@keyframes brickedDongsWobble {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(3deg); }
 }
 /* Depth markers re-skinned to look like floor labels. */
 body.bricked-up #depthMarkers .marker {
@@ -333,7 +370,7 @@ body.bricked-up .chest-haul-row {
   <aside id="sidebar">
     <header>
       <a href="index.html?splash=1" class="event-link-banner back-banner">&lsaquo; Back to Menu</a>
-      <h1>Bricked Up <span class="muted" style="font-size: 12px; letter-spacing: 1.5px;">· BONERS</span></h1>
+      <h1>Bricked Dongs <span class="muted" style="font-size: 12px; letter-spacing: 1.5px;">· BONERS</span></h1>
       <span id="accountBadge" class="account-badge" hidden></span>
       <div class="cash-wrap">
         <div class="cash"><span id="cash">0</span></div>
@@ -351,7 +388,7 @@ body.bricked-up .chest-haul-row {
     </header>
 
     <section class="panel" data-key="submersible">
-      <h2>🏗 Crane</h2>
+      <h2>🍆 Crane</h2>
       <div class="stat"><span>Status</span><span id="status">Up Top</span></div>
       <div class="stat"><span>Floor</span><span><span id="depth">0</span> / <span id="maxDepth">50</span> ft</span></div>
       <div class="stat"><span>Bin</span><span><span id="cargo">0</span> / <span id="cargoMax">4</span> kg</span></div>
@@ -406,7 +443,7 @@ body.bricked-up .chest-haul-row {
     </section>
 
     <section class="panel" data-key="leaderboard">
-      <h2>🏅 Bricked Up Leaderboard</h2>
+      <h2>🏅 Bricked Dongs Leaderboard</h2>
       <div class="lb-name-row">
         <input id="lbName" placeholder="Display name" maxlength="32" />
         <button id="lbSync" class="ghost">Sync</button>
@@ -454,11 +491,11 @@ body.bricked-up .chest-haul-row {
     <div id="chestTray" class="chest-tray"></div>
     <div class="slot-stack">
       <div id="slotMachine" class="slot-machine" data-state="idle">
-        <div class="slot-title">🏗 BRICK LOTTERY</div>
+        <div class="slot-title">💋 KISS LOTTERY</div>
         <div class="slot-reels">
-          <div class="slot-reel" id="slotReel0"><div class="slot-strip">🚛</div></div>
-          <div class="slot-reel" id="slotReel1"><div class="slot-strip">👷</div></div>
-          <div class="slot-reel" id="slotReel2"><div class="slot-strip">📐</div></div>
+          <div class="slot-reel" id="slotReel0"><div class="slot-strip">🍆</div></div>
+          <div class="slot-reel" id="slotReel1"><div class="slot-strip">🍑</div></div>
+          <div class="slot-reel" id="slotReel2"><div class="slot-strip">😘</div></div>
         </div>
         <div class="slot-status">Next pull in 15s</div>
       </div>
@@ -600,13 +637,15 @@ body.bricked-up .chest-haul-row {
 <div id="betaIntroOverlay" class="howto-overlay" hidden>
   <div class="howto-modal beta-intro-modal">
     <button class="howto-close" id="betaIntroClose" aria-label="Close">×</button>
-    <span class="beta-intro-tag">🧱 Bricked Up</span>
-    <h2>🏗 Welcome to Bricked Up</h2>
+    <span class="beta-intro-tag">🍆 Bricked Dongs</span>
+    <h2>🍆🍑 Welcome to Bricked Dongs</h2>
     <p class="beta-intro-blurb">
-      This is a separate version of the game with a brick-and-construction theme and the
-      experimental <strong>Gear</strong> system. Your save here is fully independent from the
-      main game — you start fresh. The new feature: spend <strong>📐 blueprints</strong> in
-      the Gear Workshop to permanently outfit your crew. Five pieces of gear, each capping at Lv 10:
+      The horny remix of Bricked Up — same brick-and-construction shaft, but you're now
+      piloting a giant <strong>🍆</strong> on a chain through it. Lottery now spits out
+      🍆 / 🍑 / 😘 / 🧱, hazards are softened, and jackpots hit way more often. Your save
+      here is fully independent — you start fresh. Spend <strong>📐 blueprints</strong>
+      in the Gear Workshop to permanently outfit your crew. Five pieces of gear, each
+      capping at Lv 10:
     </p>
     <ul class="beta-intro-list">
       <li><span class="bi-icon">⛑</span><span><strong>Brick-Lined Hardhat</strong> — Brick to the Head duration shortened.</span></li>
@@ -632,19 +671,44 @@ body.bricked-up .chest-haul-row {
 // biomes, slot bonuses, gear, achievements) are baked into the JS itself
 // rather than overridden here, so this only carries the storage scope.
 window.EVENT_CONFIG = {
-  // eventKey scopes the leaderboard so brick scores don't mix with main /
-  // gear-beta. Save + panel keys keep state isolated in localStorage and
-  // cloud. endAt closes the 24h event window — final standings lock at
-  // that moment and the engine refuses further dives.
-  name: "Bricked Up",
-  eventKey: "brickedup",
-  saveKey:  "brickedUp_v1",
-  panelKey: "brickedUpPanels_v1",
-  // Bricked Up ends Apr 29 2026 9:00 PM CDT (= Apr 30 02:00 UTC).
+  // eventKey scopes the leaderboard so dong scores don't mix with main /
+  // gear-beta / the prior Bricked Up. Save + panel keys keep state isolated
+  // in localStorage and cloud — fresh event, fresh ladder. endAt closes
+  // the event window — final standings lock at that moment and the engine
+  // refuses further dives.
+  name: "Bricked Dongs",
+  eventKey: "brickeddongs",
+  saveKey:  "brickedDongs_v1",
+  panelKey: "brickedDongsPanels_v1",
+  // Bricked Dongs ends May 8 2026 9:00 PM CDT (= May 9 02:00 UTC).
   // Hard-coded UTC so all players see the same cutoff regardless of TZ.
-  endAt: Date.UTC(2026, 3, 30, 2, 0, 0),
+  endAt: Date.UTC(2026, 4, 9, 2, 0, 0),
   // Banner displays this label next to the countdown.
   endLabel: "9 PM CDT",
+  // Lottery reels — order MUST stay [hazard, mini, minor, major, jackpot]
+  // to match SLOT_OUTCOMES symbolIndex below and the engine's tier table.
+  // 🥒 limp = hazard; 🍆 / 🍑 / 😘 climb the bonus ladder; 🧱 jackpot.
+  slotSymbols: ["🥒", "🍆", "🍑", "😘", "🧱"],
+  // Player-friendly weight tweak vs vanilla Bricked Up (8/10/8/4/3 +
+  // 67 none): hazard down 8→5, jackpot up 3→5, none down 67→65. Net
+  // effect: jackpots ~67% more frequent, hazards ~38% less frequent.
+  slotOutcomes: [
+    { tier: "none",    weight: 65 },
+    { tier: "shark",   weight: 5,  symbolIndex: 0 },
+    { tier: "mini",    weight: 11, symbolIndex: 1 },
+    { tier: "minor",   weight: 9,  symbolIndex: 2 },
+    { tier: "major",   weight: 5,  symbolIndex: 3 },
+    { tier: "jackpot", weight: 5,  symbolIndex: 4 },
+  ],
+  // Themed bonus copy. Hazard is also shorter (8s vs 10s) — being soft
+  // shouldn't ruin a whole drop cycle.
+  slotBonuses: {
+    shark:   { icon: "🥒", name: "Limp Brick",       desc: "Went soft — no bricks for 8s.",                                 duration: 8000,  kind: "hazard" },
+    mini:    { icon: "🍆", name: "Eggplant Express", desc: "Rare/epic crate burst for 10s — each rolls ≥3 legendaries!",   chestFrenzy: true, duration: 10000 },
+    minor:   { icon: "🍑", name: "Peach Trance",     desc: "10× value & 10× XP for 15s.",                                  valueMult: 10, xpMult: 10, duration: 15000 },
+    major:   { icon: "😘", name: "Smooch Storm",     desc: "Legendary picks for 15s!",                                     duration: 15000 },
+    jackpot: { icon: "🧱", name: "GET BRICKED",      desc: "All bonuses · 30s (legendary 15s)!",                           duration: 30000 },
+  },
 };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -660,7 +724,7 @@ window.EVENT_CONFIG = {
   const closeBtn = document.getElementById("betaIntroClose");
   const okBtn = document.getElementById("betaIntroBtn");
   if (!overlay) return;
-  const KEY = "brickedUp_introSeen";
+  const KEY = "brickedDongs_introSeen";
   function dismiss() {
     overlay.hidden = true;
     try { localStorage.setItem(KEY, "1"); } catch {}
@@ -683,7 +747,7 @@ window.EVENT_CONFIG = {
 // get a 5-minute grace window to read final results, then we bounce
 // them to the main splash so they don't keep poking at a dead build.
 (function () {
-  var END         = Date.UTC(2026, 3, 30, 2, 0, 0); // 9 PM CDT Apr 29
+  var END         = Date.UTC(2026, 4, 9, 2, 0, 0); // 9 PM CDT May 8
   var GRACE_MS    = 5 * 60 * 1000;
   var KICK_AT     = END + GRACE_MS;
   function check() {
