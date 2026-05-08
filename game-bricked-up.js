@@ -2796,6 +2796,7 @@ const SLOT_OUTCOMES = (function () {
   return cfg.map(entry => ({
     tier:   entry.tier,
     weight: entry.weight,
+    symbolIndex: entry.symbolIndex,
     pick:   entry.tier === "none"
       ? (() => slotNonMatch())
       : (() => {
@@ -2894,8 +2895,12 @@ function applySlotBonus(tier, now, duration, bonus) {
     }
     // Legendary picks always cap at the standalone major duration even on
     // jackpot so the highest-rarity floor doesn't run for the full 30s.
-    const majorBase = (SLOT_BONUSES.major && SLOT_BONUSES.major.duration) || duration;
-    state.encounterLegendaryUntil = stackUntil(state.encounterLegendaryUntil, now, Math.round(majorBase * ext));
+    // Themes that drop the major tier (e.g., Bricked Dongs) skip this
+    // stacking entirely, so jackpot grants only the configured bonuses.
+    if (SLOT_BONUSES.major) {
+      const majorBase = SLOT_BONUSES.major.duration || duration;
+      state.encounterLegendaryUntil = stackUntil(state.encounterLegendaryUntil, now, Math.round(majorBase * ext));
+    }
   }
 }
 
@@ -3034,7 +3039,12 @@ function runCascadeChain(cfg, bonus, now) {
     return;
   }
   const status = slot.querySelector(".slot-status");
-  const jackpotSymbol = SLOT_SYMBOLS[4];
+  // Jackpot reel face is event-defined; resolve via SLOT_OUTCOMES so themes
+  // that drop tiers (e.g., Bricked Dongs without major) keep the right symbol.
+  const jackpotOutcome = SLOT_OUTCOMES.find(o => o.tier === "jackpot");
+  const jackpotSymbol  = jackpotOutcome
+    ? SLOT_SYMBOLS[jackpotOutcome.symbolIndex || 0]
+    : SLOT_SYMBOLS[SLOT_SYMBOLS.length - 1];
   const maxExtra      = Math.max(0, (cfg.maxExtraReels || 3));
   const hitChance     = (cfg.hitChance != null) ? cfg.hitChance : 0.5;
   const stageDurations = cfg.stageDurations || [20000, 25000, 30000, 40000];
