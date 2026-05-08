@@ -3789,6 +3789,8 @@ function refreshUI() {
     prevCash = state.cash;
   }
   $("cash").textContent = fmt(state.cash);
+  // Cash mirror inside the Gear Workshop modal (sidebar is hidden behind it).
+  const gearCashEl = $("gearCash"); if (gearCashEl) gearCashEl.textContent = fmt(state.cash);
   $("depth").textContent = Math.floor(state.sub.depth);
   $("maxDepth").textContent = Math.floor(s.maxDepth);
   $("cargo").textContent = state.sub.cargoKg.toFixed(1);
