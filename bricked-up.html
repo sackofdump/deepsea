@@ -686,20 +686,20 @@ window.EVENT_CONFIG = {
   endAt: Date.UTC(2026, 4, 9, 2, 0, 0),
   // Banner displays this label next to the countdown.
   endLabel: "9 PM CDT",
-  // Lottery reels — Bricked Dongs drops the major (Smooch Storm) tier so
-  // the reel runs four faces: 🥒 limp = hazard; 🍆 / 🍑 climb the bonus
-  // ladder; 🧱 jackpot. The engine resolves the jackpot symbol from the
-  // outcome table, so jackpot's symbolIndex points at slot 3 here.
-  slotSymbols: ["🥒", "🍆", "🍑", "🧱"],
-  // Smooch Storm's old 5 weight folds into "none" (65→70). Jackpot stays
-  // at 5 (~67% more frequent than vanilla's 3) and hazard at 5 (~38% less
-  // frequent than vanilla's 8).
+  // Lottery reels — order MUST stay [hazard, mini, minor, major, jackpot]
+  // to match SLOT_OUTCOMES symbolIndex below and the engine's tier table.
+  // 🥒 limp = hazard; 🍆 / 🍑 / 😘 climb the bonus ladder; 🧱 jackpot.
+  slotSymbols: ["🥒", "🍆", "🍑", "😘", "🧱"],
+  // Smooch Storm is intentionally rare — major weight 1 (vs vanilla 4) so
+  // the legendary-pick window is a real treat. "none" absorbs the rest:
+  // none 69, shark 5, mini 11, minor 9, major 1, jackpot 5 (= 100).
   slotOutcomes: [
-    { tier: "none",    weight: 70 },
+    { tier: "none",    weight: 69 },
     { tier: "shark",   weight: 5,  symbolIndex: 0 },
     { tier: "mini",    weight: 11, symbolIndex: 1 },
     { tier: "minor",   weight: 9,  symbolIndex: 2 },
-    { tier: "jackpot", weight: 5,  symbolIndex: 3 },
+    { tier: "major",   weight: 1,  symbolIndex: 3 },
+    { tier: "jackpot", weight: 5,  symbolIndex: 4 },
   ],
   // Themed bonus copy. Hazard is also shorter (8s vs 10s) — being soft
   // shouldn't ruin a whole drop cycle.
@@ -707,7 +707,8 @@ window.EVENT_CONFIG = {
     shark:   { icon: "🥒", name: "Limp Brick",       desc: "Went soft — no bricks for 8s.",                                 duration: 8000,  kind: "hazard" },
     mini:    { icon: "🍆", name: "Eggplant Express", desc: "Rare/epic crate burst for 10s — each rolls ≥3 legendaries!",   chestFrenzy: true, duration: 10000 },
     minor:   { icon: "🍑", name: "Peach Trance",     desc: "10× value & 10× XP for 15s.",                                  valueMult: 10, xpMult: 10, duration: 15000 },
-    jackpot: { icon: "🧱", name: "GET BRICKED",      desc: "Mini + minor bonuses for 30s!",                                duration: 30000 },
+    major:   { icon: "😘", name: "Smooch Storm",     desc: "Legendary picks for 15s (rare!).",                             duration: 15000 },
+    jackpot: { icon: "🧱", name: "GET BRICKED",      desc: "All bonuses · 30s (legendary 15s)!",                           duration: 30000 },
   },
 };
 </script>
